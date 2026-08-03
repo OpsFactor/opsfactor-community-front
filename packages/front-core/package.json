@@ -1,0 +1,37 @@
+{
+  "name": "@opsfactor/front-core",
+  "version": "0.1.0",
+  "description": "Shared, edition-neutral frontend foundation for OpsFactor.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./api": { "types": "./dist/api/http.d.ts", "import": "./dist/api/http.js" },
+    "./auth": { "types": "./dist/auth/authentication.d.ts", "import": "./dist/auth/authentication.js" },
+    "./runtime": { "types": "./dist/runtime/runtime-info.service.d.ts", "import": "./dist/runtime/runtime-info.service.js" },
+    "./stores": { "types": "./dist/stores/runtime-info.store.d.ts", "import": "./dist/stores/runtime-info.store.js" },
+    "./router": { "types": "./dist/router/edition.guard.d.ts", "import": "./dist/router/edition.guard.js" }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "npm run clean && tsc --project tsconfig.build.json",
+    "typecheck": "vue-tsc --noEmit",
+    "test:contracts": "node --experimental-strip-types --test tests/*.test.ts"
+  },
+  "peerDependencies": {
+    "pinia": "^3.0.1",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.1"
+  },
+  "devDependencies": {
+    "pinia": "^3.0.1",
+    "typescript": "^5.8.3",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.1",
+    "vue-tsc": "^2.2.12"
+  }
+}

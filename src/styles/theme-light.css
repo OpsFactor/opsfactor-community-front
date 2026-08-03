@@ -1,0 +1,166 @@
+html[data-theme='light'] {
+  color-scheme: light;
+  --ofx-bg: #eef2f8;
+  --ofx-bg-subtle: #e1e8f2;
+  --ofx-surface: #ffffff;
+  --ofx-surface-elevated: #f8fbff;
+  --ofx-surface-strong: #d9e2ef;
+  --ofx-surface-overlay: #ffffff;
+  --ofx-text: #0f1728;
+  --ofx-text-muted: #526179;
+  --ofx-text-subtle: #71829a;
+  --ofx-text-inverse: #f6f8fc;
+  --ofx-text-danger: #9e2943;
+  --ofx-text-success: #1d7150;
+  --ofx-text-warning: #8a6118;
+  --ofx-border: #d7dfeb;
+  --ofx-border-strong: #bcc9db;
+  --ofx-border-focus: #4b7cff;
+  --ofx-border-danger: #d04566;
+  --ofx-border-selected: #4b7cff;
+  --ofx-primary: #3b73f2;
+  --ofx-primary-foreground: #ffffff;
+  --ofx-primary-hover: #285fd7;
+  --ofx-accent: #4b7cff;
+  --ofx-accent-foreground: #f5f8ff;
+  --ofx-muted: #dfe8f3;
+  --ofx-success: #31a173;
+  --ofx-warning: #d39b2a;
+  --ofx-danger: #d04566;
+  --ofx-info: #4b7cff;
+
+  --ofx-shadow-sm: 0 10px 24px rgb(15 23 42 / 0.08);
+  --ofx-shadow-md: 0 20px 44px rgb(15 23 42 / 0.12);
+  --ofx-shadow-lg: 0 28px 56px rgb(15 23 42 / 0.16);
+}
+
+html[data-theme='light'] body .ofx-card {
+  border-color: var(--ofx-border);
+  background: var(--ofx-surface);
+}
+
+html[data-theme='light'] body .ofx-section-card {
+  border-color: var(--ofx-border);
+  background: var(--ofx-surface);
+}
+
+html[data-theme='light'] body .ofx-section-card__header {
+  border-color: var(--ofx-border);
+  background: var(--ofx-surface);
+}
+
+html[data-theme='light'] body .ofx-section-card__body {
+  background: var(--ofx-surface);
+}
+
+html[data-theme='light'] body .ofx-filter-bar {
+  border-color: var(--ofx-border);
+  background: var(--ofx-surface);
+}
+
+html[data-theme='light'] body .ofx-operation-filters {
+  border-color: var(--ofx-border);
+  background: linear-gradient(180deg, var(--ofx-surface-elevated), var(--ofx-surface));
+}
+
+html[data-theme='light'] body .ofx-kpi-card {
+  border-color: var(--ofx-border);
+  background: linear-gradient(180deg, var(--ofx-surface), var(--ofx-surface-elevated));
+  box-shadow: var(--ofx-shadow-sm);
+}
+
+html[data-theme='light'] body .ofx-kpi-card__label {
+  color: var(--ofx-text-subtle);
+}
+
+html[data-theme='light'] body .ofx-kpi-card__value {
+  color: var(--ofx-text);
+}
+
+html[data-theme='light'] body .ofx-data-table-shell {
+  border-color: var(--ofx-border);
+  background: var(--ofx-surface);
+  box-shadow: var(--ofx-shadow-sm);
+}
+
+html[data-theme='light'] body .dependency-graph-shell {
+  border-color: var(--ofx-border);
+  background: transparent;
+}
+
+html[data-theme='light'] body .dependency-node {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--dependency-accent) 8%, white), rgb(248 251 255 / 0.98)),
+    var(--ofx-surface) !important;
+  backdrop-filter: blur(10px);
+}
+
+html[data-theme='light'] body .dependency-node--focused {
+  border-color: color-mix(in srgb, var(--dependency-accent) 42%, var(--ofx-border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--dependency-accent) 20%, transparent),
+    var(--ofx-shadow-md);
+}
+
+html[data-theme='light'] body .dependency-node__type {
+  color: var(--ofx-text-subtle);
+}
+
+html[data-theme='light'] body .dependency-node__title {
+  color: var(--ofx-text);
+}
+
+html[data-theme='light'] body .dependency-node__subtitle {
+  color: var(--ofx-text-muted);
+}
+
+html[data-theme='light'] body .dependency-handle {
+  border-color: var(--ofx-surface);
+  background: color-mix(in srgb, var(--dependency-accent) 78%, white 22%);
+}
+
+html[data-theme='light'] body .dependency-node__icon {
+  border-color: color-mix(in srgb, var(--dependency-accent) 26%, var(--ofx-border));
+  background: color-mix(in srgb, var(--dependency-accent) 12%, white);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.8);
+}
+
+html[data-theme='light'] body .dependency-node__lock {
+  border-color: color-mix(in srgb, var(--dependency-accent) 46%, var(--ofx-border));
+  background: var(--ofx-surface);
+  color: var(--ofx-text);
+  box-shadow: var(--ofx-shadow-sm);
+}
+
+html[data-theme='light'] body .dependency-node__recursion-cut {
+  border-color: rgb(211 155 42 / 0.44);
+  background: rgb(255 248 230 / 0.98);
+  color: var(--ofx-text-warning);
+  box-shadow: var(--ofx-shadow-sm);
+}
+
+html[data-theme='light'] body .dependency-node__parallel-omission {
+  border-color: rgb(75 124 255 / 0.32);
+  background: rgb(239 244 255 / 0.98);
+  color: var(--ofx-primary);
+  box-shadow: var(--ofx-shadow-sm);
+}
+
+html[data-theme='light'] body .vue-flow__edge-textbg {
+  fill: rgb(255 255 255 / 0.92);
+}
+
+html[data-theme='light'] body .dependency-flow__controls {
+  box-shadow: var(--ofx-shadow-md);
+}
+
+html[data-theme='light'] body .dependency-flow__controls button {
+  border-color: var(--ofx-border);
+  background: var(--ofx-surface-overlay);
+  color: var(--ofx-text);
+}
+
+html[data-theme='light'] body .dependency-flow__minimap {
+  border-color: var(--ofx-border);
+  background: rgb(255 255 255 / 0.86);
+}

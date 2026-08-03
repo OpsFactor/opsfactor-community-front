@@ -1,0 +1,1 @@
+{"version":3,"file":"preferences.store.d.ts","sourceRoot":"","sources":["../../src/stores/preferences.store.ts"],"names":[],"mappings":"AAEA;;;;;GAKG;AACH,UAAU,wBAAwB;IAChC,WAAW,EAAE,OAAO,CAAC;IACrB,aAAa,EAAE,OAAO,CAAC;CACxB;AAED,gFAAgF;AAChF,eAAO,MAAM,2BAA2B;0BAMd,OAAO;4BAKL,OAAO;EAMjC,CAAC"}

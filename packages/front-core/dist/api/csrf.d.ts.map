@@ -1,0 +1,1 @@
+{"version":3,"file":"csrf.d.ts","sourceRoot":"","sources":["../../src/api/csrf.ts"],"names":[],"mappings":"AAAA;;;;;;;GAOG;AACH,MAAM,WAAW,UAAU;IACzB,UAAU,CAAC,EAAE,MAAM,CAAC;IACpB,KAAK,CAAC,EAAE,MAAM,CAAC;CAChB;AAED;;;;;GAKG;AACH,wBAAgB,aAAa,IAAI,UAAU,GAAG,IAAI,CAGjD"}

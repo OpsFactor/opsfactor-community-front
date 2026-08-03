@@ -1,0 +1,36 @@
+:root[data-theme='dark'],
+:root.dark {
+  color-scheme: dark;
+  --ofx-bg: #050913;
+  --ofx-bg-subtle: #0d1423;
+  --ofx-surface: #0a111f;
+  --ofx-surface-elevated: #10192a;
+  --ofx-surface-strong: #14213a;
+  --ofx-surface-overlay: #0f1829;
+  --ofx-text: #eef4ff;
+  --ofx-text-muted: #92a0b8;
+  --ofx-text-subtle: #66758e;
+  --ofx-text-inverse: #050913;
+  --ofx-text-danger: #ff9db2;
+  --ofx-text-success: #88e0b5;
+  --ofx-text-warning: #e9c56f;
+  --ofx-border: #182131;
+  --ofx-border-strong: #26334a;
+  --ofx-border-focus: #4b7cff;
+  --ofx-border-danger: #ef6b8c;
+  --ofx-border-selected: #4b7cff;
+  --ofx-primary: #4b7cff;
+  --ofx-primary-foreground: #f7f9ff;
+  --ofx-primary-hover: #628dff;
+  --ofx-accent: #6c8fff;
+  --ofx-accent-foreground: #f5f8ff;
+  --ofx-muted: #141d2e;
+  --ofx-success: #3ab985;
+  --ofx-warning: #d9a847;
+  --ofx-danger: #de6079;
+  --ofx-info: #6c8fff;
+
+  --ofx-shadow-sm: 0 14px 28px rgb(1 6 16 / 0.34);
+  --ofx-shadow-md: 0 24px 52px rgb(1 6 16 / 0.44);
+  --ofx-shadow-lg: 0 38px 72px rgb(1 6 16 / 0.58);
+}

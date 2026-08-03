@@ -1,0 +1,32 @@
+{
+  "name": "@opsfactor/front-perspective",
+  "version": "0.1.0",
+  "description": "Shared Perspective pivot runtime for OpsFactor editions.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "npm run clean && vite build && vue-tsc --project tsconfig.build.json",
+    "typecheck": "vue-tsc --noEmit --project tsconfig.json"
+  },
+  "peerDependencies": {
+    "@perspective-dev/client": "4.3.0",
+    "@perspective-dev/server": "4.3.0",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@perspective-dev/client": "4.3.0",
+    "@perspective-dev/server": "4.3.0",
+    "@types/node": "^24.0.0",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vue": "^3.5.13",
+    "vue-tsc": "^2.2.12"
+  }
+}

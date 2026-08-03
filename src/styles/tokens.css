@@ -1,0 +1,37 @@
+:root {
+  --ofx-radius-sm: 0.375rem;
+  --ofx-radius-md: 0.625rem;
+  --ofx-radius-lg: 0.875rem;
+  --ofx-radius-xl: 1.125rem;
+  --ofx-radius-pill: 999px;
+
+  --ofx-space-1: 0.25rem;
+  --ofx-space-2: 0.5rem;
+  --ofx-space-3: 0.75rem;
+  --ofx-space-4: 1rem;
+  --ofx-space-5: 1.5rem;
+  --ofx-space-6: 2rem;
+  --ofx-space-7: 2.5rem;
+  --ofx-space-8: 3rem;
+
+  --ofx-input-height-sm: 2rem;
+  --ofx-input-height-md: 2.5rem;
+  --ofx-input-height-lg: 3rem;
+
+  --ofx-shadow-sm: 0 4px 12px rgb(15 23 42 / 0.06);
+  --ofx-shadow-md: 0 12px 32px rgb(15 23 42 / 0.1);
+  --ofx-shadow-lg: 0 20px 48px rgb(15 23 42 / 0.16);
+
+  --ofx-z-base: 1;
+  --ofx-z-sticky: 20;
+  --ofx-z-dropdown: 30;
+  --ofx-z-drawer: 40;
+  --ofx-z-dialog: 50;
+  --ofx-z-toast: 60;
+
+  --ofx-motion-fast: 120ms;
+  --ofx-motion-default: 180ms;
+  --ofx-motion-slow: 280ms;
+  --ofx-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ofx-ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
+}

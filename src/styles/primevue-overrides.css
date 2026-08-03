@@ -1,0 +1,17 @@
+/* PrimeVue remains unstyled and must be wrapped before usage.
+   This file centralizes wrapper-level overrides when PrimeVue internals need light normalization. */
+.p-component {
+  font-family: inherit;
+}
+
+.p-connected-overlay {
+  z-index: calc(var(--ofx-z-dropdown) + 8);
+}
+
+.p-datatable-table {
+  width: 100%;
+}
+
+[id$='_panel'][data-pc-section='panel'] {
+  backdrop-filter: blur(18px);
+}

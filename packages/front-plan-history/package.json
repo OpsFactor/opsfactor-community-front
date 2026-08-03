@@ -1,0 +1,32 @@
+{
+  "name": "@opsfactor/front-plan-history",
+  "version": "0.1.0",
+  "description": "Community-owned Demand and Supply Plan history workspaces.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "typecheck": "vue-tsc --noEmit --project tsconfig.json",
+    "build": "npm run clean && vite build && vue-tsc --project tsconfig.build.json"
+  },
+  "dependencies": {
+    "@opsfactor/front-planning-book": "file:../front-planning-book",
+    "@opsfactor/front-shell": "file:../front-shell"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vue": "^3.5.13",
+    "vue-tsc": "^2.2.12"
+  }
+}

@@ -1,0 +1,18 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Community Frontend - Vite 5174" type="js.build_tools.npm" nameIsGenerated="true">
+    <package-json value="$PROJECT_DIR$/package.json" />
+    <command value="run" />
+    <scripts>
+      <script value="dev" />
+    </scripts>
+    <arguments value="-- --host 127.0.0.1 --port 5174" />
+    <envs>
+      <env name="VITE_API_PROXY_TARGET" value="http://127.0.0.1:5010" />
+      <env name="VITE_PUBLIC_BASE" value="/app/" />
+    </envs>
+    <option name="OUTPUT_FILE" value="$PROJECT_DIR$/logs/community-frontend-vite-5174.log" />
+    <option name="OUTPUT_FILE_IS_APPEND" value="false" />
+    <option name="SAVE_OUTPUT_TO_FILE" value="true" />
+    <method v="2" />
+  </configuration>
+</component>

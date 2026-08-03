@@ -1,0 +1,1 @@
+{"version":3,"file":"runtime-info.store.d.ts","sourceRoot":"","sources":["../../src/stores/runtime-info.store.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,UAAU,EAAE,MAAM,gBAAgB,CAAC;AAE5C,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,kCAAkC,CAAC;AAEpE,eAAO,MAAM,mBAAmB;iBAEP,WAAW,GAAG,IAAI;;WAExB,KAAK,GAAG,IAAI;;qBAGJ,UAAU,WAAW,WAAW,GAAG,OAAO,CAAC,WAAW,CAAC;EAmBhF,CAAC"}

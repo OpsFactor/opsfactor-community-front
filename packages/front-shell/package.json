@@ -1,0 +1,44 @@
+{
+  "name": "@opsfactor/front-shell",
+  "version": "0.1.0",
+  "description": "Shared application shell and navigation primitives for OpsFactor editions.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "npm run clean && vite build && vue-tsc --project tsconfig.build.json",
+    "typecheck": "vue-tsc --noEmit --project tsconfig.json"
+  },
+  "peerDependencies": {
+    "ag-grid-community": "^35.1.0",
+    "ag-grid-vue3": "^35.1.0",
+    "echarts": "6.0.0",
+    "filepond-plugin-file-validate-type": "1.2.9",
+    "filepond": "4.32.12",
+    "xlsx": "^0.18.5",
+    "primevue": "^4.5.4",
+    "vue": "^3.5.13",
+    "vue-echarts": "8.0.1",
+    "vue-filepond": "7.0.4",
+    "vue-router": "^4.5.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "ag-grid-community": "^35.1.0",
+    "ag-grid-vue3": "^35.1.0",
+    "echarts": "6.0.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vue": "^3.5.13",
+    "vue-echarts": "8.0.1",
+    "vue-router": "^4.5.1",
+    "vue-tsc": "^2.2.12",
+    "xlsx": "^0.18.5"
+  }
+}

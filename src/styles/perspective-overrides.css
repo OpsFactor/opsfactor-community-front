@@ -1,0 +1,128 @@
+.ofx-perspective-native {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ofx-perspective-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ofx-perspective-action-button {
+  min-height: 32px;
+  border-radius: 10px;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  background: rgb(255 255 255 / 0.03);
+  padding: 0 12px;
+  color: rgb(233 238 251 / 0.84);
+  font-size: 12px;
+}
+
+.ofx-perspective-action-button:hover {
+  background: rgb(255 255 255 / 0.05);
+}
+
+.ofx-perspective-host {
+  position: relative;
+  display: flex;
+  min-height: 260px;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid rgb(255 255 255 / 0.06);
+  background: linear-gradient(180deg, rgb(13 22 39 / 0.96), rgb(9 16 30 / 0.98));
+}
+
+.ofx-perspective-viewer {
+  display: block;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  --plugin--background: rgba(9, 16, 30, 0.98);
+  --icon--color: #7aa2ff;
+  --inactive--border-color: rgba(255, 255, 255, 0.08);
+  --active--color: #7aa2ff;
+  --name--color: rgba(233, 238, 251, 0.88);
+  --value--color: rgba(233, 238, 251, 0.82);
+  --rt-pos-cell--color: #4ddc9d;
+  --rt-neg-cell--color: #ff8a65;
+  --datagrid-column-edit-button--content: '';
+}
+
+.ofx-perspective-viewer perspective-viewer-datagrid {
+  display: block;
+  position: relative;
+  height: 100%;
+  min-height: 0;
+}
+
+.ofx-perspective-viewer perspective-viewer-datagrid::part(regular-table) {
+  height: 100%;
+  min-height: 0;
+}
+
+.ofx-perspective-viewer regular-table {
+  --regular-table--border-color: rgba(255, 255, 255, 0.06);
+}
+
+.ofx-perspective-host [slot='side_panel__actions'] {
+  z-index: 16;
+}
+
+.ofx-perspective-host [slot='main_panel'] {
+  z-index: 10;
+}
+
+.ofx-perspective-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(8 13 25 / 0.84);
+  color: rgb(201 213 241 / 0.72);
+  font-size: 13px;
+}
+
+html[data-theme='light'] body .ofx-perspective-action-button {
+  border-color: var(--ofx-border);
+  background: var(--ofx-surface-elevated);
+  color: var(--ofx-text-muted);
+}
+
+html[data-theme='light'] body .ofx-perspective-action-button:hover {
+  background: var(--ofx-muted);
+  color: var(--ofx-text);
+}
+
+html[data-theme='light'] body .ofx-perspective-host {
+  border-color: var(--ofx-border);
+  background: var(--ofx-surface);
+  box-shadow: var(--ofx-shadow-sm);
+}
+
+html[data-theme='light'] body .ofx-perspective-viewer {
+  --plugin--background: #ffffff;
+  --plugin--foreground: #0f1728;
+  --side-panel--background: #ffffff;
+  --icon--color: #3b73f2;
+  --inactive--border-color: rgb(215 223 235 / 0.95);
+  --active--color: #3b73f2;
+  --name--color: #0f1728;
+  --value--color: #006b55;
+  --settings-button--color: #0f1728;
+  --rt-pos-cell--color: #1d7150;
+  --rt-neg-cell--color: #9e2943;
+}
+
+html[data-theme='light'] body .ofx-perspective-viewer regular-table {
+  --regular-table--border-color: rgb(215 223 235 / 0.95);
+}
+
+html[data-theme='light'] body .ofx-perspective-overlay {
+  background: rgb(248 251 255 / 0.86);
+  color: var(--ofx-text-muted);
+}

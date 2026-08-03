@@ -1,0 +1,29 @@
+@import 'filepond/dist/filepond.min.css';
+
+.filepond--root {
+  margin: 0;
+  font-family: inherit;
+}
+
+.filepond--panel-root {
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--ofx-border) 88%, transparent);
+  background: linear-gradient(180deg, rgb(14 22 37 / 0.95), rgb(10 16 29 / 0.92));
+}
+
+.filepond--drop-label {
+  color: rgb(210 220 242 / 0.8);
+}
+
+.filepond--label-action {
+  color: var(--ofx-accent);
+  text-decoration: none;
+}
+
+.filepond--file {
+  border-radius: 10px;
+}
+
+.filepond--file-action-button {
+  background: rgb(255 255 255 / 0.08);
+}
