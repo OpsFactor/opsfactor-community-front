@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run verify:edition-boundaries && vue-tsc --noEmit && vite build",
+    "build": "npm run verify:edition-boundaries && npm run build:packages && vue-tsc --noEmit && vite build",
+    "build:packages": "npm --prefix packages/front-core run build && npm --prefix packages/front-shell run build && npm --prefix packages/front-planning-book run build && npm --prefix packages/front-plan-history run build && npm --prefix packages/front-processes run build && npm --prefix packages/front-perspective run build",
     "typecheck": "vue-tsc --noEmit",
     "verify:edition-boundaries": "node ./scripts/verify-edition-boundaries.mjs",
     "test:contracts": "node --experimental-strip-types --test tests/*.test.ts",

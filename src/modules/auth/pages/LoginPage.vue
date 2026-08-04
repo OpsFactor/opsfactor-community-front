@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/app/session.store';
 import { buildAppAssetPath } from '@/app/runtime/public-path';
 import { loginWithPassword } from '@/services/auth/auth.service';
+import { getAppRouter } from '@/app/providers/router';
 
-const route = useRoute();
-const router = useRouter();
+const router = getAppRouter();
+const route = router.currentRoute;
 const sessionStore = useSessionStore();
 const username = ref('');
 const password = ref('');
@@ -15,14 +15,14 @@ const errorMessage = ref<string | null>(null);
 const brandLogoUrl = computed(() => buildAppAssetPath('brand/opsfactor-dark.png'));
 
 const message = computed(() => {
-  if (route.query.error) {
+  if (route.value.query.error) {
     return {
       title: 'Login failed',
       body: 'The backend rejected the provided credentials. Verify the values and try again.',
     };
   }
 
-  if (route.query.logout) {
+  if (route.value.query.logout) {
     return {
       title: 'Session ended',
       body: 'Your in-memory Community credentials were cleared successfully.',
@@ -36,7 +36,7 @@ watch(
   () => [sessionStore.isAuthenticated, sessionStore.isBootstrapping] as const,
   async ([isAuthenticated, isBootstrapping]) => {
     if (!isAuthenticated || isBootstrapping) return;
-    const redirectPath = typeof route.query.redirect === 'string' ? route.query.redirect : '/';
+    const redirectPath = typeof route.value.query.redirect === 'string' ? route.value.query.redirect : '/';
     if (router.currentRoute.value.fullPath !== redirectPath) {
       await router.replace(redirectPath);
     }
@@ -59,7 +59,7 @@ async function handleLoginSubmit(event: Event) {
     await loginWithPassword(username.value, password.value);
     await sessionStore.bootstrap();
 
-    const redirectPath = typeof route.query.redirect === 'string' ? route.query.redirect : '/';
+    const redirectPath = typeof route.value.query.redirect === 'string' ? route.value.query.redirect : '/';
     await router.replace(redirectPath);
   } catch (error) {
     errorMessage.value = error instanceof Error

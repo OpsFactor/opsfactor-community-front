@@ -2,8 +2,10 @@
 // Edition-neutral Perspective runtime; both edition hosts provide data and presentation policy only.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import perspective, { init_client, init_server, type Table } from '@perspective-dev/client';
+import { init_client as initViewerClient } from '@perspective-dev/viewer';
 import clientWasmUrl from '@perspective-dev/client/dist/wasm/perspective-js.wasm?url';
 import serverWasmUrl from '@perspective-dev/server/dist/wasm/perspective-server.wasm?url';
+import viewerWasmUrl from '@perspective-dev/viewer/dist/wasm/perspective-viewer.wasm?url';
 
 type PerspectiveAggregateName = 'sum' | 'avg' | 'count' | 'distinct count' | 'last' | 'first' | 'max' | 'min' | 'weighted mean';
 type PerspectiveAggregate = PerspectiveAggregateName | [PerspectiveAggregateName, string[]];
@@ -143,6 +145,7 @@ const isSettingsPanelOpen = ref(false);
 let workerPromise: Promise<Awaited<ReturnType<typeof perspective.worker>>> | null = null;
 let currentTable: Table | null = null;
 let runtimeReady = false;
+let viewerElementRuntimePromise: Promise<void> | null = null;
 let eventAbortController: AbortController | null = null;
 let hostResizeObserver: ResizeObserver | null = null;
 let hostIntersectionObserver: IntersectionObserver | null = null;
@@ -360,6 +363,24 @@ function ensureRuntime() {
   init_client(fetch(clientWasmUrl));
   init_server(fetch(serverWasmUrl));
   runtimeReady = true;
+}
+
+/**
+ * Registers the heavy viewer custom element only inside a screen that renders
+ * a pivot. Keeping this out of the global application bootstrap prevents a
+ * WebAssembly/browser incompatibility from blocking login and all non-pivot
+ * Community capabilities.
+ */
+function ensureViewerElementRuntime(): Promise<void> {
+
+  viewerElementRuntimePromise ??= (async () => {
+    if (customElements.get('perspective-viewer') === undefined) {
+      await initViewerClient(fetch(viewerWasmUrl));
+    }
+    await import('@perspective-dev/viewer-datagrid');
+  })();
+  return viewerElementRuntimePromise;
+
 }
 
 async function getWorker() {
@@ -1420,6 +1441,17 @@ watch(
 );
 
 onMounted(async () => {
+
+  try {
+    await ensureViewerElementRuntime();
+  } catch (error) {
+    isLoading.value = false;
+    errorMessage.value = error instanceof Error
+      ? `The analytical viewer could not be initialized: ${error.message}`
+      : 'The analytical viewer could not be initialized.';
+    return;
+  }
+
   await nextTick();
   isSettingsPanelOpen.value = props.openSettingsByDefault;
 
