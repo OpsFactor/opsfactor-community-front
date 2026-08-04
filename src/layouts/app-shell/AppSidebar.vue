@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
 import { OpsFactorLegacySidebar } from '@opsfactor/front-shell';
 import { APP_MODULES } from '@/lib/constants/modules';
 import { ROUTE_NAMES } from '@/router/route-names';
 import { useSessionStore } from '@/stores/app/session.store';
 import { useThemeStore } from '@/stores/app/theme.store';
+import { getAppRouter } from '@/app/providers/router';
 
-const router = useRouter();
+const router = getAppRouter();
 const sessionStore = useSessionStore();
 const themeStore = useThemeStore();
 const isLoggingOut = ref(false);

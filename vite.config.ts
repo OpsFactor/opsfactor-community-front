@@ -45,6 +45,12 @@ export default defineConfig(({ command, mode }) => {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
       },
+      // The edition foundation is linked as a local package. Without
+      // deduplication Rollup may retain one Vue / Vue Router runtime for the
+      // foundation and another for the Community application. Router
+      // injections then appear undefined inside routed pages in the packaged
+      // build, although the router itself has been installed on the app.
+      dedupe: ['vue', 'vue-router', 'pinia'],
     },
     base: environment.VITE_PUBLIC_BASE || '/app/',
     server: apiProxyTarget === undefined ? undefined : {

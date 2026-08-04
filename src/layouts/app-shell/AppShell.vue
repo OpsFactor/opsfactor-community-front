@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useRoute, RouterView } from 'vue-router';
+import { RouterView } from 'vue-router';
 import { APP_MODULES } from '@/lib/constants/modules';
 import { useNavigationStore } from '@/stores/app/navigation.store';
 import AppSidebar from './AppSidebar.vue';
 import AppTopbar from './AppTopbar.vue';
 import AppModuleSubnav from './AppModuleSubnav.vue';
 import { OpsFactorLegacyAppFrame } from '@opsfactor/front-shell';
+import { getAppRouter } from '@/app/providers/router';
 
-const route = useRoute();
+const route = getAppRouter().currentRoute;
 const navigationStore = useNavigationStore();
-const currentModule = computed(() => APP_MODULES.find((item) => item.key === route.meta.moduleKey));
+const currentModule = computed(() => APP_MODULES.find((item) => item.key === route.value.meta.moduleKey));
 const showShellChrome = computed(() => !navigationStore.immersiveWorkspace);
 </script>
 

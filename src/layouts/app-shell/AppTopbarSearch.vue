@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { useRoute, useRouter } from 'vue-router';
 import { OpsFactorTopbarSearch } from '@opsfactor/front-shell';
 import { APP_SEARCH_INDEX } from '@/app/navigation.config';
 import { useThemeStore } from '@/stores/app/theme.store';
+import { getAppRouter } from '@/app/providers/router';
 
-const router = useRouter();
-const route = useRoute();
+const router = getAppRouter();
+const route = router.currentRoute;
 const themeStore = useThemeStore();
 
 function navigate(path: string) {

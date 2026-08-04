@@ -1,5 +1,4 @@
 import { bootstrapFrontendApplication, bootstrapRuntimeInfo, renderBootstrapFailure } from '@opsfactor/front-core';
-import { init_client as initPerspectiveViewerClient } from '@perspective-dev/viewer';
 import '@perspective-dev/viewer/dist/css/pro-dark.css';
 import '@perspective-dev/viewer/dist/css/icons.css';
 import '@perspective-dev/viewer-datagrid/dist/css/perspective-viewer-datagrid.css';
@@ -7,7 +6,6 @@ import '@vue-flow/core/dist/style.css';
 import '@vue-flow/core/dist/theme-default.css';
 import '@vue-flow/controls/dist/style.css';
 import '@vue-flow/minimap/dist/style.css';
-import perspectiveViewerWasmUrl from '@perspective-dev/viewer/dist/wasm/perspective-viewer.wasm?url';
 import App from './App.vue';
 import { createAppPinia } from './providers/pinia';
 import { createAppRouter } from './providers/router';
@@ -26,20 +24,6 @@ import '@/styles/filepond-overrides.css';
 import '@/styles/perspective-overrides.css';
 import '@/styles/tailwind.css';
 
-let perspectiveViewerReady = false;
-
-/** Loads the optional WebAssembly viewer only after the edition runtime is validated. */
-async function ensurePerspectiveViewerRuntime() {
-
-  if (perspectiveViewerReady) return;
-  if (customElements.get('perspective-viewer') === undefined) {
-    await initPerspectiveViewerClient(fetch(perspectiveViewerWasmUrl));
-  }
-  await import('@perspective-dev/viewer-datagrid');
-  perspectiveViewerReady = true;
-
-}
-
 void bootstrapFrontendApplication({
   rootComponent: App,
   createPinia: createAppPinia,
@@ -47,8 +31,16 @@ void bootstrapFrontendApplication({
   installPrimeVue,
   bootstrapTheme,
   bootstrapRuntimeInfo: () => bootstrapRuntimeInfo(APPLICATION_EDITION),
-  ensurePerspectiveViewerRuntime,
+  // The analytical pivot is optional and must not make the sign-in page
+  // depend on its WebAssembly runtime. Its component initializes it only
+  // when a user opens a screen that contains a pivot.
+  ensurePerspectiveViewerRuntime: async () => undefined,
   bootstrapSession,
   getSession: useSessionStore,
   loginRouteName: ROUTE_NAMES.login,
-}).catch((error: unknown) => renderBootstrapFailure(error, APPLICATION_EDITION));
+}).catch((error: unknown) => {
+  // Preserve the complete browser stack for support diagnostics. The visible
+  // boundary remains deliberately concise and safe for an end user.
+  console.error('OpsFactor Community frontend startup failed.', error);
+  renderBootstrapFailure(error, APPLICATION_EDITION);
+});
