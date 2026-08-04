@@ -1,6 +1,5 @@
 import { bootstrapFrontendApplication, bootstrapRuntimeInfo, renderBootstrapFailure } from '@opsfactor/front-core';
 import { init_client as initPerspectiveViewerClient } from '@perspective-dev/viewer';
-import '@perspective-dev/viewer-datagrid';
 import '@perspective-dev/viewer/dist/css/pro-dark.css';
 import '@perspective-dev/viewer/dist/css/icons.css';
 import '@perspective-dev/viewer-datagrid/dist/css/perspective-viewer-datagrid.css';
@@ -33,7 +32,10 @@ let perspectiveViewerReady = false;
 async function ensurePerspectiveViewerRuntime() {
 
   if (perspectiveViewerReady) return;
-  await initPerspectiveViewerClient(fetch(perspectiveViewerWasmUrl));
+  if (customElements.get('perspective-viewer') === undefined) {
+    await initPerspectiveViewerClient(fetch(perspectiveViewerWasmUrl));
+  }
+  await import('@perspective-dev/viewer-datagrid');
   perspectiveViewerReady = true;
 
 }
