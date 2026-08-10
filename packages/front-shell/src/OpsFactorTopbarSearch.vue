@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { AppSearchEntry } from './legacy-navigation';
+import { unavailableEditionLabel } from './edition-navigation-policy';
+import OfxEditionAvailabilityMark from './OfxEditionAvailabilityMark.vue';
 
 const props = withDefaults(defineProps<{
   entries: AppSearchEntry[];
   currentPath: string;
   themeMode?: 'light' | 'dark';
+  quickActionsRequest?: number;
 }>(), { themeMode: 'light' });
 
 const emit = defineEmits<{ navigate: [path: string] }>();
@@ -39,7 +42,7 @@ function scoreEntry(entry: AppSearchEntry, value: string) {
   if (description.includes(queryText)) score += 8;
   if (keywords.some((keyword) => keyword === queryText)) score += 40;
   if (keywords.some((keyword) => keyword.includes(queryText))) score += 18;
-  if (entry.status === 'live') score += 4;
+  if (score > 0 && entry.status === 'live') score += 4;
 
   return score;
 
@@ -105,6 +108,14 @@ watch(() => props.currentPath, () => {
   query.value = '';
 });
 
+watch(() => props.quickActionsRequest, () => {
+
+  query.value = '';
+  inputRef.value?.focus();
+  isOpen.value = true;
+
+});
+
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown);
   window.addEventListener('pointerdown', handleDocumentPointer);
@@ -124,7 +135,7 @@ onBeforeUnmount(() => {
         ref="inputRef"
         v-model="query"
         type="search"
-        placeholder="Search modules, pages, legacy terms, commands"
+        placeholder="Search modules, pages, business terms"
         class="h-11 w-full rounded-xl border pl-24 pr-24 text-sm outline-none"
         :class="isLightTheme ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface-elevated)] text-[color:var(--ofx-text)] placeholder:text-[color:var(--ofx-text-subtle)] focus:border-[color:var(--ofx-border-focus)]' : 'border-white/8 bg-white/[0.045] text-white/88 placeholder:text-white/24 focus:border-[color:rgb(75_124_255_/_0.55)] focus:bg-white/[0.07]'"
         @focus="isOpen = true"
@@ -135,19 +146,16 @@ onBeforeUnmount(() => {
 
     <div v-if="isOpen" class="absolute left-0 right-0 top-[calc(100%+0.75rem)] z-[calc(var(--ofx-z-dropdown)_+_8)] max-h-[min(32rem,calc(100vh_-_8.5rem))] overflow-y-auto overflow-x-hidden rounded-[18px] border shadow-[var(--ofx-shadow-lg)]" :class="isLightTheme ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface-overlay)]' : 'border-white/10 bg-[color:rgb(9_14_26)]'">
       <div class="border-b px-4 py-3 text-[11px] uppercase tracking-[0.16em]" :class="isLightTheme ? 'border-[color:var(--ofx-border)] text-[color:var(--ofx-text-subtle)]' : 'border-white/8 text-white/34'">{{ query ? 'Page matches' : 'Quick navigation' }}</div>
-      <button v-for="result in results" :key="result.key" type="button" class="flex w-full items-start justify-between gap-4 border-b px-4 py-3 text-left transition" :class="[isLightTheme ? 'border-[color:var(--ofx-border)] hover:bg-[color:var(--ofx-surface-elevated)]' : 'border-white/6 hover:bg-white/[0.05]', isUnavailable(result) ? 'cursor-not-allowed opacity-50' : '']" :disabled="isUnavailable(result)" @click="goTo(result)">
+      <button v-for="result in results" :key="result.key" type="button" class="flex w-full items-start justify-between gap-4 border-b px-4 py-3 text-left transition" :class="[isLightTheme ? 'border-[color:var(--ofx-border)] hover:bg-[color:var(--ofx-surface-elevated)]' : 'border-white/6 hover:bg-white/[0.05]', isUnavailable(result) ? 'cursor-not-allowed' : '']" :disabled="isUnavailable(result)" @click="goTo(result)">
         <div class="min-w-0">
           <div class="flex items-center gap-2">
             <span class="text-sm font-medium" :class="isLightTheme ? 'text-[color:var(--ofx-text)]' : 'text-white/90'">{{ result.label }}</span>
             <span class="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.14em]" :class="isLightTheme ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface-elevated)] text-[color:var(--ofx-text-subtle)]' : 'border-white/10 bg-white/[0.04] text-white/42'">{{ result.moduleLabel }}</span>
-            <span v-if="isUnavailable(result)" class="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.14em]" :class="isLightTheme ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface-elevated)] text-[color:var(--ofx-text-subtle)]' : 'border-white/10 bg-white/[0.04] text-white/42'">Enterprise</span>
+            <OfxEditionAvailabilityMark v-if="isUnavailable(result)" :edition-label="unavailableEditionLabel(result.moduleKey)" :theme-mode="props.themeMode" :size="11" />
           </div>
           <div class="mt-1 text-sm leading-6" :class="isLightTheme ? 'text-[color:var(--ofx-text-muted)]' : 'text-white/48'">{{ result.description }}</div>
-          <div class="mt-2 flex flex-wrap gap-2">
-            <span v-for="keyword in result.keywords.slice(0, 4)" :key="keyword" class="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.12em]" :class="isLightTheme ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface)] text-[color:var(--ofx-text-subtle)]' : 'border-white/8 bg-white/[0.03] text-white/42'">{{ keyword }}</span>
-          </div>
         </div>
-        <span class="shrink-0 text-[10px] uppercase tracking-[0.14em]" :class="isLightTheme ? 'text-[color:var(--ofx-text-subtle)]' : 'text-white/30'">{{ result.status === 'live' ? 'Page' : result.status === 'overview' ? 'Module' : 'Legacy' }}</span>
+        <span class="shrink-0 text-[10px] uppercase tracking-[0.14em]" :class="isLightTheme ? 'text-[color:var(--ofx-text-subtle)]' : 'text-white/30'">{{ result.status === 'overview' ? 'Module' : 'Page' }}</span>
       </button>
       <div v-if="!results.length" class="px-4 py-4 text-sm" :class="isLightTheme ? 'text-[color:var(--ofx-text-muted)]' : 'text-white/46'">No pages matched the current search.</div>
     </div>

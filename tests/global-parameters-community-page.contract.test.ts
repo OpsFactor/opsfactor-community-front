@@ -27,8 +27,13 @@ test('Community Global Parameters marks unavailable controls instead of removing
 
   assert.match(pageSource, /Stockout Normalization Model/);
   assert.match(pageSource, /Fleet Capacity Weight Standard Unit/);
-  assert.match(pageSource, /description="Enterprise" disabled/);
-  assert.match(pageSource, /help-text="Enterprise" disabled/);
+  assert.match(pageSource, /required-edition="Pro \/ Enterprise"/);
+  assert.doesNotMatch(pageSource, /description="Enterprise"/);
+  assert.doesNotMatch(pageSource, /help-text="Enterprise"/);
+  assert.doesNotMatch(pageSource, /placeholder="Enterprise"/);
+  assert.match(pageSource, /label="Default Sales Document Type"[^>]*disabled[^>]*required-edition="Pro \/ Enterprise"/);
+  assert.match(pageSource, /label="Round Forecast to Sales UOM"[^>]*disabled[^>]*required-edition="Pro \/ Enterprise"/);
+  assert.doesNotMatch(pageSource, /v-model="parameters\.dpArredondaParaUnidadeVenda"/);
 });
 
 test('Community Global Parameters continues posting only its bounded controller payload', async () => {
@@ -37,6 +42,7 @@ test('Community Global Parameters continues posting only its bounded controller 
 
   assert.match(pageSource, /function toCommunityParameters/);
   assert.match(pageSource, /tipoDocumentoVenda: 'SELLOUT'/);
+  assert.match(pageSource, /dpArredondaParaUnidadeVenda: false/);
   assert.match(pageSource, /body: JSON\.stringify\(toCommunityParameters\(parameters\.value\)\)/);
   assert.doesNotMatch(pageSource, /unidadeMedidaPadraoCapacidadeLogisticaPeso:/);
   assert.doesNotMatch(pageSource, /quantidadesEmPedidosRepresentamSaldoRestante:/);

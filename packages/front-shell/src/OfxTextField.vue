@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import OfxEditionAvailabilityMark from './OfxEditionAvailabilityMark.vue';
+import OfxLockedControlIcon from './OfxLockedControlIcon.vue';
 
 const props = withDefaults(defineProps<{
   label: string;
@@ -12,6 +14,8 @@ const props = withDefaults(defineProps<{
   disabled?: boolean;
   locked?: boolean;
   lockedLabel?: string;
+  requiredEdition?: 'Enterprise' | 'Pro / Enterprise';
+  themeMode?: 'light' | 'dark';
 }>(), {
   format: 'plain',
   percentFractionDigits: 6,
@@ -24,6 +28,15 @@ const emit = defineEmits<{
 const isFocused = ref(false);
 const focusedDisplayValue = ref('');
 const isFractionPercent = computed(() => props.format === 'fraction-percent');
+const lockedEdition = computed<'Enterprise' | 'Pro / Enterprise' | null>(() => {
+
+  if (!props.locked) return null;
+  if (/^enterprise$/i.test(props.lockedLabel ?? '')) return 'Enterprise';
+  if (/^pro\s*\/\s*enterprise$/i.test(props.lockedLabel ?? '')) return 'Pro / Enterprise';
+  return null;
+
+});
+const isLockedVisual = computed(() => props.locked || Boolean(props.disabled && props.requiredEdition));
 
 function parseNumericText(value: string) {
 
@@ -102,8 +115,12 @@ function handleInput(event: Event) {
 <template>
   <label class="flex flex-col gap-2">
     <div class="flex items-center justify-between gap-3">
-      <span class="text-[13px] font-medium text-[color:var(--ofx-text)]">{{ label }}</span>
-      <span v-if="locked" class="inline-flex items-center rounded-full border border-[color:var(--ofx-border-selected)] bg-[color:rgb(75_124_255_/_0.12)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ofx-text)]">{{ lockedLabel ?? 'Auto-fit' }}</span>
+      <span class="inline-flex min-w-0 items-center gap-1.5 text-[13px] font-medium text-[color:var(--ofx-text)]">
+        <span>{{ label }}</span>
+        <OfxEditionAvailabilityMark v-if="requiredEdition" :edition-label="requiredEdition" :theme-mode="themeMode ?? 'light'" :size="12" />
+      </span>
+      <OfxEditionAvailabilityMark v-if="lockedEdition" :edition-label="lockedEdition" :theme-mode="themeMode ?? 'light'" :size="12" />
+      <span v-else-if="locked" class="inline-flex items-center rounded-full border border-[color:var(--ofx-border-selected)] bg-[color:rgb(75_124_255_/_0.12)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ofx-text)]">{{ lockedLabel ?? 'Auto-fit' }}</span>
     </div>
     <div class="relative">
       <input
@@ -113,13 +130,31 @@ function handleInput(event: Event) {
         :placeholder="placeholder"
         :disabled="disabled"
         :readonly="locked"
+        :data-locked="isLockedVisual ? 'true' : undefined"
         class="h-10 w-full rounded-[12px] border border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface)] px-3.5 text-sm text-[color:var(--ofx-text)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.04)] outline-none transition placeholder:text-[color:var(--ofx-text-subtle)]"
-        :class="[isFractionPercent ? 'pr-9' : '', locked ? 'cursor-not-allowed border-[color:var(--ofx-border-selected)] bg-[color:rgb(75_124_255_/_0.08)] text-[color:var(--ofx-text)] shadow-[inset_0_1px_0_rgb(75_124_255_/_0.1)]' : disabled ? 'cursor-not-allowed border-[color:var(--ofx-border)] bg-[color:var(--ofx-muted)] text-[color:var(--ofx-text-subtle)]' : 'hover:border-[color:var(--ofx-border-strong)] focus:border-[color:var(--ofx-border-focus)] focus:ring-2 focus:ring-[color:rgb(75_124_255_/_0.14)]']"
+        :class="[
+          isFractionPercent ? (isLockedVisual ? 'pr-[4.75rem]' : 'pr-9') : isLockedVisual ? 'pr-12' : '',
+          isLockedVisual
+            ? 'cursor-not-allowed border-[color:var(--ofx-border-strong)] bg-[linear-gradient(180deg,var(--ofx-surface-elevated),var(--ofx-muted))] text-[color:var(--ofx-text)] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.7)]'
+            : disabled
+              ? 'cursor-not-allowed border-[color:var(--ofx-border)] bg-[color:var(--ofx-muted)] text-[color:var(--ofx-text-subtle)]'
+              : 'hover:border-[color:var(--ofx-border-strong)] focus:border-[color:var(--ofx-border-focus)] focus:ring-2 focus:ring-[color:rgb(75_124_255_/_0.14)]',
+        ]"
         @focus="handleFocus"
         @blur="handleBlur"
         @input="handleInput"
       >
-      <span v-if="isFractionPercent" class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm font-medium text-[color:var(--ofx-text-subtle)]">%</span>
+      <span
+        v-if="isLockedVisual"
+        class="pointer-events-none absolute inset-y-px right-px flex w-10 items-center justify-center rounded-r-[11px] border-l border-[color:var(--ofx-border-strong)] bg-[color:var(--ofx-muted)] text-[color:var(--ofx-text-muted)]"
+      >
+        <OfxLockedControlIcon />
+      </span>
+      <span
+        v-if="isFractionPercent"
+        class="pointer-events-none absolute inset-y-0 flex items-center text-sm font-medium text-[color:var(--ofx-text-subtle)]"
+        :class="isLockedVisual ? 'right-12' : 'right-3'"
+      >%</span>
     </div>
     <span v-if="helpText" class="text-xs text-[color:var(--ofx-text-muted)]">{{ helpText }}</span>
   </label>

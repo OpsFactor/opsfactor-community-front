@@ -7,6 +7,7 @@ test('Shared shell keeps the legacy desktop rail and an overlay flyout instead o
   const frame = readFileSync(new URL('../packages/front-shell/src/OpsFactorLegacyAppFrame.vue', import.meta.url), 'utf8');
   const sidebar = readFileSync(new URL('../packages/front-shell/src/OpsFactorLegacySidebar.vue', import.meta.url), 'utf8');
   const topbar = readFileSync(new URL('../packages/front-shell/src/OpsFactorLegacyTopbar.vue', import.meta.url), 'utf8');
+  const index = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
   assert.match(frame, /lg:pl-\[104px\]/);
   assert.match(frame, /overflow-x-hidden overflow-y-auto/);
@@ -17,8 +18,16 @@ test('Shared shell keeps the legacy desktop rail and an overlay flyout instead o
   assert.match(sidebar, /getSectionIconName\(section\.label\)/);
   assert.match(sidebar, /getPageIconName\(item\.label\)/);
   assert.match(sidebar, /from '\.\/navigation-icons'/);
-  assert.match(sidebar, /Enterprise/);
+  assert.match(sidebar, /unavailableEditionLabel\(previewModule\.key\)/);
+  assert.match(sidebar, /const shadowStrength = isLightTheme\.value \? 14 : 28/);
+  assert.match(sidebar, /borderColor: `color-mix\(in srgb, \$\{module\.accent\} 24%, var\(--ofx-border\)\)`/);
+  assert.match(sidebar, /:style="moduleLinkStyle\(module\)"/);
+  assert.doesNotMatch(sidebar, /\? 'border-\[color:var\(--ofx-border-selected\)\] text-\[color:var\(--ofx-text\)\]'/);
   assert.match(topbar, /currentModule \?\? 'Workspace Home'/);
+  assert.match(topbar, /h-9 w-auto shrink-0 opacity-100 sm:h-10/);
+  assert.match(topbar, /lg:flex-row lg:items-center/);
+  assert.match(index, /rel="icon" type="image\/svg\+xml" href="\/brand\/favicon\.svg"/);
+  assert.equal(existsSync(new URL('../public/brand/favicon.svg', import.meta.url)), true);
   assert.doesNotMatch(sidebar, /Account⌄/);
   assert.doesNotMatch(sidebar, /userSettingsTo/);
 
@@ -124,12 +133,12 @@ test('Legacy route and module-landing layouts are supplied once by the Community
 
   assert.match(sharedLegacyRoute, /<TaskPageLayout/);
   assert.match(sharedLegacyRoute, /<RouterLink/);
-  assert.match(sharedModuleLanding, /Foundation Placeholder/);
+  assert.match(sharedModuleLanding, /Module overview/);
   assert.match(sharedModuleLanding, /<ReportPageLayout>/);
 
   for (const adapter of hostAdapters) {
     assert.match(adapter, /as default } from '@opsfactor\/front-shell'/);
-    assert.doesNotMatch(adapter, /<TaskPageLayout|<ReportPageLayout|Foundation Placeholder/);
+    assert.doesNotMatch(adapter, /<TaskPageLayout|<ReportPageLayout|Module overview/);
   }
 
 });

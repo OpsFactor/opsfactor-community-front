@@ -112,5 +112,5 @@ test('Operational Planning Parameters page has independent explicit loads, confi
   assert.match(source, /await loadMaterialLocationParameters\(true\)/);
   assert.match(source, /const locationId = selectedLocationId\.value\.trim\(\)/);
   assert.match(source, /@change="handleLocationSelectionChanged"/);
-  assert.match(source, /No Data upload\/download, bulk operation, Location CRUD, characteristics, filters, aggregations, pricing, GIS, deployment, logistics constraints, optimizer or planning execution/);
+  assert.match(source, /No Data upload\/download, bulk operation, Location CRUD, characteristics,[\s\S]*optimizer or planning execution is available here/);
 });

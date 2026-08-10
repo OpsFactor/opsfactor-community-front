@@ -12,9 +12,9 @@ test('Community fixes its appearance to light and has no visual-preference clien
   assert.match(themeStoreSource, /const COMMUNITY_THEME_MODE: ThemeMode = 'light'/);
   assert.match(themeStoreSource, /dataset\.theme = COMMUNITY_THEME_MODE/);
   assert.match(themeStoreSource, /colorScheme = COMMUNITY_THEME_MODE/);
-  assert.match(executableLoginSource, /brand\/opsfactor-dark\.png/);
+  assert.match(executableLoginSource, /brand\/opsfactor-horizontal-on-light\.svg/);
   assert.match(executableLoginSource, /rgb\(239_246_255\)/);
-  assert.doesNotMatch(executableLoginSource, /useThemeStore|isLightTheme|opsfactor-light\.png|text-white/);
+  assert.doesNotMatch(executableLoginSource, /useThemeStore|isLightTheme|opsfactor-light\.png|opsfactor-dark\.png|text-white/);
   assert.doesNotMatch(homeSource, /toggleTheme|Use .* theme|User settings/);
   assert.match(authenticationSource, /\/api\/secured\/user\/rolelist/);
   assert.doesNotMatch(authenticationSource, /userconfigs|user-interface|interface\/preferences/);

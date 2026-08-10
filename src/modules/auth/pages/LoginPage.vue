@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useSessionStore } from '@/stores/app/session.store';
 import { buildAppAssetPath } from '@/app/runtime/public-path';
-import { loginWithPassword } from '@/services/auth/auth.service';
+import { beginOpsFactorLogin, fetchIdentityOptions, loginWithPassword } from '@/services/auth/auth.service';
 import { getAppRouter } from '@/app/providers/router';
 
 const router = getAppRouter();
@@ -12,7 +12,8 @@ const username = ref('');
 const password = ref('');
 const isSubmitting = ref(false);
 const errorMessage = ref<string | null>(null);
-const brandLogoUrl = computed(() => buildAppAssetPath('brand/opsfactor-dark.png'));
+const oidcEnabled = ref(false);
+const brandLogoUrl = computed(() => buildAppAssetPath('brand/opsfactor-horizontal-on-light.svg'));
 
 const message = computed(() => {
   if (route.value.query.error) {
@@ -25,11 +26,19 @@ const message = computed(() => {
   if (route.value.query.logout) {
     return {
       title: 'Session ended',
-      body: 'Your in-memory Community credentials were cleared successfully.',
+      body: 'Your session credentials were cleared successfully.',
     };
   }
 
   return null;
+});
+
+onMounted(async () => {
+  try {
+    oidcEnabled.value = (await fetchIdentityOptions()).oidcEnabled;
+  } catch {
+    oidcEnabled.value = false;
+  }
 });
 
 watch(
@@ -80,7 +89,7 @@ async function handleLoginSubmit(event: Event) {
         class="w-full rounded-[22px] border border-[color:var(--ofx-border)] bg-[color:rgb(255_255_255_/_0.94)] p-7 shadow-[var(--ofx-shadow-lg)] backdrop-blur-xl sm:p-9"
       >
         <div class="mb-8 space-y-4">
-          <img :src="brandLogoUrl" alt="OpsFactor" class="h-10 w-auto">
+          <img :src="brandLogoUrl" alt="OpsFactor" class="h-14 w-auto sm:h-16">
           <div>
             <h1 class="text-3xl font-semibold tracking-[-0.04em] text-[color:var(--ofx-text)]">Sign in</h1>
           </div>
@@ -92,6 +101,21 @@ async function handleLoginSubmit(event: Event) {
         </div>
 
         <form class="space-y-5" @submit="handleLoginSubmit">
+          <button
+            v-if="oidcEnabled"
+            type="button"
+            class="flex h-12 w-full items-center justify-center rounded-[12px] border border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface)] px-5 text-sm font-medium text-[color:var(--ofx-text)]"
+            @click="beginOpsFactorLogin"
+          >
+            Continue with OpsFactor
+          </button>
+
+          <div v-if="oidcEnabled" class="flex items-center gap-3 text-xs text-[color:var(--ofx-text-muted)]">
+            <span class="h-px flex-1 bg-[color:var(--ofx-border)]" />
+            <span>or use a local account</span>
+            <span class="h-px flex-1 bg-[color:var(--ofx-border)]" />
+          </div>
+
           <label class="flex flex-col gap-2">
             <span class="text-sm font-medium text-[color:var(--ofx-text)]">Username</span>
             <input v-model="username" name="username" type="text" autocomplete="username" class="h-12 rounded-[12px] border border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface)] px-4 text-sm text-[color:var(--ofx-text)] outline-none transition focus:border-[color:rgb(90_128_255_/_0.42)]">

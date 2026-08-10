@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { OfxEmptyState, OfxPageHeader, OfxSectionCard } from '@opsfactor/front-shell';
+import {
+  OfxEditionAvailabilityMark,
+  OfxEmptyState,
+  OfxEntityMultiSelect,
+  OfxPageHeader,
+  OfxSectionCard,
+  OfxSelectField,
+} from '@opsfactor/front-shell';
 import DashboardPageLayout from '@/layouts/page/DashboardPageLayout.vue';
 import EChartAdapter from '@/wrappers/echarts/EChartAdapter.vue';
 import { getInventoryOverview, getInventoryOverviewSelectors } from './inventory-overview.service';
@@ -32,6 +39,30 @@ const activeLocations = computed(() => locations.value.filter((location) => loca
 const canLoadOverview = computed(() => supplyPlanId.value !== null && unitOfMeasureId.value.length > 0);
 const periodLabels = computed(() => inventoryOverview.value?.periods.map((period) => formatDate(period.periodEnd)) ?? []);
 const openedPrimaryAxisLabel = 'Quantity';
+const supplyPlanOptions = computed(() => supplyPlans.value.map((supplyPlan) => ({
+  value: String(supplyPlan.supplyPlanId),
+  label: supplyPlanLabel(supplyPlan),
+})));
+const unitOfMeasureOptions = computed(() => unitOfMeasureIds.value.map((unitOfMeasureId) => ({
+  value: unitOfMeasureId,
+  label: unitOfMeasureId,
+})));
+const materialOptions = computed(() => activeMaterials.value.map((material) => ({
+  value: material.id,
+  label: selectorLabel(material),
+})));
+const locationOptions = computed(() => activeLocations.value.map((location) => ({
+  value: location.id,
+  label: selectorLabel(location),
+})));
+const primaryAxisOptions = [
+  { value: 'QUANTITY', label: 'Quantity' },
+  { value: 'COST', label: 'Value at cost' },
+];
+const postHorizonOptions = [
+  { value: 'LIMIT_TO_PLANNING_HORIZON', label: 'Limit coverage to planning horizon' },
+  { value: 'AVERAGE_ALL_PERIODS', label: 'Continue using average daily consumption' },
+];
 
 /**
  * Community receives only the physical snapshot. These charts deliberately
@@ -166,41 +197,14 @@ onMounted(loadSelectors);
 
     <p v-if="errorMessage && inventoryOverview" class="message message-error" role="alert">{{ errorMessage }}</p>
 
-    <OfxSectionCard title="Initial selection" description="This scope is sent once to the backend. Empty material or location selections include the complete active scope.">
+    <OfxSectionCard title="Initial selection" description="Choose the report scope. Empty material or location selections include all active records.">
       <div class="grid gap-4 lg:grid-cols-3">
-        <label class="field-label">Supply Plan
-        <select v-model.number="supplyPlanId" :disabled="isLoadingSelectors">
-          <option v-for="supplyPlan in supplyPlans" :key="supplyPlan.supplyPlanId" :value="supplyPlan.supplyPlanId">{{ supplyPlanLabel(supplyPlan) }}</option>
-        </select>
-      </label>
-      <label class="field-label">Unit of measure
-        <select v-model="unitOfMeasureId" :disabled="isLoadingSelectors">
-          <option v-for="uom in unitOfMeasureIds" :key="uom" :value="uom">{{ uom }}</option>
-        </select>
-      </label>
-      <label class="field-label">Primary axis
-        <select disabled aria-label="Primary axis available in the current edition">
-          <option>Quantity</option>
-          <option>Value at cost — Enterprise</option>
-        </select>
-        <span><strong class="enterprise-badge">Enterprise</strong> Financial value is available in the Enterprise detailed report.</span>
-      </label>
-      <label class="field-label">Demand after planning horizon
-        <select v-model="postHorizonPolicy">
-          <option value="LIMIT_TO_PLANNING_HORIZON">Limit coverage to planning horizon</option>
-          <option value="AVERAGE_ALL_PERIODS">Continue using average daily consumption</option>
-        </select>
-      </label>
-      <label class="field-label">Materials <span>optional</span>
-        <select v-model="materialIds" multiple :disabled="isLoadingSelectors" aria-label="Filter materials">
-          <option v-for="material in activeMaterials" :key="material.id" :value="material.id">{{ selectorLabel(material) }}</option>
-        </select>
-      </label>
-      <label class="field-label">Locations <span>optional</span>
-        <select v-model="locationIds" multiple :disabled="isLoadingSelectors" aria-label="Filter locations">
-          <option v-for="location in activeLocations" :key="location.id" :value="location.id">{{ selectorLabel(location) }}</option>
-        </select>
-      </label>
+        <OfxSelectField label="Supply plan version" :model-value="supplyPlanId === null ? '' : String(supplyPlanId)" :options="supplyPlanOptions" :disabled="isLoadingSelectors" @update:model-value="supplyPlanId = $event ? Number($event) : null" />
+        <OfxSelectField v-model="unitOfMeasureId" label="Unit of measure" :options="unitOfMeasureOptions" :disabled="isLoadingSelectors" />
+        <OfxSelectField model-value="QUANTITY" label="Primary axis" :options="primaryAxisOptions" disabled required-edition="Pro / Enterprise" :show-placeholder-option="false" help-text="Financial value is not available in the current edition." />
+        <OfxSelectField v-model="postHorizonPolicy" label="Demand after planning horizon" :options="postHorizonOptions" :show-placeholder-option="false" />
+        <OfxEntityMultiSelect v-model="materialIds" label="Materials" :options="materialOptions" :disabled="isLoadingSelectors" placeholder="All active materials" />
+        <OfxEntityMultiSelect v-model="locationIds" label="Locations" :options="locationOptions" :disabled="isLoadingSelectors" placeholder="All active locations" />
       </div>
       <template #actions><div class="flex flex-wrap gap-3">
         <button class="secondary-button" :disabled="!materialIds.length" @click="clearMaterialFilter">All active materials</button>
@@ -221,37 +225,26 @@ onMounted(loadSelectors);
         </OfxSectionCard>
       </div>
 
-      <OfxSectionCard class="mt-6" title="Analysis filters" description="Detailed material/location analysis, characteristics and local pivot exploration belong to Enterprise.">
+      <OfxSectionCard class="mt-6" title="Analysis filters" description="Refine the loaded data by materials, locations and characteristics.">
         <div class="grid gap-4 md:grid-cols-2">
-          <label class="enterprise-filter-label">Locations
-            <select disabled aria-label="Enterprise analysis locations"><option>All loaded locations</option></select>
-          </label>
-          <label class="enterprise-filter-label">Location characteristics
-            <select disabled aria-label="Enterprise location characteristics"><option>Refine by characteristic</option></select>
-          </label>
-          <label class="enterprise-filter-label">Materials
-            <select disabled aria-label="Enterprise analysis materials"><option>All loaded materials</option></select>
-          </label>
-          <label class="enterprise-filter-label">Material characteristics
-            <select disabled aria-label="Enterprise material characteristics"><option>Refine by characteristic</option></select>
-          </label>
+          <OfxEntityMultiSelect :model-value="[]" label="Locations" :options="locationOptions" placeholder="All loaded locations" disabled required-edition="Pro / Enterprise" />
+          <OfxEntityMultiSelect :model-value="[]" label="Location characteristics" :options="[]" placeholder="Refine by characteristic" disabled required-edition="Pro / Enterprise" />
+          <OfxEntityMultiSelect :model-value="[]" label="Materials" :options="materialOptions" placeholder="All loaded materials" disabled required-edition="Pro / Enterprise" />
+          <OfxEntityMultiSelect :model-value="[]" label="Material characteristics" :options="[]" placeholder="Refine by characteristic" disabled required-edition="Pro / Enterprise" />
         </div>
         <div class="enterprise-gate mt-4" aria-disabled="true">
           <div>
             <strong>Detailed inventory exploration</strong>
             <p>Open one detailed material/location snapshot and refine it locally without changing the original selection.</p>
           </div>
-          <span class="enterprise-badge">Enterprise</span>
+          <OfxEditionAvailabilityMark edition-label="Pro / Enterprise" theme-mode="light" :size="14" />
         </div>
       </OfxSectionCard>
 
       <OfxSectionCard class="mt-6" title="Inventory analysis" description="Days of Supply are calendar days, calculated from each period-end stock balance.">
       <p v-if="!inventoryOverview.periods.length" class="muted">The selected Supply Plan has no projected periods.</p>
       <template v-else>
-        <label class="enterprise-filter-label mb-4 max-w-sm">Show in table
-          <select disabled aria-label="Enterprise table metric"><option>Constrained projected stock</option></select>
-          <span><strong class="enterprise-badge">Enterprise</strong> Detailed local pivot and alternate metrics are available in Enterprise.</span>
-        </label>
+        <div class="mb-4 max-w-sm"><OfxSelectField model-value="CONSTRAINED_STOCK" label="Show in table" :options="[{ value: 'CONSTRAINED_STOCK', label: 'Constrained projected stock' }]" disabled required-edition="Pro / Enterprise" :show-placeholder-option="false" help-text="Detailed local pivot and alternate metrics are not available in the current edition." /></div>
         <div class="table-scroll">
           <table>
             <thead>

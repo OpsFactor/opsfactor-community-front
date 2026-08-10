@@ -1,24 +1,28 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { useRuntimeInfoStore } from '@opsfactor/front-core';
-import { PlanningBookVirtualGrid, type PlanningBookVirtualGridColumn } from '@opsfactor/front-planning-book';
 import {
+  LegacyPlanningBookGrid,
+  type PlanningBookRow as CanonicalPlanningBookRow,
+  type PlanningBookSelectedCellDto,
+} from '@opsfactor/front-planning-book';
+import {
+  OfxConfirmDialog,
   OfxEmptyState,
+  OfxEditionAvailabilityMark,
   OfxLoadingState,
+  OfxModalDialog,
   OfxPageHeader,
   OfxSectionCard,
   OfxSelectField,
   OfxToggleField,
 } from '@opsfactor/front-shell';
 import DashboardPageLayout from '@/layouts/page/DashboardPageLayout.vue';
-import { buildCommunityPlanningBookRichRows } from '../planning-books/community-planning-book-grid-rich.utils';
 import { getDemandPlans } from './demand-plans.service';
 import { exportPlanningBookXlsx, getPlanningBookViews, loadPlanningBook, savePlanningBookCells } from './planning-book.service';
-import { flattenPlanningBook, getPlanningBookPeriodColumns, isCellEditMode, resolvePlanningBookPeriod } from './planning-book.utils';
+import { resolvePlanningBookPeriod } from './planning-book.utils';
 import type { DemandPlan } from './demand-plan.types';
-import type { PlanningBook, PlanningBookCellUpdate, PlanningBookRow, PlanningBookSelection, PlanningBookView } from './planning-book.types';
+import type { PlanningBook, PlanningBookCellUpdate, PlanningBookSelection, PlanningBookView } from './planning-book.types';
 
-const runtimeInfoStore = useRuntimeInfoStore();
 const demandPlans = ref<DemandPlan[]>([]);
 const planningBookViews = ref<PlanningBookView[]>([]);
 const selectedPlanId = ref('');
@@ -30,9 +34,10 @@ const isLoadingOptions = ref(true);
 const isLoadingBook = ref(false);
 const isSaving = ref(false);
 const isExporting = ref(false);
+const logDialogOpen = ref(false);
+const discardDialogOpen = ref(false);
 const errorMessage = ref<string | null>(null);
 
-const editableKeyFigures = computed(() => new Set(runtimeInfoStore.runtimeInfo?.editableDemandPlanningBookKeyFigures ?? []));
 const demandPlanOptions = computed(() => [
   { label: 'Select a demand plan', value: '' },
   ...demandPlans.value.map((plan) => ({
@@ -44,38 +49,7 @@ const planningBookViewOptions = computed(() => [
   { label: 'Select a user view', value: '' },
   ...planningBookViews.value.map((view) => ({ label: view.viewName, value: view.viewName })),
 ]);
-const rows = computed(() => planningBook.value === null ? [] : buildCommunityPlanningBookRichRows(flattenPlanningBook(planningBook.value)));
-const periodColumns = computed(() => planningBook.value === null ? [] : getPlanningBookPeriodColumns(planningBook.value));
-const descriptorColumns = computed(() => planningBook.value?.columnDefs.filter((column) => !column.dataColumn && column.field !== 'keyFigure') ?? []);
-/**
- * Keeps Community's DTO and edit policy local while the rich grid owns only
- * client-side virtualization, filtering and key-figure tree presentation.
- */
-const planningBookGridColumns = computed<PlanningBookVirtualGridColumn<(typeof rows.value)[number]>[]>(() => [
-  ...descriptorColumns.value.map((column) => ({
-    id: `descriptor:${column.field}`,
-    label: column.name,
-    cellClass: 'demand-planning-book__descriptor-cell',
-    getValue: (row: PlanningBookRow) => row.locationDescriptionCols[column.field]
-      || row.materialDescriptionCols[column.field]
-      || '—',
-  })),
-  {
-    id: 'key-figure',
-    label: 'Key figure',
-    width: '15rem',
-    hierarchy: true,
-    cellClass: 'demand-planning-book__key-figure-cell',
-    getValue: (row: PlanningBookRow) => row.keyFigure,
-  },
-  ...periodColumns.value.map((column) => ({
-    id: `period:${column.field}`,
-    label: column.name,
-    cellClass: 'demand-planning-book__period-cell',
-    getValue: (row: PlanningBookRow) => row.values[column.field],
-  })),
-]);
-const canOpenPlanningBook = computed(() => selectedPlanId.value !== '' && selectedViewName.value !== '' && runtimeInfoStore.runtimeInfo !== null);
+const canOpenPlanningBook = computed(() => selectedPlanId.value !== '' && selectedViewName.value !== '');
 const canExportPlanningBook = computed(() => planningBook.value !== null
   && openedPlanningBookSelection.value !== null
   && !isLoadingBook.value
@@ -84,28 +58,12 @@ const canExportPlanningBook = computed(() => planningBook.value !== null
 
 function errorText(error: unknown, fallback: string): string { return error instanceof Error ? error.message : fallback; }
 function cellKey(rowKey: string, field: string): string { return `${rowKey}::${field}`; }
-function currentCellValue(rowKey: string, field: string, originalValue: number | null | undefined): number | null | undefined { return pendingCells.value.get(cellKey(rowKey, field))?.newValue ?? originalValue; }
 
-function isEditable(row: PlanningBookRow, field: string, unavailableReason?: string): boolean {
-  const periodColumn = periodColumns.value.find((column) => column.field === field);
-  return unavailableReason === undefined
-    && !row.additionalClasses[field]?.includes('crosshatch')
-    && editableKeyFigures.value.has(row.keyFigure)
-    && isCellEditMode(row.editMode)
-    && periodColumn?.enableCellEdit !== false;
-}
-
-/** Identifies product-owned period cells rendered through the rich Community grid. */
-function isPeriodGridColumn(column: PlanningBookVirtualGridColumn<(typeof rows.value)[number]>): boolean {
-
-  return column.id.startsWith('period:');
-}
-
-/** Extracts the backend field name from a presentation-only grid column id. */
-function planningBookGridField(column: PlanningBookVirtualGridColumn<(typeof rows.value)[number]>): string {
-
-  return column.id.slice('period:'.length);
-}
+const pendingEditList = computed<PlanningBookSelectedCellDto[]>(() => Array.from(pendingCells.value.values()));
+const workspaceLogEntries = computed(() => [
+  ...(planningBook.value?.errorMessage ?? []),
+  ...(errorMessage.value ? [errorMessage.value] : []),
+].filter((entry, index, entries) => entry.length > 0 && entries.indexOf(entry) === index));
 
 /** Keeps the legacy composite row identity unchanged for draft-cell reconciliation. */
 async function loadOptions(): Promise<void> {
@@ -118,7 +76,7 @@ async function loadOptions(): Promise<void> {
 }
 
 async function openPlanningBook(): Promise<void> {
-  if (!canOpenPlanningBook.value || runtimeInfoStore.runtimeInfo === null) return;
+  if (!canOpenPlanningBook.value) return;
   const selection: PlanningBookSelection = { planId: selectedPlanId.value, viewName: selectedViewName.value };
   isLoadingBook.value = true; errorMessage.value = null; pendingCells.value = new Map();
   try {
@@ -167,14 +125,44 @@ async function exportOpenedPlanningBook(): Promise<void> {
   }
 }
 
-function queueCellUpdate(row: (typeof rows.value)[number], field: string, rawValue: string): void {
+/** Extracts one dimension map from the normalized canonical grid row. */
+function descriptorValues(
+  row: CanonicalPlanningBookRow,
+  dimension: 'location' | 'material',
+): Record<string, string> {
+
+  if (planningBook.value === null) return {};
+
+  return Object.fromEntries(planningBook.value.columnDefs
+    .filter((column) => !column.dataColumn && column.dimension === dimension)
+    .map((column) => [column.field, String(row[column.field] ?? '')]));
+
+}
+
+/** Converts the canonical AG Grid edit event to the Community POST contract. */
+function queueCellUpdate(payload: {
+  row: CanonicalPlanningBookRow;
+  field: string;
+  oldValue: number;
+  newValue: number;
+}): void {
+
   if (planningBook.value === null) return;
-  const oldValue = row.values[field];
-  const newValue = Number(rawValue);
-  if (!Number.isFinite(newValue) || oldValue === null || oldValue === undefined) return;
-  const key = cellKey(row.rowKey, field);
+
+  const key = cellKey(payload.row.rowKey, payload.field);
   const previousUpdate = pendingCells.value.get(key);
-  const update: PlanningBookCellUpdate = { planId: selectedPlanId.value, viewType: planningBook.value.viewType, viewName: planningBook.value.viewName, locationDescriptionCols: row.locationDescriptionCols, materialDescriptionCols: row.materialDescriptionCols, keyFigure: row.keyFigure, period: resolvePlanningBookPeriod(planningBook.value, field), uom: planningBook.value.uom, oldValue: previousUpdate?.oldValue ?? oldValue, newValue };
+  const update: PlanningBookCellUpdate = {
+    planId: selectedPlanId.value,
+    viewType: planningBook.value.viewType,
+    viewName: planningBook.value.viewName,
+    locationDescriptionCols: descriptorValues(payload.row, 'location'),
+    materialDescriptionCols: descriptorValues(payload.row, 'material'),
+    keyFigure: payload.row.keyFigure,
+    period: resolvePlanningBookPeriod(planningBook.value, payload.field),
+    uom: planningBook.value.uom,
+    oldValue: previousUpdate?.oldValue ?? payload.oldValue,
+    newValue: payload.newValue,
+  };
   const nextCells = new Map(pendingCells.value);
   if (update.newValue === update.oldValue) {
     nextCells.delete(key);
@@ -184,6 +172,34 @@ function queueCellUpdate(row: (typeof rows.value)[number], field: string, rawVal
   nextCells.set(key, update);
   pendingCells.value = nextCells;
   if (planningBook.value.autoSubmitChanges) void savePendingChanges([update]);
+}
+
+/** Reloads immediately when clean and asks before discarding local edits. */
+function requestReload(): void {
+
+  if (pendingCells.value.size > 0) {
+    discardDialogOpen.value = true;
+    return;
+  }
+
+  void openPlanningBook();
+
+}
+
+/** Discards local edits and replaces the grid with the authoritative snapshot. */
+async function confirmDiscardChanges(): Promise<void> {
+
+  discardDialogOpen.value = false;
+  pendingCells.value = new Map();
+  await openPlanningBook();
+
+}
+
+/** Surfaces the backend reason emitted by a canonical unavailable cell. */
+function handleUnavailableEdit(payload: { reason: string }): void {
+
+  errorMessage.value = payload.reason;
+
 }
 
 async function savePendingChanges(cells = Array.from(pendingCells.value.values())): Promise<void> {
@@ -246,10 +262,10 @@ onMounted(loadOptions);
             />
             <OfxToggleField
               :model-value="false"
-              label="Include a reference plan · Enterprise"
-              description="Reference-plan comparison is available in Enterprise."
-              locked
-              locked-label="Enterprise"
+              label="Include a reference plan"
+              description="Reference-plan comparison is not available in the current edition."
+              disabled
+              required-edition="Pro / Enterprise"
             />
           </div>
         </OfxSectionCard>
@@ -258,11 +274,11 @@ onMounted(loadOptions);
           <div class="workflow-grid">
             <button type="button" class="workflow-option workflow-option--selected text-left">
               <span class="workflow-option__title">Edit in Planning Book</span>
-              <span>Open the interactive planning grid and submit the supported Community adjustments.</span>
+              <span>Open the interactive planning grid and submit the supported adjustments.</span>
             </button>
             <button type="button" class="workflow-option workflow-option--locked text-left" disabled>
-              <span class="workflow-option__title">Collaborate via Excel <em>Enterprise</em></span>
-              <span>Workbook upload, validation and reference-plan collaboration are Enterprise capabilities.</span>
+              <span class="workflow-option__title">Collaborate via Excel <OfxEditionAvailabilityMark edition-label="Pro / Enterprise" theme-mode="light" :size="12" /></span>
+              <span>Workbook collaboration is not available in the current edition.</span>
             </button>
           </div>
 
@@ -278,56 +294,73 @@ onMounted(loadOptions);
       <OfxEmptyState
         v-if="!planningBook && !planningBookViews.length"
         title="No Planning Book views available"
-        description="Configure a view from the Planning Book workflow before opening it."
+        description="No Planning Book view is assigned to this account. Ask an administrator to configure one before opening the workbook."
       />
-      <OfxLoadingState v-else-if="!planningBook && isLoadingBook" label="Loading Planning Book DTO and preparing the workspace" />
+      <OfxLoadingState v-else-if="!planningBook && isLoadingBook" label="Preparing the Planning Book workspace" />
 
       <section v-if="planningBook" class="planning-book-workspace-header">
         <div>
           <div class="planning-book-workspace-eyebrow">Demand Planning Workspace</div>
-          <div class="planning-book-workspace-meta">{{ planningBook.viewName }} <span>•</span> {{ selectedPlanId }} <span>•</span> Community</div>
+          <div class="planning-book-workspace-meta">{{ planningBook.viewName }} <span>•</span> {{ selectedPlanId }}</div>
         </div>
         <button class="secondary-button" type="button" :disabled="isSaving || isExporting" @click="leavePlanningBook">Reopen selection</button>
       </section>
 
-      <OfxSectionCard
-        v-if="planningBook"
-        class="mt-5"
-        :title="planningBook.viewName"
-        :description="planningBook.autoSubmitChanges ? 'Changes are submitted immediately.' : 'Changes stay local until saved.'"
-      >
-        <p class="muted">Spreadsheet export is a read-only copy of this opened view; it does not download or change view configuration.</p>
-        <p v-for="message in planningBook.errorMessage" :key="message" class="muted">{{ message }}</p>
-        <PlanningBookVirtualGrid :rows="rows" :columns="planningBookGridColumns" :busy="isSaving || isExporting">
-          <template #cell="{ row, column, value }">
-            <strong v-if="column.id === 'key-figure'">{{ value }}</strong>
-            <template v-else-if="isPeriodGridColumn(column)">
-              <input
-                v-if="isEditable(row, planningBookGridField(column), row.unavailableReasons[planningBookGridField(column)])"
-                :value="currentCellValue(row.rowKey, planningBookGridField(column), row.values[planningBookGridField(column)])"
-                type="number"
-                step="any"
-                :disabled="isSaving || isExporting"
-                @change="queueCellUpdate(row, planningBookGridField(column), ($event.target as HTMLInputElement).value)"
-              />
-              <span v-else :title="row.unavailableReasons[planningBookGridField(column)]">
-                {{ row.unavailableReasons[planningBookGridField(column)] ? 'N/A' : (currentCellValue(row.rowKey, planningBookGridField(column), row.values[planningBookGridField(column)]) ?? 0) }}
-              </span>
-            </template>
-            <span v-else>{{ value }}</span>
-          </template>
-        </PlanningBookVirtualGrid>
-        <template #actions>
-          <div class="actions">
-            <button class="secondary-button" :disabled="!canExportPlanningBook" @click="exportOpenedPlanningBook">{{ isExporting ? 'Exporting...' : 'Export XLSX' }}</button>
-            <button class="secondary-button" :disabled="isLoadingBook || isSaving || isExporting" @click="openPlanningBook">Reload</button>
-            <button v-if="!planningBook.autoSubmitChanges" class="primary-button" :disabled="!pendingCells.size || isSaving || isExporting" @click="savePendingChanges()">
-              {{ isSaving ? 'Saving...' : `Save changes (${pendingCells.size})` }}
+      <div v-if="planningBook" class="planning-book-workspace-body">
+        <LegacyPlanningBookGrid
+          :planning-book="planningBook"
+          height="100%"
+          mode="demand"
+          theme-mode="light"
+          :pending-edit-count="pendingCells.size"
+          :pending-edits="pendingEditList"
+          :is-saving="isSaving"
+          @edit="queueCellUpdate"
+          @unavailable-edit="handleUnavailableEdit"
+        >
+          <template #header-actions>
+            <button type="button" class="grid-action" @click="logDialogOpen = true">Log</button>
+            <button type="button" class="grid-action" :disabled="!canExportPlanningBook" @click="exportOpenedPlanningBook">
+              {{ isExporting ? 'Exporting...' : 'Export XLSX' }}
             </button>
-          </div>
-        </template>
-      </OfxSectionCard>
+            <button type="button" class="grid-action" :disabled="isLoadingBook || isSaving || isExporting" @click="requestReload">
+              {{ pendingCells.size ? 'Discard local changes' : 'Reload workbook' }}
+            </button>
+            <button
+              v-if="!planningBook.autoSubmitChanges"
+              type="button"
+              class="grid-action grid-action--primary"
+              :disabled="!pendingCells.size || isSaving || isExporting"
+              @click="savePendingChanges()"
+            >
+              {{ isSaving ? 'Saving...' : `Save in batch${pendingCells.size ? ` (${pendingCells.size})` : ''}` }}
+            </button>
+          </template>
+        </LegacyPlanningBookGrid>
+      </div>
     </template>
+
+    <OfxConfirmDialog
+      :open="discardDialogOpen"
+      title="Discard local planning-book changes?"
+      description="Unsaved cell edits will be lost and the workbook will be reloaded from the backend."
+      confirm-label="Discard changes"
+      cancel-label="Keep editing"
+      @cancel="discardDialogOpen = false"
+      @confirm="confirmDiscardChanges"
+    />
+
+    <OfxModalDialog
+      :open="logDialogOpen"
+      title="Planning Book Log"
+      description="Messages returned by the current workbook context."
+      @close="logDialogOpen = false"
+    >
+      <div v-if="workspaceLogEntries.length" class="space-y-2">
+        <div v-for="entry in workspaceLogEntries" :key="entry" class="log-entry">{{ entry }}</div>
+      </div>
+      <div v-else class="log-empty">No log entries were returned for this planning book.</div>
+    </OfxModalDialog>
   </DashboardPageLayout>
 </template>
 
@@ -371,6 +404,12 @@ onMounted(loadOptions);
   color: var(--ofx-text-muted);
 }
 
+.planning-book-workspace-body {
+  height: calc(100vh - 13.5rem);
+  min-height: 32rem;
+  overflow: hidden;
+}
+
 .selection-grid {
   display: grid;
   gap: 1rem;
@@ -407,17 +446,6 @@ onMounted(loadOptions);
   color: var(--ofx-text);
   font-size: .875rem;
   font-weight: 600;
-}
-
-.workflow-option em {
-  border-radius: 99px;
-  background: var(--ofx-surface);
-  color: var(--ofx-text-muted);
-  font-size: 10px;
-  font-style: normal;
-  letter-spacing: .1em;
-  padding: .16rem .4rem;
-  text-transform: uppercase;
 }
 
 .workflow-option span:not(.workflow-option__title) {
@@ -458,6 +486,48 @@ onMounted(loadOptions);
   gap: .75rem;
 }
 
+.grid-action {
+  display: inline-flex;
+  height: 2.25rem;
+  align-items: center;
+  border: 1px solid var(--ofx-border);
+  border-radius: 999px;
+  background: var(--ofx-surface);
+  padding: 0 .75rem;
+  color: var(--ofx-text);
+  font-size: .75rem;
+  font-weight: 600;
+}
+
+.grid-action--primary {
+  border-color: var(--ofx-primary);
+  background: var(--ofx-primary);
+  color: var(--ofx-primary-foreground);
+}
+
+.grid-action:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.log-entry {
+  border: 1px solid var(--ofx-border);
+  border-radius: 12px;
+  background: var(--ofx-surface-elevated);
+  padding: .75rem 1rem;
+  color: var(--ofx-text-muted);
+  font-size: .875rem;
+}
+
+.log-empty {
+  border: 1px dashed var(--ofx-border);
+  border-radius: 12px;
+  padding: 2rem 1rem;
+  color: var(--ofx-text-muted);
+  text-align: center;
+  font-size: .875rem;
+}
+
 .muted {
   color: var(--ofx-text-muted);
   font-size: .875rem;
@@ -476,19 +546,14 @@ onMounted(loadOptions);
   color: #b42318;
 }
 
-:deep(.demand-planning-book__period-cell input) {
-  min-width: 7rem;
-  width: 7rem;
-  border: 1px solid var(--ofx-border);
-  border-radius: 12px;
-  background: var(--ofx-surface);
-  padding: .55rem .75rem;
-  color: var(--ofx-text);
-}
-
 @media (max-width: 720px) {
   .workflow-grid {
     grid-template-columns: 1fr;
+  }
+
+  .planning-book-workspace-body {
+    height: calc(100vh - 16rem);
+    min-height: 26rem;
   }
 }
 </style>

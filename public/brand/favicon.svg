@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="108" viewBox="0 0 144 108" role="img" aria-labelledby="title desc">
+  <title id="title">OpsFactor favicon</title>
+  <desc id="desc">OpsFactor Connected Layers symbol.</desc>
+  <defs>
+    <linearGradient id="ops-upper-gradient" x1="8" y1="14" x2="88" y2="67" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00D4FF"/><stop offset="1" stop-color="#00E5B8"/>
+    </linearGradient>
+    <linearGradient id="ops-lower-gradient" x1="8" y1="96" x2="59" y2="78" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1268E8"/><stop offset="1" stop-color="#45A3FF"/>
+    </linearGradient>
+  </defs>
+  <g>
+    <path fill="url(#ops-upper-gradient)" d="M86 14 75 31H37c-9 0-14 4-14 11s5 11 14 11h26L53 69H35C17 69 7 58 7 42S18 14 35 14h51Z"/>
+    <path fill="url(#ops-lower-gradient)" d="m15 82 42-1-8 17H6l9-16Z"/>
+    <path fill="#F7FBFF" d="M88 8h17L90 43h39l-7 17H83l-17 40H49l17-40H52l7-17h14L88 8Z"/>
+    <path fill="#F7FBFF" d="M92 72h28l-7 16H85l7-16Z" opacity=".94"/>
+  </g>
+</svg>

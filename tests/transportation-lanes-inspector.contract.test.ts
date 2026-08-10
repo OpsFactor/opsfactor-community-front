@@ -82,19 +82,20 @@ test('Supply Network Configuration page loads each snapshot explicitly and reloa
     'utf8',
   ));
 
-  assert.match(source, /onMounted\(\(\) => \{ void loadSupplyNetworkVersions\(\); \}\)/);
+  assert.match(source, /onMounted\(async \(\) => \{/);
+  assert.match(source, /void loadSupplyNetworkVersions\(\)/);
   assert.match(source, /@click="void loadBaseLanes\(true\)"/);
   assert.match(source, /@click="void loadMaterialOverrides\(true\)"/);
-  assert.match(source, /await transportationLanesInspectorService\.saveBaseLane\(snapshot\)/);
-  assert.match(source, /await transportationLanesInspectorService\.saveMaterialOverride\(snapshot\)/);
+  assert.match(source, /await transportationLanesInspectorService\.saveBaseLane\(\s*snapshot\s*\)/);
+  assert.match(source, /await transportationLanesInspectorService\.saveMaterialOverride\(\s*snapshot\s*\)/);
   assert.match(source, /await transportationLanesInspectorService\.deleteBaseLane/);
   assert.match(source, /await transportationLanesInspectorService\.deleteMaterialOverride/);
   assert.match(source, /await loadBaseLanes\(true\)/);
   assert.match(source, /await loadMaterialOverrides\(true\)/);
-  assert.match(source, /Version deletion is intentionally not exposed by the Community controller/);
+  assert.match(source, /Version deletion is not available in this screen/);
 });
 
-test('Supply Network Configuration does not fetch master-data catalogs or expose Enterprise network features', async () => {
+test('Supply Network Configuration uses bounded selectors without exposing Enterprise network features', async () => {
   const fs = await import('node:fs/promises');
   const [serviceSource, pageSource] = await Promise.all([
     fs.readFile(new URL('../src/modules/transportation-lanes/transportation-lanes.service.ts', import.meta.url), 'utf8'),
@@ -105,6 +106,8 @@ test('Supply Network Configuration does not fetch master-data catalogs or expose
   for (const forbiddenFragment of ['/api/secured/material', '/api/secured/location', '/data/', '/optimizer', '/planning/supply/execute']) {
     assert.equal(transportSource.includes(forbiddenFragment), false, `Supply Network Configuration transport must not use ${forbiddenFragment}`);
   }
-  assert.match(pageSource, /No distance, freight, GIS, map, fleet, flows, optimizer, Data, XLSX, batch update, routing, or execution/i);
-  assert.match(pageSource, /page never preloads materials or locations/i);
+  assert.match(pageSource, /No distance, freight, GIS, map, fleet, flows, optimizer, Data, XLSX,[\s\S]*batch update, routing, or execution/i);
+  assert.match(pageSource, /loadCommunityLocations/);
+  assert.match(pageSource, /loadCommunityMaterials/);
+  assert.match(pageSource, /loadCommunityUnitOfMeasureIds/);
 });

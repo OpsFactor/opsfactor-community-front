@@ -1,4 +1,5 @@
 import { bootstrapFrontendApplication, bootstrapRuntimeInfo, renderBootstrapFailure } from '@opsfactor/front-core';
+import '@opsfactor/front-shell/styles.css';
 import '@perspective-dev/viewer/dist/css/pro-dark.css';
 import '@perspective-dev/viewer/dist/css/icons.css';
 import '@perspective-dev/viewer-datagrid/dist/css/perspective-viewer-datagrid.css';

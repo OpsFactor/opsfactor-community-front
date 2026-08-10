@@ -1,129 +1,1200 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { requestJson } from '@/services/api/request';
-import { fetchClusterLevelConfiguration, saveClusterLevelConfiguration, type DemandClusterLevelConfiguration } from './services/cluster-level-configuration.service';
-import { OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
+import { computed, onMounted, ref, watch } from 'vue';
+import DashboardPageLayout from '@/layouts/page/DashboardPageLayout.vue';
+import OfxSelectField from '@/components/ofx/forms/OfxSelectField.vue';
+import OfxPeriodPicker from '@/components/ofx/forms/OfxPeriodPicker.vue';
+import OfxTextField from '@/components/ofx/forms/OfxTextField.vue';
+import OfxToggleField from '@/components/ofx/forms/OfxToggleField.vue';
+import OfxDataTable from '@/components/ofx/data-display/OfxDataTable.vue';
+import EChartAdapter from '@/wrappers/echarts/EChartAdapter.vue';
+import type { OfxSelectOption, OfxTableColumn } from '@/types/ui';
+import {
+  OfxEmptyState,
+  OfxKpiCard,
+  OfxLoadingState,
+  OfxPageHeader,
+  OfxSectionCard,
+} from '@opsfactor/front-shell';
+import {
+  fetchClusterLevelConfiguration,
+  fetchDemandExecutionProfiles,
+  fetchDemandLocationClusters,
+  fetchDemandProductClusters,
+  fetchUomIds,
+  saveClusterLevelConfiguration,
+  simulateClusterLevelConfiguration,
+  type DemandClusterLevelConfiguration,
+  type DemandExecutionProfileOption,
+  type DemandLocationClusterOption,
+  type DemandProductClusterOption,
+  type DemandSimulationSeriesRow,
+  type SimulatedDemandPlanMaterialLocationDto,
+  type SimulatedDemandPlanResponse,
+} from './services/cluster-level-configuration.service';
 
-interface Option { id: string | number; description?: string | null; codigo?: string | number | null; descricao?: string | null; bucketSize?: string | null; }
-const profiles = ref<Option[]>([]); const locations = ref<Option[]>([]); const products = ref<Option[]>([]);
-const profileId = ref(''); const locationId = ref(''); const productId = ref(''); const loading = ref(true); const saving = ref(false); const failure = ref(''); const feedback = ref('');
-const configuration = ref<DemandClusterLevelConfiguration>(emptyConfiguration());
-const ready = computed(() => Boolean(profileId.value && locationId.value && productId.value));
+const CLUSTER_LEVEL_VALUE = 'Cluster Level';
 
-function emptyConfiguration(): DemandClusterLevelConfiguration {
-  return { demandPlanningGeneralParameters: { executeDemandPlan: true, roundToSalesUnit: false }, demandPlanningForecastParameters: { statisticalModel: 'MM', daysMovingAverageModel: 3, splitModel: 'HISTORICAL_SALES' } };
+type SimulationPreviewSeriesRow = SimulatedDemandPlanMaterialLocationDto;
+
+type AggregatedErrorRow = {
+  rowKey: string;
+  locationDimension: string;
+  materialDimension: string;
+  salesQty: number;
+  forecastQty: number;
+  error: number;
+  errorPercent: number | null;
+};
+
+type MaterialLocationErrorRow = {
+  rowKey: string;
+  locationId: string;
+  materialId: string;
+  salesQty: number;
+  forecastQty: number;
+  error: number;
+  errorPercent: number | null;
+};
+
+const isBootstrapping = ref(true);
+const isLoadingConfiguration = ref(false);
+const isSavingConfiguration = ref(false);
+const isRunningSimulation = ref(false);
+const failure = ref('');
+const feedback = ref('');
+
+const executionProfiles = ref<DemandExecutionProfileOption[]>([]);
+const locationClusters = ref<DemandLocationClusterOption[]>([]);
+const productClusters = ref<DemandProductClusterOption[]>([]);
+const uomIds = ref<string[]>([]);
+
+const selectedExecutionProfileId = ref('');
+const selectedLocationClusterId = ref('');
+const selectedProductClusterId = ref('');
+const selectedMaterial = ref(CLUSTER_LEVEL_VALUE);
+const selectedLocation = ref(CLUSTER_LEVEL_VALUE);
+const forecastLag = ref('0');
+const referenceDate = ref(toLocalDateInputValue(new Date()));
+
+const configuration = ref<DemandClusterLevelConfiguration>(createEmptyConfiguration());
+const simulation = ref<SimulatedDemandPlanResponse | null>(null);
+
+const aggregatedColumns: OfxTableColumn[] = [
+  { field: 'locationDimension', header: 'Location (Selected)', dataType: 'text' },
+  { field: 'materialDimension', header: 'Material (Selected)', dataType: 'text' },
+  { field: 'salesQty', header: 'Sales Quantity', dataType: 'number-1', align: 'right' },
+  { field: 'forecastQty', header: 'Forecast Quantity', dataType: 'number-1', align: 'right' },
+  { field: 'error', header: 'Error', dataType: 'number-1', align: 'right' },
+  { field: 'errorPercent', header: '% Error', dataType: 'fraction-percent-2', emptyValueLabel: 'No Sales Reference', align: 'right' },
+];
+const materialLocationColumns: OfxTableColumn[] = [
+  { field: 'locationId', header: 'Location', dataType: 'text' },
+  { field: 'materialId', header: 'Material', dataType: 'text' },
+  { field: 'salesQty', header: 'Sales Quantity', dataType: 'number-1', align: 'right' },
+  { field: 'forecastQty', header: 'Forecast Quantity', dataType: 'number-1', align: 'right' },
+  { field: 'error', header: 'Error', dataType: 'number-1', align: 'right' },
+  { field: 'errorPercent', header: '% Error', dataType: 'fraction-percent-2', emptyValueLabel: 'No Sales Reference', align: 'right' },
+];
+
+const statisticalModelOptions: OfxSelectOption[] = [
+  { value: 'Moving Average', label: 'Moving Average' },
+  { value: 'Rolling Moving Average', label: 'Rolling Moving Average' },
+  { value: 'ARIMA', label: 'ARIMA' },
+  { value: 'Holt-Winters', label: 'Holt-Winters' },
+  { value: 'Exponential Smoothing', label: 'Exponential Smoothing' },
+];
+const aggregationOptions: OfxSelectOption[] = [
+  { value: 'Top-Down', label: 'Top-Down' },
+];
+const splitModelOptions: OfxSelectOption[] = [
+  { value: 'Historical Sales', label: 'Historical Sales' },
+];
+const disabledOutlierOptions: OfxSelectOption[] = [
+  { value: 'Inactive', label: 'Inactive' },
+];
+const disabledUpliftOptions: OfxSelectOption[] = [
+  { value: 'No Uplift Calculation', label: 'No Uplift Calculation' },
+];
+const disabledStockoutOptions: OfxSelectOption[] = [
+  { value: 'Disabled', label: 'Disabled' },
+];
+const disabledRegressorOptions: OfxSelectOption[] = [
+  { value: 'None', label: 'None' },
+];
+
+const canLoadConfiguration = computed(() => Boolean(
+  selectedExecutionProfileId.value
+  && selectedLocationClusterId.value
+  && selectedProductClusterId.value,
+));
+const selectedExecutionProfile = computed(() => executionProfiles.value.find(
+  (profile) => profile.id === selectedExecutionProfileId.value,
+) ?? null);
+const executeDemandPlanEnabled = computed(() => (
+  configuration.value.demandPlanningGeneralParameters.executeDemandPlan !== false
+));
+const statisticalModel = computed(() => normalizeStatisticalModel(
+  configuration.value.demandPlanningForecastParameters.statisticalModel,
+));
+const showMovingAverageWindow = computed(() => (
+  statisticalModel.value === 'Moving Average'
+  || statisticalModel.value === 'Rolling Moving Average'
+));
+const showAlpha = computed(() => (
+  statisticalModel.value === 'Exponential Smoothing'
+  || statisticalModel.value === 'Holt-Winters'
+));
+const showBetaGamma = computed(() => statisticalModel.value === 'Holt-Winters');
+const autoAlpha = computed({
+  get: () => configuration.value.demandPlanningForecastParameters.alpha == null,
+  set: (automatic: boolean) => {
+    configuration.value.demandPlanningForecastParameters.alpha = automatic
+      ? null
+      : configuration.value.demandPlanningForecastParameters.alpha ?? 0;
+  },
+});
+const autoBeta = computed({
+  get: () => configuration.value.demandPlanningForecastParameters.beta == null,
+  set: (automatic: boolean) => {
+    configuration.value.demandPlanningForecastParameters.beta = automatic
+      ? null
+      : configuration.value.demandPlanningForecastParameters.beta ?? 0;
+  },
+});
+const autoGamma = computed({
+  get: () => configuration.value.demandPlanningForecastParameters.gamma == null,
+  set: (automatic: boolean) => {
+    configuration.value.demandPlanningForecastParameters.gamma = automatic
+      ? null
+      : configuration.value.demandPlanningForecastParameters.gamma ?? 0;
+  },
+});
+const forecastStartIndex = computed(() => {
+  const index = Number(simulation.value?.posicaoPeriodoInicioForecast);
+  return Number.isInteger(index) && index >= 0 ? index : simulation.value?.periodos.length ?? 0;
+});
+const lastHistoricalSalesIndex = computed(() => {
+  const index = Number(simulation.value?.posicaoPeriodoUltimaVenda);
+  if (Number.isInteger(index) && index >= 0) return index;
+
+  return findLastMeaningfulIndex(aggregateSeries(filteredSimulationRows.value, 'historicalSales'));
+});
+const currentLagIndex = computed(() => {
+  const lag = Number(forecastLag.value);
+  if (!Number.isInteger(lag) || lag < 0) return forecastStartIndex.value;
+  return Math.min(forecastStartIndex.value + lag, Math.max((simulation.value?.periodos.length ?? 1) - 1, 0));
+});
+
+const executionProfileOptions = computed<OfxSelectOption[]>(() => [
+  { value: '', label: 'Select a Demand Planning Execution Profile' },
+  ...executionProfiles.value.map((profile) => ({
+    value: profile.id,
+    label: profile.description?.trim()
+      ? `${profile.id} - ${profile.bucketSize ?? 'No bucket'} - ${profile.description}`
+      : profile.id,
+  })),
+]);
+const locationClusterOptions = computed<OfxSelectOption[]>(() => [
+  { value: '', label: 'Select a location cluster' },
+  ...locationClusters.value.map((cluster) => ({
+    value: String(cluster.id),
+    label: cluster.description?.trim() || String(cluster.id),
+  })),
+]);
+const productClusterOptions = computed<OfxSelectOption[]>(() => [
+  { value: '', label: 'Select a product cluster' },
+  ...productClusters.value.map((cluster) => ({
+    value: String(cluster.id ?? cluster.codigo ?? ''),
+    label: cluster.description?.trim() || cluster.descricao?.trim() || String(cluster.id ?? cluster.codigo ?? ''),
+  })),
+]);
+const uomOptions = computed<OfxSelectOption[]>(() => uomIds.value.map((uomId) => ({
+  value: uomId,
+  label: uomId,
+})));
+const materialFilterOptions = computed<OfxSelectOption[]>(() => [
+  { value: CLUSTER_LEVEL_VALUE, label: CLUSTER_LEVEL_VALUE },
+  ...uniqueSeriesValues('material').map((materialId) => ({ value: materialId, label: materialId })),
+]);
+const locationFilterOptions = computed<OfxSelectOption[]>(() => [
+  { value: CLUSTER_LEVEL_VALUE, label: CLUSTER_LEVEL_VALUE },
+  ...uniqueSeriesValues('location').map((locationId) => ({ value: locationId, label: locationId })),
+]);
+const filteredSimulationRows = computed(() => (simulation.value?.materialLocationData ?? []).filter((row) => (
+  (selectedMaterial.value === CLUSTER_LEVEL_VALUE || simulationMaterialId(row) === selectedMaterial.value)
+  && (selectedLocation.value === CLUSTER_LEVEL_VALUE || row.locationId === selectedLocation.value)
+)));
+const aggregatedHistoricalSales = computed(() => aggregateSeries(
+  filteredSimulationRows.value,
+  'historicalSales',
+));
+const aggregatedBaselineForecast = computed(() => aggregateSeries(
+  filteredSimulationRows.value,
+  'baselineForecast',
+));
+const aggregatedResidual = computed(() => aggregateSeries(
+  filteredSimulationRows.value,
+  'residual',
+));
+const forecastLagOptions = computed<OfxSelectOption[]>(() => {
+  const periods = simulation.value?.periodos ?? [];
+  if (!periods.length || forecastStartIndex.value >= periods.length) return [{ value: '0', label: 'Lag 0' }];
+
+  return periods.slice(forecastStartIndex.value).map((period, index) => ({
+    value: String(index),
+    label: `Lag ${index} - ${period}`,
+  }));
+});
+const aggregatedErrorRows = computed<AggregatedErrorRow[]>(() => {
+  if (!simulation.value || !filteredSimulationRows.value.length) return [];
+
+  const lagIndex = currentLagIndex.value;
+  const salesQty = aggregatedHistoricalSales.value[lagIndex] ?? 0;
+  const forecastQty = aggregatedBaselineForecast.value[lagIndex] ?? 0;
+  const error = aggregatedResidual.value[lagIndex] ?? 0;
+  return [{
+    rowKey: `aggregate-${lagIndex}`,
+    locationDimension: selectedLocation.value,
+    materialDimension: selectedMaterial.value,
+    salesQty,
+    forecastQty,
+    error,
+    errorPercent: salesQty === 0 ? null : error / salesQty,
+  }];
+});
+const materialLocationErrorRows = computed<MaterialLocationErrorRow[]>(() => filteredSimulationRows.value.map((row, index) => {
+  const lagIndex = currentLagIndex.value;
+  const salesQty = numberAt(row.historicalSales, lagIndex);
+  const forecastQty = numberAt(row.baselineForecast, lagIndex);
+  const error = numberAt(row.residual, lagIndex);
+  return {
+    rowKey: `${simulationMaterialId(row)}-${row.locationId ?? '-'}-${index}`,
+    locationId: row.locationId ?? '-',
+    materialId: simulationMaterialId(row),
+    salesQty,
+    forecastQty,
+    error,
+    errorPercent: salesQty === 0 ? null : error / salesQty,
+  };
+}));
+const currentLagMetrics = computed(() => {
+  const lagIndex = currentLagIndex.value;
+  const metrics = filteredSimulationRows.value.reduce(
+    (result, row) => {
+      result.salesQty += numberAt(row.historicalSales, lagIndex);
+      result.error += numberAt(row.residual, lagIndex);
+      result.absoluteError += numberAt(row.absoluteResidual, lagIndex);
+      return result;
+    },
+    { salesQty: 0, error: 0, absoluteError: 0 },
+  );
+
+  return {
+    salesQty: metrics.salesQty,
+    error: metrics.error,
+    bias: metrics.salesQty === 0 ? null : metrics.error / metrics.salesQty,
+    mape: metrics.salesQty === 0 ? null : metrics.absoluteError / metrics.salesQty,
+  };
+});
+const previewMetricCards = computed(() => [
+  { label: 'Total Sales at Lag', value: formatQuantity(currentLagMetrics.value.salesQty), tone: 'success' as const },
+  { label: 'Total Bias at Lag', value: formatQuantity(currentLagMetrics.value.error) },
+  { label: '% Bias at Lag', value: formatPercent(currentLagMetrics.value.bias) },
+  { label: '% MAPE at Lag', value: formatPercent(currentLagMetrics.value.mape) },
+]);
+const previewChartOption = computed(() => ({
+  animation: false,
+  tooltip: { trigger: 'axis' },
+  legend: { top: 0, textStyle: { color: '#64748b' }, itemWidth: 12, itemHeight: 12 },
+  grid: { left: 56, right: 24, top: 64, bottom: 44 },
+  xAxis: {
+    type: 'category',
+    data: simulation.value?.periodos ?? [],
+    boundaryGap: false,
+    axisLabel: { color: '#64748b', hideOverlap: true },
+  },
+  yAxis: { type: 'value', axisLabel: { color: '#64748b' }, splitLine: { lineStyle: { color: '#dbe3ef' } } },
+  series: buildPreviewLineSeries(),
+}));
+const seasonalityChartOption = computed(() => buildSeasonalityChartOption());
+
+/** Keeps the new Community API labels canonical while accepting older enum-shaped payloads. */
+function normalizeStatisticalModel(value: unknown): string {
+  const aliases: Record<string, string> = {
+    MM: 'Moving Average',
+    RMM: 'Rolling Moving Average',
+    HOLT_WINTERS: 'Holt-Winters',
+    ES: 'Exponential Smoothing',
+  };
+  const normalized = String(value ?? 'Moving Average');
+  return aliases[normalized] ?? normalized;
 }
-function label(option: Option): string { return option.description ?? option.descricao ?? String(option.id ?? option.codigo); }
-function optionId(option: Option): string { return String(option.id ?? option.codigo ?? ''); }
+
+function normalizeAggregation(_value: unknown): string {
+  return 'Top-Down';
+}
+
+function normalizeSplitModel(value: unknown): string {
+  return String(value ?? 'Historical Sales') === 'HISTORICAL_SALES'
+    ? 'Historical Sales'
+    : String(value ?? 'Historical Sales');
+}
+
+function toLocalDateInputValue(date: Date): string {
+  const offsetMilliseconds = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offsetMilliseconds).toISOString().slice(0, 10);
+}
+
+function createEmptyConfiguration(options: {
+  executionProfileId?: string;
+  locationClusterId?: string;
+  productClusterId?: string;
+  defaultUomId?: string;
+} = {}): DemandClusterLevelConfiguration {
+  return {
+    demandPlanExecutionProfileId: options.executionProfileId || null,
+    materialClusterId: options.productClusterId ? Number(options.productClusterId) : null,
+    locationClusterId: options.locationClusterId ? Number(options.locationClusterId) : null,
+    demandPlanningGeneralParameters: {
+      executeDemandPlan: true,
+      uomId: options.defaultUomId ?? '',
+      roundToSalesUnit: false,
+      considerHistoricalSalesOfInactiveDfus: false,
+      generateForecastForDiscontinuedMaterials: false,
+      materialAggregationType: 'Top-Down',
+      locationAggregationType: 'Top-Down',
+      daysSalesHistory: 365,
+    },
+    demandPlanningForecastParameters: {
+      statisticalModel: 'Moving Average',
+      daysMovingAverageModel: 90,
+      splitModel: 'Historical Sales',
+      daysTopDownSplit: 90,
+      alpha: null,
+      beta: null,
+      gamma: null,
+    },
+  };
+}
+
+/** Normalizes only public Community fields and deliberately drops every private transition field. */
+function normalizeConfiguration(
+  source: DemandClusterLevelConfiguration,
+  options: {
+    executionProfileId: string;
+    locationClusterId: string;
+    productClusterId: string;
+    defaultUomId: string;
+  },
+): DemandClusterLevelConfiguration {
+  const defaults = createEmptyConfiguration(options);
+  const general = source.demandPlanningGeneralParameters ?? {};
+  const forecast = source.demandPlanningForecastParameters ?? {};
+
+  return {
+    demandPlanExecutionProfileId: options.executionProfileId,
+    locationClusterId: Number(options.locationClusterId),
+    materialClusterId: Number(options.productClusterId),
+    demandPlanningGeneralParameters: {
+      executeDemandPlan: general.executeDemandPlan ?? true,
+      uomId: String(general.uomId ?? options.defaultUomId),
+      roundToSalesUnit: false,
+      considerHistoricalSalesOfInactiveDfus: general.considerHistoricalSalesOfInactiveDfus ?? false,
+      generateForecastForDiscontinuedMaterials: general.generateForecastForDiscontinuedMaterials ?? false,
+      materialAggregationType: normalizeAggregation(general.materialAggregationType),
+      locationAggregationType: normalizeAggregation(general.locationAggregationType),
+      daysSalesHistory: parseNullableNumber(general.daysSalesHistory)
+        ?? defaults.demandPlanningGeneralParameters.daysSalesHistory,
+    },
+    demandPlanningForecastParameters: {
+      statisticalModel: normalizeStatisticalModel(forecast.statisticalModel),
+      daysMovingAverageModel: parseNullableNumber(forecast.daysMovingAverageModel)
+        ?? defaults.demandPlanningForecastParameters.daysMovingAverageModel,
+      splitModel: normalizeSplitModel(forecast.splitModel),
+      daysTopDownSplit: parseNullableNumber(forecast.daysTopDownSplit)
+        ?? defaults.demandPlanningForecastParameters.daysTopDownSplit,
+      alpha: parseNullableNumber(forecast.alpha),
+      beta: parseNullableNumber(forecast.beta),
+      gamma: parseNullableNumber(forecast.gamma),
+    },
+  };
+}
+
+function parseNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isPositiveInteger(value: unknown): boolean {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0;
+}
+
+function configurationIsValid(): boolean {
+  const general = configuration.value.demandPlanningGeneralParameters;
+  const forecast = configuration.value.demandPlanningForecastParameters;
+  return Boolean(general.uomId)
+    && isPositiveInteger(general.daysSalesHistory)
+    && isPositiveInteger(forecast.daysMovingAverageModel)
+    && isPositiveInteger(forecast.daysTopDownSplit)
+    && [forecast.alpha, forecast.beta, forecast.gamma]
+      .every((value) => value == null || Number.isFinite(Number(value)));
+}
+
+function buildConfigurationPayload(): DemandClusterLevelConfiguration {
+  return normalizeConfiguration(configuration.value, {
+    executionProfileId: selectedExecutionProfileId.value,
+    locationClusterId: selectedLocationClusterId.value,
+    productClusterId: selectedProductClusterId.value,
+    defaultUomId: selectedExecutionProfile.value?.defaultDemandPlanningUomId ?? uomIds.value[0] ?? '',
+  });
+}
+
+function simulationMaterialId(row: SimulatedDemandPlanMaterialLocationDto): string {
+  return row.materialId ?? row.productId ?? '-';
+}
+
+function numberAt(values: number[] | undefined, index: number): number {
+  const value = Number(values?.[index] ?? 0);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function findLastMeaningfulIndex(values: number[]): number {
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    if (values[index] !== 0) return index;
+  }
+  return -1;
+}
+
+function hasVisibleValues(values: Array<number | null>): boolean {
+  return values.some((value) => value != null && value !== 0);
+}
+
+/** Keeps a historical series empty after the last period with observed sales. */
+function hideSalesAfterHistory(values: number[]): Array<number | null> {
+
+  return values.map((value, index) => index <= lastHistoricalSalesIndex.value ? value : null);
+
+}
+
+/** Shows baseline only from the forecast boundary and suppresses zero placeholders. */
+function showForecastOnly(values: number[]): Array<number | null> {
+
+  return values.map((value, index) => index >= forecastStartIndex.value && value !== 0 ? value : null);
+
+}
+
+/** STL is calculated over observed history, never over forecast periods. */
+function showHistoricalStlOnly(values: number[]): Array<number | null> {
+
+  return values.map((value, index) => index < forecastStartIndex.value ? value : null);
+
+}
+
+function createLineSeries(name: string, values: Array<number | null>, color: string, options: { dashed?: boolean } = {}) {
+
+  return {
+    name,
+    type: 'line',
+    showSymbol: false,
+    connectNulls: false,
+    data: values,
+    lineStyle: {
+      width: 2,
+      color,
+      type: options.dashed ? 'dashed' : 'solid',
+    },
+    itemStyle: { color },
+  };
+
+}
+
+function buildPreviewLineSeries() {
+
+  const historicalSales = hideSalesAfterHistory(aggregatedHistoricalSales.value);
+  const baselineForecast = showForecastOnly(aggregatedBaselineForecast.value);
+  const rows: SimulationPreviewSeriesRow[] = filteredSimulationRows.value;
+  const trend = aggregateSeries(rows, 'trend');
+  const seasonal = aggregateSeries(rows, 'seasonal');
+  const historicalStlTrend = showHistoricalStlOnly(aggregateSeries(rows, 'stlTrend'));
+
+  return [
+    createLineSeries('Historical Sales', historicalSales, '#2563eb'),
+    createLineSeries('Baseline Forecast', baselineForecast, '#ff5f87'),
+    ...(hasVisibleValues(trend) ? [createLineSeries('Forecast Model Trend', trend, '#64748b')] : []),
+    ...(hasVisibleValues(seasonal) ? [createLineSeries('Seasonality', seasonal, '#94a3b8')] : []),
+    ...(hasVisibleValues(historicalStlTrend) ? [createLineSeries('Historical STL Trend', historicalStlTrend, '#14b8a6')] : []),
+  ];
+
+}
+
+function buildSeasonalityChartOption() {
+
+  const currentSimulation = simulation.value;
+  if (!currentSimulation?.periodos.length) {
+    return {
+      title: { text: 'Generate a forecast preview to compare seasonality.', left: 'center', top: 'middle', textStyle: { color: '#64748b', fontSize: 14 } },
+    };
+  }
+
+  const periodGroups = [...new Set(currentSimulation.agrupadoresPeriodoAgregado ?? [])];
+  const seasonalGroups = [...new Set(currentSimulation.agrupadoresPeriodoDesagregado ?? [])];
+  if (!periodGroups.length || !seasonalGroups.length) {
+    return {
+      title: { text: 'The returned calendar does not contain seasonal groupings.', left: 'center', top: 'middle', textStyle: { color: '#64748b', fontSize: 14 } },
+    };
+  }
+
+  const historicalSales = hideSalesAfterHistory(aggregatedHistoricalSales.value);
+  const baselineForecast = showForecastOnly(aggregatedBaselineForecast.value);
+  const groupIndex = new Map(seasonalGroups.map((group, index) => [group, index]));
+  const seriesByPeriod = new Map<number, { sales: Array<number | null>; forecast: Array<number | null> }>();
+
+  currentSimulation.periodos.forEach((_, index) => {
+    const periodGroup = currentSimulation.agrupadoresPeriodoAgregado?.[index];
+    const seasonalGroup = currentSimulation.agrupadoresPeriodoDesagregado?.[index];
+    const indexInGroup = groupIndex.get(seasonalGroup ?? Number.NaN);
+    if (periodGroup == null || indexInGroup == null) return;
+
+    const values = seriesByPeriod.get(periodGroup) ?? {
+      sales: new Array<number | null>(seasonalGroups.length).fill(null),
+      forecast: new Array<number | null>(seasonalGroups.length).fill(null),
+    };
+    values.sales[indexInGroup] = historicalSales[index];
+    values.forecast[indexInGroup] = baselineForecast[index];
+    seriesByPeriod.set(periodGroup, values);
+  });
+
+  const historicalColors = ['#0d8ecf', '#1aa0e3', '#43b4ee', '#6ec8f4', '#97daf9', '#c0ebfd'];
+  const forecastColors = ['#ff5f87', '#ff7294', '#ff86a2', '#ff99b1'];
+  const series = periodGroups.flatMap((periodGroup, index) => {
+    const values = seriesByPeriod.get(periodGroup);
+    if (!values) return [];
+    return [
+      ...(hasVisibleValues(values.sales) ? [{
+        name: String(periodGroup), type: 'bar', barMaxWidth: 16,
+        itemStyle: { color: historicalColors[index % historicalColors.length], borderRadius: [4, 4, 0, 0] },
+        data: values.sales,
+      }] : []),
+      ...(hasVisibleValues(values.forecast) ? [{
+        name: `${periodGroup} - Baseline Forecast`, type: 'bar', barMaxWidth: 16,
+        itemStyle: { color: forecastColors[index % forecastColors.length], borderRadius: [4, 4, 0, 0] },
+        data: values.forecast,
+      }] : []),
+    ];
+  });
+
+  return {
+    animation: false,
+    tooltip: { trigger: 'axis' },
+    legend: { top: 0, textStyle: { color: '#64748b' } },
+    grid: { left: 56, right: 24, top: 52, bottom: 40 },
+    xAxis: { type: 'category', data: seasonalGroups.map(String), axisLabel: { color: '#64748b' } },
+    yAxis: { type: 'value', axisLabel: { color: '#64748b' }, splitLine: { lineStyle: { color: '#dbe3ef' } } },
+    series,
+  };
+
+}
+
+function uniqueSeriesValues(dimension: 'material' | 'location'): string[] {
+  const values = (simulation.value?.materialLocationData ?? []).map((row) => (
+    dimension === 'material' ? simulationMaterialId(row) : row.locationId ?? '-'
+  ));
+  return [...new Set(values)].sort((left, right) => left.localeCompare(right));
+}
+
+function aggregateSeries(
+  rows: SimulationPreviewSeriesRow[],
+  field: keyof DemandSimulationSeriesRow,
+): number[] {
+  const periodCount = simulation.value?.periodos.length ?? 0;
+  return Array.from({ length: periodCount }, (_, index) => rows.reduce(
+    (total, row) => total + numberAt(row[field] as number[] | undefined, index),
+    0,
+  ));
+}
+
+function formatQuantity(value: number): string {
+  return value.toLocaleString('en-US', { maximumFractionDigits: 1 });
+}
+
+function formatPercent(value: number | null): string {
+  return value == null ? 'No Sales Reference' : `${(value * 100).toFixed(1)}%`;
+}
+
+function toErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
+watch(
+  [selectedExecutionProfileId, selectedLocationClusterId, selectedProductClusterId],
+  async () => {
+    simulation.value = null;
+    selectedMaterial.value = CLUSTER_LEVEL_VALUE;
+    selectedLocation.value = CLUSTER_LEVEL_VALUE;
+    forecastLag.value = '0';
+    feedback.value = '';
+
+    if (!canLoadConfiguration.value) {
+      configuration.value = createEmptyConfiguration({
+        executionProfileId: selectedExecutionProfileId.value,
+        locationClusterId: selectedLocationClusterId.value,
+        productClusterId: selectedProductClusterId.value,
+        defaultUomId: selectedExecutionProfile.value?.defaultDemandPlanningUomId ?? uomIds.value[0] ?? '',
+      });
+      return;
+    }
+
+    await loadConfiguration();
+  },
+);
+
+async function bootstrapPage(): Promise<void> {
+  isBootstrapping.value = true;
+  failure.value = '';
+
+  try {
+    const [profiles, locations, products, units] = await Promise.all([
+      fetchDemandExecutionProfiles(),
+      fetchDemandLocationClusters(),
+      fetchDemandProductClusters(),
+      fetchUomIds(),
+    ]);
+    executionProfiles.value = [...profiles].sort((left, right) => left.id.localeCompare(right.id));
+    locationClusters.value = [...locations].sort((left, right) => String(left.description ?? left.id).localeCompare(String(right.description ?? right.id)));
+    productClusters.value = [...products].sort((left, right) => String(left.description ?? left.descricao ?? left.id).localeCompare(String(right.description ?? right.descricao ?? right.id)));
+    uomIds.value = [...units].sort((left, right) => left.localeCompare(right));
+  } catch (error) {
+    failure.value = toErrorMessage(error, 'Unable to load the selector catalogs.');
+  } finally {
+    isBootstrapping.value = false;
+  }
+}
+
 async function loadConfiguration(): Promise<void> {
-  if (!ready.value) { configuration.value = emptyConfiguration(); return; }
-  try { failure.value = ''; configuration.value = await fetchClusterLevelConfiguration(profileId.value, locationId.value, productId.value); }
-  catch (error) { configuration.value = emptyConfiguration(); failure.value = error instanceof Error ? error.message : 'Unable to load the Community configuration.'; }
+  if (!canLoadConfiguration.value) return;
+  isLoadingConfiguration.value = true;
+  failure.value = '';
+
+  try {
+    const loaded = await fetchClusterLevelConfiguration(
+      selectedExecutionProfileId.value,
+      selectedLocationClusterId.value,
+      selectedProductClusterId.value,
+    );
+    configuration.value = normalizeConfiguration(loaded, {
+      executionProfileId: selectedExecutionProfileId.value,
+      locationClusterId: selectedLocationClusterId.value,
+      productClusterId: selectedProductClusterId.value,
+      defaultUomId: selectedExecutionProfile.value?.defaultDemandPlanningUomId ?? uomIds.value[0] ?? '',
+    });
+  } catch (error) {
+    failure.value = toErrorMessage(error, 'Unable to load the saved parameters.');
+  } finally {
+    isLoadingConfiguration.value = false;
+  }
 }
-async function save(): Promise<void> {
-  if (!ready.value || saving.value) return;
-  try { saving.value = true; failure.value = ''; await saveClusterLevelConfiguration({ demandPlanExecutionProfileId: profileId.value, locationClusterId: Number(locationId.value), materialClusterId: Number(productId.value), demandPlanningGeneralParameters: { executeDemandPlan: configuration.value.demandPlanningGeneralParameters.executeDemandPlan ?? true, uomId: configuration.value.demandPlanningGeneralParameters.uomId ?? null, roundToSalesUnit: configuration.value.demandPlanningGeneralParameters.roundToSalesUnit ?? false }, demandPlanningForecastParameters: { statisticalModel: configuration.value.demandPlanningForecastParameters.statisticalModel ?? 'MM', daysMovingAverageModel: configuration.value.demandPlanningForecastParameters.daysMovingAverageModel ?? 3, daysSmoothingModel: configuration.value.demandPlanningForecastParameters.daysSmoothingModel ?? null, alpha: configuration.value.demandPlanningForecastParameters.alpha ?? null, beta: configuration.value.demandPlanningForecastParameters.beta ?? null, gamma: configuration.value.demandPlanningForecastParameters.gamma ?? null, splitModel: 'HISTORICAL_SALES' } }); feedback.value = 'Community cluster-level configuration saved.'; }
-  catch (error) { failure.value = error instanceof Error ? error.message : 'Unable to save the Community configuration.'; }
-  finally { saving.value = false; }
+
+async function saveConfiguration(): Promise<void> {
+  if (!canLoadConfiguration.value || !configurationIsValid()) {
+    failure.value = 'UOM and positive historical windows are required before saving.';
+    return;
+  }
+
+  isSavingConfiguration.value = true;
+  failure.value = '';
+  feedback.value = '';
+  try {
+    await saveClusterLevelConfiguration(buildConfigurationPayload());
+    feedback.value = 'The cluster-level parameters were saved successfully.';
+  } catch (error) {
+    failure.value = toErrorMessage(error, 'Unable to save the parameters.');
+  } finally {
+    isSavingConfiguration.value = false;
+  }
 }
-onMounted(async () => { try { const [loadedProfiles, loadedLocations, loadedProducts] = await Promise.all([requestJson<Option[]>('/api/secured/demandplanexecutionprofile'), requestJson<Option[]>('/api/secured/location/cluster'), requestJson<Option[]>('/api/secured/material/cluster')]); profiles.value = loadedProfiles; locations.value = loadedLocations; products.value = loadedProducts; } catch (error) { failure.value = error instanceof Error ? error.message : 'Unable to load Community catalogs.'; } finally { loading.value = false; } });
+
+async function generateForecastPreview(): Promise<void> {
+  if (!canLoadConfiguration.value || !executeDemandPlanEnabled.value || !configurationIsValid()) {
+    failure.value = 'Complete the Community parameters before generating the forecast preview.';
+    return;
+  }
+
+  isRunningSimulation.value = true;
+  simulation.value = null;
+  failure.value = '';
+  feedback.value = '';
+  try {
+    simulation.value = await simulateClusterLevelConfiguration(buildConfigurationPayload(), referenceDate.value);
+    selectedMaterial.value = CLUSTER_LEVEL_VALUE;
+    selectedLocation.value = CLUSTER_LEVEL_VALUE;
+    forecastLag.value = '0';
+    feedback.value = `Forecast preview generated for ${simulation.value.materialLocationData?.length ?? 0} material-location series.`;
+  } catch (error) {
+    failure.value = toErrorMessage(error, 'Unable to generate the forecast preview.');
+  } finally {
+    isRunningSimulation.value = false;
+  }
+}
+
+onMounted(() => {
+  void bootstrapPage();
+});
 </script>
 
 <template>
-  <TaskPageLayout class="cluster-level-configuration-page">
-    <OfxPageHeader eyebrow="Demand Planning" title="Demand Planning Cluster-Level Configuration" description="Configure the Community forecast model for one execution profile and cluster pair. Enterprise controls remain in their reference positions and are explicitly marked." >
+  <DashboardPageLayout class="cluster-level-configuration-page">
+    <OfxPageHeader eyebrow="Demand Planning" title="Demand Planning Cluster-Level Configuration">
       <template #actions>
-        <button class="primary-button" type="button" :disabled="!ready || saving" @click="save">{{ saving ? 'Saving…' : 'Save Parameters' }}</button>
+        <button
+          class="primary-action"
+          type="button"
+          :disabled="!canLoadConfiguration || isSavingConfiguration || isLoadingConfiguration"
+          @click="saveConfiguration"
+        >
+          {{ isSavingConfiguration ? 'Saving Parameters…' : 'Save Parameters' }}
+        </button>
       </template>
     </OfxPageHeader>
-    <p v-if="failure" class="rounded-[14px] border border-red-300 bg-red-50 px-5 py-4 text-sm text-red-800" role="alert">{{ failure }}</p>
-    <p v-if="feedback" class="rounded-[14px] border border-emerald-300 bg-emerald-50 px-5 py-4 text-sm text-emerald-800" role="status">{{ feedback }}</p>
-    <div class="selection-layout">
+
+    <p v-if="failure" class="message message-error" role="alert">{{ failure }}</p>
+    <p v-if="feedback" class="message message-success" role="status">{{ feedback }}</p>
+
+    <div class="grid gap-5 xl:grid-cols-[1fr_1fr]">
       <OfxSectionCard title="Execution Profile Selection">
         <div class="grid gap-4">
-          <label class="field-label">Execution Profile<select v-model="profileId" :disabled="loading" @change="loadConfiguration"><option value="">Select profile</option><option v-for="profile in profiles" :key="optionId(profile)" :value="optionId(profile)">{{ label(profile) }}</option></select></label>
-          <div class="detail-grid">
-            <div class="locked-control"><span>Bucket Size</span><strong>{{ profiles.find((profile) => optionId(profile) === profileId)?.bucketSize ?? 'Select a profile' }}</strong></div>
-            <div class="locked-control"><span>Default Auto-Fit</span><strong>Enterprise</strong><small>Automatic model selection is available in Enterprise.</small></div>
+          <OfxSelectField
+            v-model="selectedExecutionProfileId"
+            label="Execution Profile"
+            :options="executionProfileOptions"
+            :loading="isBootstrapping"
+            loading-label="Loading execution profiles…"
+          />
+          <div class="grid gap-3 md:grid-cols-2">
+            <div class="ofx-detail-panel">
+              <div class="detail-label">Bucket Size</div>
+              <div class="detail-value">{{ selectedExecutionProfile?.bucketSize ?? 'Select a profile' }}</div>
+            </div>
+            <div class="ofx-detail-panel">
+              <div class="detail-label">Default Auto-Fit</div>
+              <div class="detail-value">Not linked</div>
+            </div>
           </div>
         </div>
       </OfxSectionCard>
+
       <OfxSectionCard title="Cluster Selection">
-        <div class="grid gap-4 md:grid-cols-2"><label class="field-label">Location Cluster<select v-model="locationId" :disabled="loading" @change="loadConfiguration"><option value="">Select location cluster</option><option v-for="location in locations" :key="optionId(location)" :value="optionId(location)">{{ label(location) }}</option></select></label><label class="field-label">Product Cluster<select v-model="productId" :disabled="loading" @change="loadConfiguration"><option value="">Select material cluster</option><option v-for="product in products" :key="optionId(product)" :value="optionId(product)">{{ label(product) }}</option></select></label></div>
-        <div v-if="ready" class="mt-4 detail-grid"><label class="toggle-control"><input v-model="configuration.demandPlanningGeneralParameters.executeDemandPlan" type="checkbox"> Execute Demand Plan</label><div class="locked-control"><span>Use Auto-fitted Model</span><strong>Enterprise</strong></div></div>
+        <div class="grid gap-4 md:grid-cols-2">
+          <OfxSelectField
+            v-model="selectedLocationClusterId"
+            label="Location Cluster"
+            :options="locationClusterOptions"
+            :loading="isBootstrapping"
+            loading-label="Loading location clusters…"
+          />
+          <OfxSelectField
+            v-model="selectedProductClusterId"
+            label="Product Cluster"
+            :options="productClusterOptions"
+            :loading="isBootstrapping"
+            loading-label="Loading product clusters…"
+          />
+        </div>
+        <div v-if="canLoadConfiguration" class="mt-4 grid gap-3 md:grid-cols-2">
+          <OfxToggleField
+            v-model="configuration.demandPlanningGeneralParameters.executeDemandPlan"
+            label="Execute Demand Plan"
+          />
+          <OfxToggleField
+            :model-value="false"
+            label="Use Auto-fitted Model"
+            locked
+            locked-label="Pro / Enterprise"
+          />
+        </div>
       </OfxSectionCard>
     </div>
-    <form v-if="ready" class="grid max-w-5xl gap-5" @submit.prevent="save">
-      <div class="enterprise-grid">
-        <OfxSectionCard title="Outlier Smoothing" description="The smoothing section is retained from the reference workspace.">
-          <div class="grid gap-4 md:grid-cols-2"><label class="field-label">Outlier Smoothing Model<select disabled><option>Enterprise capability</option></select></label><label class="field-label">Days for Outlier Smoothing<input disabled value="Enterprise capability"></label></div>
-          <div class="detail-grid mt-4"><div class="locked-control"><span>Lower Percentile Smoothing</span><small>Enable lower percentile smoothing</small><strong>Enterprise</strong></div><div class="locked-control"><span>Upper Percentile Smoothing</span><small>Enable upper percentile smoothing</small><strong>Enterprise</strong></div></div>
+
+    <OfxLoadingState v-if="isLoadingConfiguration" label="Loading the saved cluster-level parameters…" />
+
+    <template v-else-if="canLoadConfiguration">
+      <div class="grid gap-5 xl:grid-cols-[1fr_1fr]">
+        <OfxSectionCard
+          title="Outlier Smoothing"
+          description="Historical cleansing stays visible in the canonical position; advanced treatments require Pro / Enterprise."
+        >
+          <div class="grid gap-4 md:grid-cols-2">
+            <OfxSelectField
+              model-value="Inactive"
+              label="Outlier Smoothing Model"
+              :options="disabledOutlierOptions"
+              locked
+              locked-label="Pro / Enterprise"
+            />
+            <OfxTextField
+              :model-value="365"
+              label="Days for Outlier Smoothing"
+              type="number"
+              locked
+              locked-label="Pro / Enterprise"
+            />
+          </div>
         </OfxSectionCard>
-        <OfxSectionCard title="DFU Split" description="Split configuration stays visible in the same position as the reference.">
-          <div class="grid gap-4"><label class="field-label">Split Model<select disabled><option>Historical Sales</option></select></label><label class="field-label">Days for Top-Down Split<input disabled value="Enterprise capability"></label><div class="enterprise-note"><strong>Enterprise</strong> Top-down aggregation, allocation and alternative split models require Enterprise planning data.</div></div>
+
+        <OfxSectionCard
+          title="DFU Split"
+          description="Community uses the historical-sales split and lets the planner define its reference window."
+        >
+          <div class="grid gap-4 md:grid-cols-2">
+            <OfxSelectField
+              v-model="configuration.demandPlanningForecastParameters.splitModel"
+              label="Split Model"
+              :options="splitModelOptions"
+            />
+            <OfxTextField
+              v-model="configuration.demandPlanningForecastParameters.daysTopDownSplit"
+              label="Days for Top-Down Split"
+              type="number"
+            />
+          </div>
         </OfxSectionCard>
       </div>
-      <OfxSectionCard title="Forecast Model Parametrization" description="Community supports the approved statistical models and parameters; Enterprise controls stay visible in their reference locations.">
-        <div class="grid gap-4 xl:grid-cols-5">
-          <label class="field-label">Forecast Model<select v-model="configuration.demandPlanningForecastParameters.statisticalModel"><option value="MM">Moving Average</option><option value="RMM">Rolling Moving Average</option><option value="ARIMA">ARIMA</option><option value="HOLT_WINTERS">Holt-Winters</option><option value="ES">Exponential Smoothing</option></select></label>
-          <label class="field-label">Budget Version<select disabled><option>Enterprise capability</option></select></label>
-          <label class="field-label">Event Uplift<select disabled><option>Enterprise capability</option></select></label>
-          <label class="field-label">Product Aggregation<select disabled><option>Enterprise capability</option></select></label>
-          <label class="field-label">Location Aggregation<select disabled><option>Enterprise capability</option></select></label>
-          <label class="field-label">Unit of Measure<input :value="configuration.demandPlanningGeneralParameters.uomId ?? 'Published by profile'" disabled></label>
+
+      <OfxSectionCard
+        title="Forecast Model Parametrization"
+        description="Choose and manually configure one of the statistical models available in Community."
+      >
+        <div class="grid gap-4 xl:grid-cols-4">
+          <OfxSelectField
+            v-model="configuration.demandPlanningForecastParameters.statisticalModel"
+            label="Forecast Model"
+            :options="statisticalModelOptions"
+          />
+          <OfxSelectField
+            model-value="No Uplift Calculation"
+            label="Event Uplift"
+            :options="disabledUpliftOptions"
+            locked
+            locked-label="Pro / Enterprise"
+          />
+          <OfxSelectField
+            v-model="configuration.demandPlanningGeneralParameters.materialAggregationType"
+            label="Product Aggregation"
+            :options="aggregationOptions"
+            locked
+            locked-label="Pro / Enterprise"
+          />
+          <OfxSelectField
+            v-model="configuration.demandPlanningGeneralParameters.locationAggregationType"
+            label="Location Aggregation"
+            :options="aggregationOptions"
+            locked
+            locked-label="Pro / Enterprise"
+          />
+          <OfxSelectField
+            v-model="configuration.demandPlanningGeneralParameters.uomId"
+            label="Unit of Measure"
+            :options="uomOptions"
+          />
+          <OfxTextField
+            v-if="showMovingAverageWindow"
+            v-model="configuration.demandPlanningForecastParameters.daysMovingAverageModel"
+            label="Moving Average Days"
+            type="number"
+          />
+          <OfxSelectField
+            model-value="Disabled"
+            label="Stockout Treatment"
+            :options="disabledStockoutOptions"
+            locked
+            locked-label="Pro / Enterprise"
+          />
         </div>
-        <div class="grid gap-4 xl:grid-cols-4 mt-4">
-          <label class="field-label">Moving Average Days<input v-model="configuration.demandPlanningForecastParameters.daysMovingAverageModel" min="1" type="number"></label>
-          <label class="field-label">Stockout Treatment<select disabled><option>Enterprise capability</option></select></label>
-          <label class="toggle-control"><input v-model="configuration.demandPlanningGeneralParameters.roundToSalesUnit" type="checkbox"> Round forecast to sales UOM</label>
+
+        <div v-if="showAlpha" class="mt-4 grid gap-4" :class="showBetaGamma ? 'md:grid-cols-3' : 'md:grid-cols-1'">
+          <div class="statistical-parameter-card">
+            <div class="text-sm font-semibold text-[color:var(--ofx-text)]">Alpha</div>
+            <p class="parameter-description">Smooths the level update for Exponential Smoothing and Holt-Winters.</p>
+            <OfxToggleField v-model="autoAlpha" label="Automatic selection" />
+            <div v-if="!autoAlpha" class="parameter-slider">
+              <input v-model.number="configuration.demandPlanningForecastParameters.alpha" type="range" min="0" max="1" step="0.01" class="ofx-range">
+              <output>{{ Number(configuration.demandPlanningForecastParameters.alpha ?? 0).toFixed(2) }}</output>
+            </div>
+          </div>
+          <div v-if="showBetaGamma" class="statistical-parameter-card">
+            <div class="text-sm font-semibold text-[color:var(--ofx-text)]">Beta</div>
+            <p class="parameter-description">Controls trend adaptation for Holt-Winters.</p>
+            <OfxToggleField v-model="autoBeta" label="Automatic selection" />
+            <div v-if="!autoBeta" class="parameter-slider">
+              <input v-model.number="configuration.demandPlanningForecastParameters.beta" type="range" min="0" max="1" step="0.01" class="ofx-range">
+              <output>{{ Number(configuration.demandPlanningForecastParameters.beta ?? 0).toFixed(2) }}</output>
+            </div>
+          </div>
+          <div v-if="showBetaGamma" class="statistical-parameter-card">
+            <div class="text-sm font-semibold text-[color:var(--ofx-text)]">Gamma</div>
+            <p class="parameter-description">Tunes the seasonal update for Holt-Winters.</p>
+            <OfxToggleField v-model="autoGamma" label="Automatic selection" />
+            <div v-if="!autoGamma" class="parameter-slider">
+              <input v-model.number="configuration.demandPlanningForecastParameters.gamma" type="range" min="0" max="1" step="0.01" class="ofx-range">
+              <output>{{ Number(configuration.demandPlanningForecastParameters.gamma ?? 0).toFixed(2) }}</output>
+            </div>
+          </div>
         </div>
-        <div class="detail-grid mt-4"><div class="locked-control"><span>Seasonality Scale</span><small>Automatic selection</small><strong>Enterprise</strong></div><div class="locked-control"><span>Monthly Fourier Order</span><small>Automatic selection</small><strong>Enterprise</strong></div><div class="locked-control"><span>Trend Change Flexibility</span><small>Automatic selection</small><strong>Enterprise</strong></div></div>
-        <div class="detail-grid mt-4"><label class="field-label">Alpha<input v-model="configuration.demandPlanningForecastParameters.alpha" min="0" max="1" step=".01" type="number"></label><label class="field-label">Beta<input v-model="configuration.demandPlanningForecastParameters.beta" min="0" max="1" step=".01" type="number"></label><label class="field-label">Gamma<input v-model="configuration.demandPlanningForecastParameters.gamma" min="0" max="1" step=".01" type="number"></label></div>
-        <div class="detail-grid mt-4"><div class="locked-control"><span>Force Aggregated Forecast</span><small>Chronos configuration</small><strong>Enterprise</strong></div><div class="locked-control"><span>Trend / Growth Regressor</span><small>Enable trend regressor</small><strong>Enterprise</strong></div><div class="locked-control"><span>Working Days Regressor</span><small>Enable working days regressor</small><strong>Enterprise</strong></div></div>
-        <div class="enterprise-note mt-4"><strong>Enterprise</strong> Support Regressors, Prophet/Chronos tuning, budgets, uplift, aggregation and stockout treatment are deliberately blocked without widening Community transport.</div>
-        <template #actions><button class="primary-button" type="submit" :disabled="saving">{{ saving ? 'Saving…' : 'Save Configuration' }}</button></template>
+
+        <p v-if="statisticalModel === 'ARIMA'" class="model-note">
+          ARIMA runs without Enterprise support regressors in Community.
+        </p>
+
+        <div v-if="statisticalModel === 'ARIMA'" class="mt-4">
+          <OfxSelectField
+            model-value="None"
+            label="Support Regressors"
+            :options="disabledRegressorOptions"
+            locked
+            locked-label="Pro / Enterprise"
+          />
+        </div>
+
+        <div class="mt-4 grid gap-4 md:grid-cols-[minmax(0,20rem)_1fr]">
+          <OfxToggleField
+            :model-value="false"
+            label="Round to sales UOM"
+            locked
+            locked-label="Pro / Enterprise"
+          />
+        </div>
       </OfxSectionCard>
-      <div class="reference-slots-grid">
-        <OfxSectionCard title="Sales History and Coverage" description="Historical coverage uses Enterprise calculation policies in this workspace.">
-          <div class="grid gap-4"><label class="field-label">Days of Historical Sales<input disabled value="Enterprise capability"></label><div class="locked-control"><span>Consider historical sales of inactive DFUs</span><strong>Enterprise</strong></div><div class="locked-control"><span>Generate forecast for out-of-line products</span><strong>Enterprise</strong></div></div>
+
+      <div class="grid gap-5 xl:grid-cols-[1fr_1fr]">
+        <OfxSectionCard
+          title="Sales History and Coverage"
+          description="Configure the historical window and which DFUs remain eligible for statistical forecasting."
+        >
+          <div class="grid gap-4">
+            <OfxTextField
+              v-model="configuration.demandPlanningGeneralParameters.daysSalesHistory"
+              label="Days of Historical Sales"
+              type="number"
+            />
+            <OfxToggleField
+              v-model="configuration.demandPlanningGeneralParameters.considerHistoricalSalesOfInactiveDfus"
+              label="Consider historical sales of inactive DFUs"
+            />
+            <OfxToggleField
+              v-model="configuration.demandPlanningGeneralParameters.generateForecastForDiscontinuedMaterials"
+              label="Generate forecast for out-of-line products"
+            />
+          </div>
         </OfxSectionCard>
-        <OfxSectionCard title="Simulation Parameters" description="Simulation settings remain in their reference layout without exposing Enterprise calculation endpoints.">
-          <div class="grid gap-4"><label class="field-label">Reference Period<input disabled value="Enterprise capability"></label><label class="field-label">Forecast Lag<input disabled value="Enterprise capability"></label><div class="enterprise-note"><strong>Enterprise</strong> Simulated forecasts and errors require the Enterprise analytics surface.</div></div>
+
+        <OfxSectionCard title="Simulation Parameters">
+          <div class="grid gap-4">
+            <OfxPeriodPicker
+              v-model="referenceDate"
+              label="Reference Period"
+              :bucket-size="selectedExecutionProfile?.bucketSize"
+            />
+            <button
+              type="button"
+              class="primary-action"
+              :disabled="!executeDemandPlanEnabled || isRunningSimulation"
+              @click="generateForecastPreview"
+            >
+              {{ isRunningSimulation ? 'Generating Forecast Preview…' : 'Generate Forecast Preview' }}
+            </button>
+          </div>
         </OfxSectionCard>
       </div>
-      <div class="reference-slots-grid">
-        <OfxSectionCard title="Pricing Model Parametrization" description="Pricing-model inputs retain the reference chapter without exposing private calculation contracts.">
-          <div class="enterprise-placeholder">Enterprise pricing model parametrization is unavailable in Community.</div>
+
+      <OfxLoadingState
+        v-if="isRunningSimulation"
+        label="Running the Community statistical forecast and preparing the preview…"
+      />
+
+      <template v-else-if="simulation">
+        <OfxSectionCard
+          title="Forecast Accuracy"
+          description="Choose the lag used for error evaluation. KPI cards, charts, and tables update using the same simulated backend payload."
+        >
+          <div class="grid gap-3 xl:grid-cols-[248px_1fr]">
+            <OfxSelectField
+              v-model="forecastLag"
+              label="Forecast Lag (# periods) for Error Calculation"
+              :options="forecastLagOptions"
+            />
+            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <OfxKpiCard
+                v-for="card in previewMetricCards"
+                :key="card.label"
+                :label="card.label"
+                :value="card.value"
+                :tone="card.tone"
+              />
+            </div>
+          </div>
         </OfxSectionCard>
-        <OfxSectionCard title="Forecast Accuracy" description="Forecast-accuracy diagnostics remain in the same analysis flow as the legacy front.">
-          <div class="enterprise-placeholder">Enterprise forecast-accuracy diagnostics are unavailable in Community.</div>
+
+        <OfxSectionCard
+          title="Detailed View Filters"
+          description="Filter the returned cluster simulation locally; no additional backend calculation is triggered."
+        >
+          <div class="grid gap-4 md:grid-cols-2">
+            <OfxSelectField v-model="selectedMaterial" label="Material Filter" :options="materialFilterOptions" />
+            <OfxSelectField v-model="selectedLocation" label="Location Filter" :options="locationFilterOptions" />
+          </div>
         </OfxSectionCard>
-      </div>
-      <OfxSectionCard title="Detailed View Filters" description="Detailed forecast dimensions stay visible in their legacy workspace position.">
-        <div class="enterprise-placeholder">Enterprise characteristic and detailed-view filters are unavailable in Community.</div>
-      </OfxSectionCard>
-      <div class="reference-slots-grid">
-        <OfxSectionCard title="Forecast Preview">
-          <div class="enterprise-placeholder">Enterprise forecast preview remains in this reference position.</div>
+
+        <div class="grid gap-5 xl:grid-cols-2">
+          <OfxSectionCard title="Forecast Preview">
+            <EChartAdapter :option="previewChartOption" :height="380" />
+          </OfxSectionCard>
+          <OfxSectionCard title="Seasonality Comparison">
+            <EChartAdapter :option="seasonalityChartOption" :height="380" />
+          </OfxSectionCard>
+        </div>
+
+        <OfxSectionCard :title="`Aggregated Error at Lag ${forecastLag}`">
+          <OfxDataTable
+            :rows="aggregatedErrorRows"
+            :columns="aggregatedColumns"
+            row-key="rowKey"
+            :page-size="10"
+            :height="220"
+            export-base-name="community-cluster-level-forecast-error"
+          />
         </OfxSectionCard>
-        <OfxSectionCard title="Seasonality Comparison">
-          <div class="enterprise-placeholder">Enterprise seasonality comparison remains in this reference position.</div>
+
+        <OfxSectionCard :title="`Material / Location Error at ${forecastLagOptions.find((option) => option.value === forecastLag)?.label ?? 'Lag 0'}`">
+          <OfxDataTable
+            :rows="materialLocationErrorRows"
+            :columns="materialLocationColumns"
+            row-key="rowKey"
+            :page-size="12"
+            :height="420"
+            export-base-name="community-cluster-level-material-location-error"
+          />
         </OfxSectionCard>
-      </div>
-    </form>
-    <p v-else-if="!loading" class="text-sm text-[color:var(--ofx-text-muted)]">Select a profile and both clusters to edit the Community configuration.</p>
-  </TaskPageLayout>
+      </template>
+
+      <OfxEmptyState
+        v-else-if="executeDemandPlanEnabled"
+        title="Generate a forecast preview"
+        description="The cluster-level configuration is loaded. Use Generate Forecast Preview to inspect the statistical result before saving or executing a Demand Plan."
+      />
+    </template>
+
+    <OfxEmptyState
+      v-else
+      title="Choose profile and clusters to start"
+      description="Select a Demand Planning execution profile, a location cluster, and a product cluster to load the saved cluster-level parameters."
+    />
+  </DashboardPageLayout>
 </template>
 
 <style scoped>
-.selection-layout, .enterprise-grid, .reference-slots-grid, .detail-grid { display: grid; gap: 1.25rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.field-label { display: grid; gap: .5rem; color: var(--ofx-text); font-size: 13px; font-weight: 500; }
-.field-label input, .field-label select { min-height: 2.5rem; border: 1px solid var(--ofx-border); border-radius: 12px; background: var(--ofx-surface); padding: .45rem .75rem; color: var(--ofx-text); }
-.enterprise-note { border: 1px dashed var(--ofx-border-strong); border-radius: 14px; background: var(--ofx-muted); padding: 1rem; color: var(--ofx-text-muted); font-size: .875rem; }
-.enterprise-note strong { margin-right: .5rem; color: var(--ofx-text); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
-.enterprise-placeholder, .locked-control { border: 1px dashed var(--ofx-border-strong); border-radius: 14px; background: var(--ofx-surface-elevated); color: var(--ofx-text-muted); padding: 1rem; font-size: .875rem; }
-.locked-control { display: grid; gap: .35rem; }.locked-control span { color: var(--ofx-text); font-weight: 600; }.locked-control strong { color: var(--ofx-text); font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; }.locked-control small { font-size: .75rem; }.toggle-control { display: flex; align-items: center; gap: .7rem; min-height: 2.5rem; border: 1px solid var(--ofx-border); border-radius: 12px; background: var(--ofx-surface); padding: .45rem .75rem; color: var(--ofx-text); font-size: 13px; font-weight: 500; }
-.primary-button { display: inline-flex; height: 2.5rem; align-items: center; border-radius: 12px; background: var(--ofx-primary); padding: 0 1rem; color: var(--ofx-primary-foreground); font-size: .875rem; font-weight: 600; }
-.primary-button:disabled { cursor: not-allowed; opacity: .45; }
-@media (max-width: 760px) { .selection-layout, .enterprise-grid, .reference-slots-grid, .detail-grid { grid-template-columns: 1fr; } }
+.cluster-level-configuration-page {
+  position: relative;
+}
+
+.primary-action {
+  min-height: 2.75rem;
+  border: 1px solid var(--ofx-primary);
+  border-radius: 12px;
+  background: var(--ofx-primary);
+  color: var(--ofx-primary-foreground);
+  padding: 0.7rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  transition: 160ms ease;
+}
+
+.primary-action:disabled {
+  cursor: not-allowed;
+  border-color: var(--ofx-border-strong);
+  background: var(--ofx-surface-strong);
+  color: var(--ofx-text-muted);
+}
+
+.ofx-detail-panel {
+  border: 1px solid var(--ofx-border);
+  border-radius: 14px;
+  background: var(--ofx-surface);
+  box-shadow: var(--ofx-shadow-sm);
+  padding: 0.95rem 1rem;
+}
+
+.detail-label {
+  color: var(--ofx-text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.detail-value {
+  margin-top: 0.4rem;
+  color: var(--ofx-text);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.message {
+  border: 1px solid;
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  font-size: 0.875rem;
+}
+
+.message-error {
+  border-color: rgb(248 113 113 / 0.55);
+  background: rgb(254 242 242);
+  color: rgb(153 27 27);
+}
+
+.message-success {
+  border-color: rgb(52 211 153 / 0.55);
+  background: rgb(236 253 245);
+  color: rgb(6 95 70);
+}
+
+.model-note {
+  margin-top: 1rem;
+  color: var(--ofx-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.statistical-parameter-card {
+  border: 1px solid var(--ofx-border);
+  border-radius: 14px;
+  background: var(--ofx-surface);
+  box-shadow: var(--ofx-shadow-sm);
+  padding: 1rem;
+}
+
+.parameter-description {
+  min-height: 2.5rem;
+  margin: 0.3rem 0 0.9rem;
+  color: var(--ofx-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.parameter-slider {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.95rem;
+}
+
+.ofx-range {
+  width: 100%;
+  accent-color: var(--ofx-primary);
+}
+
+.parameter-slider output {
+  color: var(--ofx-text);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
 </style>

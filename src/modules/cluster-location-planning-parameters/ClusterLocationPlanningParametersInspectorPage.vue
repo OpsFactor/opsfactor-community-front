@@ -49,7 +49,7 @@ async function loadParameters(): Promise<void> {
         {{ loading ? 'Loading parameters…' : 'Load Location Cluster Parameters' }}
       </button>
       <p v-else class="captured-message" role="status">Administrative snapshot captured. Refresh is intentionally unavailable on this page.</p>
-      <p class="boundary-note">Pricing remains outside the Community recorte. The published value is shown raw and is not editable here.</p>
+      <p class="boundary-note">Pricing is not editable in this view. The published value is shown as returned by the service.</p>
     </OfxSectionCard>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>

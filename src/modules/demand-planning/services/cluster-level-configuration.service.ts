@@ -55,7 +55,10 @@ export interface DemandPlanningGeneralParameters {
   uomId?: string | null;
   roundToSalesUnit?: boolean | null;
   considerHistoricalSalesOfInactiveDfus?: boolean | null;
+  generateForecastForDiscontinuedMaterials?: boolean | null;
   generateForecastForDiscontinuedProducts?: boolean | null;
+  materialAggregationType?: string | null;
+  locationAggregationType?: string | null;
   productAggregationLevel?: string | null;
   locationAggregationLevel?: string | null;
   budgetId?: number | null;
@@ -127,6 +130,7 @@ export interface DemandSimulationSeriesRow {
 
 export interface SimulatedDemandPlanMaterialLocationDto extends DemandSimulationSeriesRow {
   locationId?: string;
+  materialId?: string;
   productId?: string;
 }
 
@@ -144,6 +148,7 @@ export interface SimulatedDemandPlanResponse {
   periodoUltimaVenda?: string | null;
   posicaoPeriodoUltimaVenda?: number | null;
   clusterProdutosDTO?: DemandProductClusterOption | null;
+  materialClusterDTO?: DemandProductClusterOption | null;
   clusterLocationsDTO?: DemandLocationClusterOption | null;
   materialLocationData?: SimulatedDemandPlanMaterialLocationDto[];
   aggregatedDataAtMapeLevel?: SimulatedDemandPlanAggregatedDto[];

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
+import DashboardPageLayout from '@/layouts/page/DashboardPageLayout.vue';
+import { OfxPageHeader, OfxSectionCard } from '@opsfactor/front-shell';
 import { httpClient } from '../../services/community-authentication.service';
 import { ClusterScopeInspectorService } from './cluster-scope.service';
 import type {
@@ -101,6 +102,18 @@ function clearLocationMembersSnapshot(): void {
 
   locationClusterMembers.value = null;
   locationClusterMembersClusterId.value = null;
+}
+
+/**
+ * Keeps the reference page's Material/Location switch while preserving each
+ * Community editor draft. Switching the visual mode must never discard a
+ * pending definition or make a new request by itself.
+ */
+function selectEditorTab(tab: ClusterEditorTab): void {
+
+  activeTab.value = tab;
+  errorMessage.value = null;
+  resultMessage.value = null;
 }
 
 function newMaterialDraft(): CommunityMaterialClusterScope {
@@ -313,7 +326,7 @@ function validateLocationSnapshot(snapshot: CommunityLocationClusterScope): void
   for (const rule of snapshot.regraAlocacaoClusterDTOList) {
     normalizeLocationRule(rule);
     if (rule.criterio === 'Location Type' && !locationTypeOptions.includes(rule.locationType as typeof locationTypeOptions[number])) {
-      throw new Error('Select one of the Community location types.');
+      throw new Error('Select one of the available location types.');
     }
     if (rule.criterio === 'Country / State' && (!rule.pais?.trim() || !rule.estado?.trim())) {
       throw new Error('Country and state are required for a Country / State rule.');
@@ -478,59 +491,56 @@ onMounted(() => {
 </script>
 
 <template>
-  <TaskPageLayout class="cluster-scope-inspector-page">
-    <OfxPageHeader eyebrow="Demand Planning" title="Demand Planning Clusters" description="Configure the bounded material and location cluster definitions used by Community Demand Planning." />
-
-    <OfxSectionCard class="boundary-card" title="Community scope">
-      <p>Material clusters always use Demand Planning and one permitted material status. Location clusters use either location type or country and state. Saving sends the complete rule snapshot.</p>
-      <p class="muted">Pricing, new-material rules, characteristics, global allocation, material members, and DFUs are intentionally unavailable. The server remains responsible for rejecting a cluster that is still in use.</p>
-    </OfxSectionCard>
+  <DashboardPageLayout class="clustering-page">
+    <OfxPageHeader eyebrow="Configuration" title="Clustering" description="Create and maintain the material and location clusters used by Demand Planning.">
+      <template #actions>
+        <div class="cluster-mode-switch" role="tablist" aria-label="Cluster type">
+          <button :aria-selected="activeTab === 'material'" class="cluster-mode-button" :class="{ 'is-active': activeTab === 'material' }" role="tab" type="button" @click="selectEditorTab('material')">Material</button>
+          <button :aria-selected="activeTab === 'location'" class="cluster-mode-button" :class="{ 'is-active': activeTab === 'location' }" role="tab" type="button" @click="selectEditorTab('location')">Location</button>
+        </div>
+      </template>
+    </OfxPageHeader>
 
     <p v-if="resultMessage" class="success-message" role="status">{{ resultMessage }}</p>
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
 
-    <OfxSectionCard class="workspace-card" aria-label="Demand Planning cluster configuration">
-      <div class="tab-list" role="tablist" aria-label="Cluster type">
-        <button :aria-selected="activeTab === 'material'" class="tab-button" role="tab" type="button" @click="activeTab = 'material'">Material DP</button>
-        <button :aria-selected="activeTab === 'location'" class="tab-button" role="tab" type="button" @click="activeTab = 'location'">Location</button>
-      </div>
-
+    <OfxSectionCard class="workspace-card" title="Edit / Create Cluster" aria-label="Community cluster configuration">
       <section v-if="activeTab === 'material'" class="editor-layout" aria-labelledby="material-cluster-title">
         <aside class="master-list">
-          <div class="list-heading"><h2 id="material-cluster-title">Material clusters</h2><button class="secondary-button" type="button" :disabled="isBusy" @click="startMaterialCreation">New Material DP cluster</button></div>
-          <label>Existing cluster<select v-model.number="selectedMaterialClusterId" :disabled="isBusy" @change="void selectMaterialCluster()"><option :value="null">Select a material cluster</option><option v-for="(cluster, index) in materialClusters" :key="cluster.id ?? `material-catalog-${index}`" :value="cluster.id">{{ materialClusterLabel(cluster) }}</option></select></label>
+          <div class="list-heading"><h2 id="material-cluster-title">List of Clusters</h2><button class="secondary-button" type="button" :disabled="isBusy" @click="startMaterialCreation">New Material Cluster</button></div>
+          <label>Existing Material Cluster<select v-model.number="selectedMaterialClusterId" :disabled="isBusy" @change="void selectMaterialCluster()"><option :value="null">Select a material cluster</option><option v-for="(cluster, index) in materialClusters" :key="cluster.id ?? `material-catalog-${index}`" :value="cluster.id">{{ materialClusterLabel(cluster) }}</option></select></label>
           <button class="secondary-button" type="button" :disabled="isBusy" @click="void loadClusterDefinitions()">{{ loading ? 'Loading…' : 'Refresh catalog' }}</button>
-          <p class="muted">A selected cluster is re-read before editing. New clusters appear in this catalog after their confirmed server save.</p>
+          <p class="muted">Choose a cluster to edit it, or create a new Material cluster for Demand Planning.</p>
         </aside>
 
         <section v-if="materialDraft" class="editor-card" aria-labelledby="material-editor-title">
           <div class="editor-heading"><div><p class="eyebrow">Complete server snapshot</p><h2 id="material-editor-title">{{ materialDraft.id === null ? 'New Material DP cluster' : materialClusterLabel(materialDraft) }}</h2></div><span class="process-chip">DP</span></div>
-          <div class="field-grid"><label>Description<input v-model="materialDraft.description" :disabled="saving" maxlength="255" type="text"></label><label>Priority<input v-model.number="materialDraft.priority" :disabled="saving" type="number"></label></div>
+          <div class="field-grid"><label>Cluster Description<input v-model="materialDraft.description" :disabled="saving" maxlength="255" type="text"></label><label>Cluster Priority<input v-model.number="materialDraft.priority" :disabled="saving" type="number"></label></div>
           <section class="rules-editor" aria-labelledby="material-rules-title"><div class="rules-heading"><div><h3 id="material-rules-title">Material status rules</h3><p class="muted">To change a persisted rule, remove it and add a new rule. This preserves the server snapshot contract.</p></div><button class="secondary-button" type="button" :disabled="saving" @click="addMaterialRule">Add status rule</button></div>
             <article v-for="(rule, index) in materialDraft.regraAlocacaoClusterDTOList" :key="rule.id ?? `new-material-rule-${index}`" class="rule-card"><label>Status<select v-model="rule.caracteristicaDTO!.description" :disabled="saving || rule.id !== null" @change="normalizeMaterialRule(rule)"><option v-for="status in materialStatusOptions" :key="status" :value="status">{{ status }}</option></select></label><span v-if="rule.id !== null" class="persisted-note">Persisted rule — remove and add to change status.</span><button class="danger-button" type="button" :disabled="saving" @click="removeMaterialRule(index)">Remove rule</button></article>
             <p v-if="materialDraft.regraAlocacaoClusterDTOList.length === 0" class="muted">No rules: saving this snapshot removes all existing material rules.</p>
           </section>
-          <div class="editor-actions"><button class="danger-button" type="button" :disabled="saving || materialDraft.id === null" @click="requestClusterDeletion('material')">Delete cluster</button><button class="primary-button" type="button" :disabled="saving" @click="void saveMaterialDraft()">{{ saving ? 'Saving…' : 'Save complete snapshot' }}</button></div>
+          <div class="editor-actions"><button class="danger-button" type="button" :disabled="saving || materialDraft.id === null" @click="requestClusterDeletion('material')">Delete</button><button class="primary-button" type="button" :disabled="saving" @click="void saveMaterialDraft()">{{ saving ? 'Saving…' : 'Submit' }}</button></div>
         </section>
         <section v-else class="empty-editor">Select an existing Material DP cluster or create a new one.</section>
       </section>
 
       <section v-else class="editor-layout" aria-labelledby="location-cluster-title">
         <aside class="master-list">
-          <div class="list-heading"><h2 id="location-cluster-title">Location clusters</h2><button class="secondary-button" type="button" :disabled="isBusy" @click="startLocationCreation">New Location cluster</button></div>
-          <label>Existing cluster<select v-model.number="selectedLocationClusterId" :disabled="isBusy" @change="void selectLocationCluster()"><option :value="null">Select a location cluster</option><option v-for="(cluster, index) in locationClusters" :key="cluster.id ?? `location-catalog-${index}`" :value="cluster.id">{{ locationClusterLabel(cluster) }}</option></select></label>
+          <div class="list-heading"><h2 id="location-cluster-title">List of Clusters</h2><button class="secondary-button" type="button" :disabled="isBusy" @click="startLocationCreation">New Location Cluster</button></div>
+          <label>Existing Location Cluster<select v-model.number="selectedLocationClusterId" :disabled="isBusy" @change="void selectLocationCluster()"><option :value="null">Select a location cluster</option><option v-for="(cluster, index) in locationClusters" :key="cluster.id ?? `location-catalog-${index}`" :value="cluster.id">{{ locationClusterLabel(cluster) }}</option></select></label>
           <button class="secondary-button" type="button" :disabled="isBusy" @click="void loadClusterDefinitions()">{{ loading ? 'Loading…' : 'Refresh catalog' }}</button>
-          <p class="muted">A selected cluster is re-read before editing. The active-member snapshot below remains a separate manual read.</p>
+          <p class="muted">Choose a cluster to edit it, or create a new Location cluster.</p>
         </aside>
 
         <section v-if="locationDraft" class="editor-card" aria-labelledby="location-editor-title">
           <div class="editor-heading"><div><p class="eyebrow">Complete server snapshot</p><h2 id="location-editor-title">{{ locationDraft.id === null ? 'New Location cluster' : locationClusterLabel(locationDraft) }}</h2></div></div>
-          <div class="field-grid"><label>Description<input v-model="locationDraft.description" :disabled="saving" maxlength="255" type="text"></label><label>Priority<input v-model.number="locationDraft.priority" :disabled="saving" type="number"></label></div>
-          <section class="rules-editor" aria-labelledby="location-rules-title"><div class="rules-heading"><div><h3 id="location-rules-title">Location rules</h3><p class="muted">To change a persisted rule, remove it and add a new rule. Only the two Community criteria are available.</p></div><button class="secondary-button" type="button" :disabled="saving" @click="addLocationRule">Add location rule</button></div>
+          <div class="field-grid"><label>Cluster Description<input v-model="locationDraft.description" :disabled="saving" maxlength="255" type="text"></label><label>Cluster Priority<input v-model.number="locationDraft.priority" :disabled="saving" type="number"></label></div>
+          <section class="rules-editor" aria-labelledby="location-rules-title"><div class="rules-heading"><div><h3 id="location-rules-title">Location rules</h3><p class="muted">To change a persisted rule, remove it and add a new rule. Only the supported criteria are available.</p></div><button class="secondary-button" type="button" :disabled="saving" @click="addLocationRule">Add location rule</button></div>
             <article v-for="(rule, index) in locationDraft.regraAlocacaoClusterDTOList" :key="rule.id ?? `new-location-rule-${index}`" class="rule-card location-rule-card"><label>Criterion<select v-model="rule.criterio" :disabled="saving || rule.id !== null" @change="normalizeLocationRule(rule)"><option value="Location Type">Location type</option><option value="Country / State">Country / state</option></select></label><label v-if="rule.criterio === 'Location Type'">Location type<select v-model="rule.locationType" :disabled="saving || rule.id !== null"><option v-for="locationType in locationTypeOptions" :key="locationType" :value="locationType">{{ locationType }}</option></select></label><template v-else><label>Country<input v-model="rule.pais" :disabled="saving || rule.id !== null" maxlength="50" type="text"></label><label>State<input v-model="rule.estado" :disabled="saving || rule.id !== null" maxlength="50" type="text"></label></template><span v-if="rule.id !== null" class="persisted-note">Persisted rule — remove and add to change its structure.</span><button class="danger-button" type="button" :disabled="saving" @click="removeLocationRule(index)">Remove rule</button></article>
             <p v-if="locationDraft.regraAlocacaoClusterDTOList.length === 0" class="muted">No rules: saving this snapshot removes all existing location rules.</p>
           </section>
-          <div class="editor-actions"><button class="danger-button" type="button" :disabled="saving || locationDraft.id === null" @click="requestClusterDeletion('location')">Delete cluster</button><button class="primary-button" type="button" :disabled="saving" @click="void saveLocationDraft()">{{ saving ? 'Saving…' : 'Save complete snapshot' }}</button></div>
+          <div class="editor-actions"><button class="danger-button" type="button" :disabled="saving || locationDraft.id === null" @click="requestClusterDeletion('location')">Delete</button><button class="primary-button" type="button" :disabled="saving" @click="void saveLocationDraft()">{{ saving ? 'Saving…' : 'Submit' }}</button></div>
         </section>
         <section v-else class="empty-editor">Select an existing Location cluster or create a new one.</section>
       </section>
@@ -544,9 +554,9 @@ onMounted(() => {
     </OfxSectionCard>
 
     <OfxSectionCard v-if="pendingDeletion" class="confirmation" role="dialog" aria-modal="true" aria-labelledby="delete-cluster-title"><h2 id="delete-cluster-title">Delete {{ pendingDeletion.kind === 'material' ? 'Material DP' : 'Location' }} cluster?</h2><p><strong>{{ pendingDeletion.description }}</strong> will be sent to the server for deletion. The page does not remove linked plans or records locally. If it is still referenced, the backend message will be shown here.</p><div class="editor-actions"><button class="secondary-button" type="button" :disabled="deleting" @click="pendingDeletion = null">Keep cluster</button><button class="danger-button" type="button" :disabled="deleting" @click="void confirmClusterDeletion()">{{ deleting ? 'Deleting…' : 'Delete cluster' }}</button></div></OfxSectionCard>
-  </TaskPageLayout>
+  </DashboardPageLayout>
 </template>
 
 <style scoped>
-.boundary-card, .workspace-card, .editor-card, .location-members-section { display: grid; gap: 1rem; margin-bottom: 1rem; }.boundary-card h2, .editor-card h2, .rules-editor h3, .location-members-section h2 { margin: 0; }.boundary-card p, .muted { color: var(--ofx-muted); }.boundary-card p { margin: 0; }.tab-list { border-bottom: 1px solid #dce2ec; display: flex; gap: .5rem; }.tab-button, .primary-button, .secondary-button, .danger-button { border: 1px solid #c8d0de; border-radius: .5rem; background: white; cursor: pointer; padding: .65rem .9rem; width: fit-content; }.tab-button { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }.tab-button[aria-selected='true'] { border-color: var(--ofx-accent); background: #eeeaff; color: #332285; font-weight: 700; }.primary-button { border-color: var(--ofx-accent); background: var(--ofx-accent); color: white; }.danger-button { border-color: #c93c32; background: #fff7f6; color: #9d2019; }.primary-button:disabled, .secondary-button:disabled, .danger-button:disabled, .tab-button:disabled { cursor: not-allowed; opacity: .55; }.editor-layout { display: grid; gap: 1rem; grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr); }.master-list, .editor-card, .empty-editor { border: 1px solid #e2e7f0; border-radius: .75rem; padding: 1rem; }.master-list { align-content: start; display: grid; gap: 1rem; }.list-heading, .editor-heading, .rules-heading, .editor-actions { align-items: start; display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; }.list-heading h2, .editor-heading h2, .rules-heading h3 { margin: 0; }.master-list label, .field-grid label, .rule-card label { display: grid; gap: .4rem; font-size: .875rem; font-weight: 700; }.master-list select, .field-grid input, .rule-card input, .rule-card select { border: 1px solid #c8d0de; border-radius: .5rem; background: white; min-height: 2.5rem; padding: .55rem; }.master-list p, .rules-heading p { margin: 0; }.editor-heading p { margin: 0; }.process-chip, .persisted-note { color: var(--ofx-muted); font-size: .82rem; }.process-chip { border: 1px solid #d8d0ff; border-radius: 999px; padding: .35rem .6rem; }.field-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }.rules-editor { display: grid; gap: .75rem; border-top: 1px solid #e2e7f0; padding-top: 1rem; }.rule-card { align-items: end; border-left: 3px solid #e7e2ff; display: grid; gap: .75rem; grid-template-columns: minmax(14rem, 1fr) auto auto; padding: .75rem; }.location-rule-card { grid-template-columns: repeat(3, minmax(10rem, 1fr)) auto auto; }.empty-editor { color: var(--ofx-muted); display: grid; min-height: 10rem; place-content: center; }.success-message { border: 1px solid #70b694; border-radius: .5rem; background: #ebf8ef; color: #146c43; margin-bottom: 1rem; padding: .8rem 1rem; }.error { color: #b42318; }.location-members-section p { margin: 0; }.members-table-wrapper { max-width: 100%; overflow-x: auto; }.members-table-wrapper table { border-collapse: collapse; min-width: 50rem; width: 100%; }.members-table-wrapper th, .members-table-wrapper td { border-bottom: 1px solid #e7e2ff; padding: .65rem; text-align: left; vertical-align: top; white-space: nowrap; }.members-table-wrapper th { color: var(--ofx-muted); font-size: .78rem; }.captured-message { border-left: 3px solid #70b694; padding-left: .75rem; }.confirmation { border: 1px solid #f0b7b2; border-radius: 1rem; background: #fff8f7; margin-top: 1rem; max-width: 44rem; padding: 1.5rem; }.confirmation h2 { margin-top: 0; }.compact-hero { margin-bottom: 1rem; }@media (max-width: 60rem) { .editor-layout { grid-template-columns: 1fr; }.rule-card, .location-rule-card { grid-template-columns: 1fr; }.editor-actions { align-items: stretch; }.editor-actions button { width: 100%; } }
+.workspace-card, .editor-card, .location-members-section { display: grid; gap: 1rem; margin-bottom: 1rem; }.editor-card h2, .rules-editor h3, .location-members-section h2 { margin: 0; }.muted { color: var(--ofx-muted); }.primary-button, .secondary-button, .danger-button { border: 1px solid #c8d0de; border-radius: .5rem; background: white; cursor: pointer; padding: .65rem .9rem; width: fit-content; }.primary-button { border-color: var(--ofx-accent); background: var(--ofx-accent); color: white; }.danger-button { border-color: #c93c32; background: #fff7f6; color: #9d2019; }.primary-button:disabled, .secondary-button:disabled, .danger-button:disabled { cursor: not-allowed; opacity: .55; }.cluster-mode-switch { display: inline-flex; align-items: center; gap: .3rem; border: 1px solid var(--ofx-border); border-radius: 999px; background: var(--ofx-surface-elevated); padding: .24rem; }.cluster-mode-button { min-width: 6.5rem; border: 0; border-radius: 999px; background: transparent; color: var(--ofx-text-muted); cursor: pointer; font-size: .82rem; font-weight: 600; padding: .58rem .95rem; }.cluster-mode-button.is-active { background: var(--ofx-accent); color: white; }.editor-layout { display: grid; gap: 1rem; grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr); }.master-list, .editor-card, .empty-editor { border: 1px solid #e2e7f0; border-radius: .75rem; padding: 1rem; }.master-list { align-content: start; display: grid; gap: 1rem; }.list-heading, .editor-heading, .rules-heading, .editor-actions { align-items: start; display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; }.list-heading h2, .editor-heading h2, .rules-heading h3 { margin: 0; }.master-list label, .field-grid label, .rule-card label { display: grid; gap: .4rem; font-size: .875rem; font-weight: 700; }.master-list select, .field-grid input, .rule-card input, .rule-card select { border: 1px solid #c8d0de; border-radius: .5rem; background: white; min-height: 2.5rem; padding: .55rem; }.master-list p, .rules-heading p { margin: 0; }.editor-heading p { margin: 0; }.process-chip, .persisted-note { color: var(--ofx-muted); font-size: .82rem; }.process-chip { border: 1px solid #d8d0ff; border-radius: 999px; padding: .35rem .6rem; }.field-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }.rules-editor { display: grid; gap: .75rem; border-top: 1px solid #e2e7f0; padding-top: 1rem; }.rule-card { align-items: end; border-left: 3px solid #e7e2ff; display: grid; gap: .75rem; grid-template-columns: minmax(14rem, 1fr) auto auto; padding: .75rem; }.location-rule-card { grid-template-columns: repeat(3, minmax(10rem, 1fr)) auto auto; }.empty-editor { color: var(--ofx-muted); display: grid; min-height: 10rem; place-content: center; }.success-message { border: 1px solid #70b694; border-radius: .5rem; background: #ebf8ef; color: #146c43; margin-bottom: 1rem; padding: .8rem 1rem; }.error { color: #b42318; }.location-members-section p { margin: 0; }.members-table-wrapper { max-width: 100%; overflow-x: auto; }.members-table-wrapper table { border-collapse: collapse; min-width: 50rem; width: 100%; }.members-table-wrapper th, .members-table-wrapper td { border-bottom: 1px solid #e7e2ff; padding: .65rem; text-align: left; vertical-align: top; white-space: nowrap; }.members-table-wrapper th { color: var(--ofx-muted); font-size: .78rem; }.captured-message { border-left: 3px solid #70b694; padding-left: .75rem; }.confirmation { border: 1px solid #f0b7b2; border-radius: 1rem; background: #fff8f7; margin-top: 1rem; max-width: 44rem; padding: 1.5rem; }.confirmation h2 { margin-top: 0; }@media (max-width: 60rem) { .editor-layout { grid-template-columns: 1fr; }.rule-card, .location-rule-card { grid-template-columns: 1fr; }.editor-actions { align-items: stretch; }.editor-actions button { width: 100%; } }
 </style>

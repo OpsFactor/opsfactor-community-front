@@ -63,9 +63,11 @@ const planningBookGridColumns = computed<PlanningBookVirtualGridColumn<(typeof r
     id: `descriptor:${column.field}`,
     label: column.name,
     cellClass: 'supply-planning-book__descriptor-cell',
-    getValue: (row: SupplyPlanningBookRow) => row.locationDescriptionCols[column.field]
-      || row.materialDescriptionCols[column.field]
-      || '—',
+    getValue: (row: SupplyPlanningBookRow) => column.field === 'uom'
+      ? planningBook.value?.uom ?? '—'
+      : row.locationDescriptionCols[column.field]
+        || row.materialDescriptionCols[column.field]
+        || '—',
   })),
   {
     id: 'key-figure',
@@ -308,10 +310,10 @@ onMounted(loadOptions);
       <div class="selection-grid"><label class="field-label">Supply Plan<select v-model="selectedPlanId" :disabled="isLoadingOptions || isSaving"><option value="">Select a supply plan</option><option v-for="plan in supplyPlans" :key="plan.supplyPlanId" :value="String(plan.supplyPlanId)">{{ plan.supplyPlanId }} — {{ plan.description || 'Unnamed supply plan' }}</option></select></label><label class="field-label">Planning location<select v-model="selectedLocationId" :disabled="isLoadingOptions || isSaving"><option value="">Select a planning location</option><option v-for="location in locations" :key="location.id" :value="location.id">{{ location.id }} — {{ location.description || 'Unnamed location' }}</option></select></label><label class="field-label">User view<select v-model="selectedViewName" :disabled="isLoadingOptions || isSaving"><option value="">Select a view</option><option v-for="view in planningBookViews" :key="view.viewName" :value="view.viewName">{{ view.viewName }}</option></select></label><div class="selection-open"><button class="primary-button" :disabled="!canOpenPlanningBook || isLoadingBook || isSaving" @click="openPlanningBook">{{ isLoadingBook ? 'Opening…' : 'Open Planning Book' }}</button></div></div>
     </OfxSectionCard>
 
-    <p v-if="!planningBook && !isLoadingOptions && !planningBookViews.length" class="muted">No Supply Planning Book view is available. Configure a view before opening it.</p>
+    <p v-if="!planningBook && !isLoadingOptions && !planningBookViews.length" class="muted">No Supply Planning Book view is assigned to this account. Ask an administrator to configure one before opening the workbook.</p>
 
     <section v-if="planningBook" class="planning-book-workspace-header">
-      <div><div class="planning-book-workspace-eyebrow">Supply Planning Workspace</div><div class="planning-book-workspace-meta">{{ planningBook.viewName }} <span>•</span> {{ selectedPlanId }} <span>•</span> {{ selectedLocationId }} <span>•</span> Community</div></div>
+      <div><div class="planning-book-workspace-eyebrow">Supply Planning Workspace</div><div class="planning-book-workspace-meta">{{ planningBook.viewName }} <span>•</span> {{ selectedPlanId }} <span>•</span> {{ selectedLocationId }}</div></div>
       <button class="secondary-button" type="button" :disabled="isSaving || isLoadingDetails || isSavingDetails" @click="leavePlanningBook">Reopen selection</button>
     </section>
 
@@ -334,8 +336,8 @@ onMounted(loadOptions);
     <div v-if="cellDetails && detailSelection" class="drawer-backdrop" @click.self="closeCellDetails">
       <aside class="detail-drawer" aria-label="Supply Planning Book cell details">
         <header class="section-header"><div><p class="eyebrow">Cell details</p><h2>{{ detailSelection.keyFigure }}</h2><p class="muted">{{ detailSelection.materialDescriptionCols.materialId }} · {{ detailSelection.locationId }} · {{ detailSelection.period }}</p></div><button class="secondary-button" :disabled="isSavingDetails" @click="closeCellDetails">Close</button></header>
-        <p v-if="detailSelection.keyFigure.startsWith('Indirect Demand-')" class="muted">Indirect Demand is read-only in Community.</p>
-        <p v-else-if="!canSaveDetails" class="muted">This detail is read-only in Community.</p>
+        <p v-if="detailSelection.keyFigure.startsWith('Indirect Demand-')" class="muted">Indirect Demand is read-only.</p>
+        <p v-else-if="!canSaveDetails" class="muted">This detail is read-only in the current edition.</p>
         <div class="table-scroll"><table><thead><tr><th v-for="column in cellDetails.columnDefs" :key="column.field">{{ column.headerName }}</th></tr></thead><tbody><tr v-for="(detailLine, detailLineIndex) in cellDetails.detailLines" :key="detailLineIndex"><td v-for="column in cellDetails.columnDefs" :key="column.field"><input v-if="column.field === 'Quantity' && isSupplyPlanningBookDetailQuantityEditable(detailSelection.keyFigure, detailLine)" :value="detailLine[column.field]" type="number" min="0" step="any" :disabled="isSavingDetails" @change="setDetailQuantity(detailLineIndex, ($event.target as HTMLInputElement).value)" /><span v-else>{{ detailLine[column.field] ?? '—' }}</span></td></tr></tbody></table></div>
         <footer v-if="canSaveDetails" class="drawer-actions"><button class="primary-button" :disabled="isSavingDetails" @click="submitCellDetails">{{ isSavingDetails ? 'Saving…' : 'Save quantities' }}</button></footer>
       </aside>

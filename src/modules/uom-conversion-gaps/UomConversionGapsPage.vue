@@ -224,7 +224,7 @@ onMounted(loadSelectors);
       <div class="section-header">
         <div>
           <h2 id="uom-gap-mode-title">Diagnostic flow</h2>
-          <p>Choose one existing Community diagnostic. The result is loaded only after Diagnose is selected.</p>
+      <p>Choose one existing diagnostic. The result is loaded only after Diagnose is selected.</p>
         </div>
       </div>
       <div class="mode-buttons" role="group" aria-label="Diagnostic flow">

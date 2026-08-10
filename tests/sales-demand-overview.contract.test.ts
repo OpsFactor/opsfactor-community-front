@@ -33,10 +33,12 @@ test('Community Sales/Demand Overview preserves Enterprise visual slots without 
   assert.match(pageSource, /label="Historical sales type"/);
   assert.match(pageSource, /label="Detail level"/);
   assert.match(pageSource, /title="Characteristic Selectors"/);
-  assert.match(pageSource, /locked-label="Enterprise"/);
+  assert.match(pageSource, /locked-label="Pro \/ Enterprise"/);
   assert.match(pageSource, /key: 'gross'/);
   assert.match(pageSource, /key: 'net'/);
-  assert.match(pageSource, /value: 'Enterprise'/);
+  assert.match(pageSource, /requiredEdition: 'Pro \/ Enterprise'/);
+  assert.match(pageSource, /value: '—'/);
+  assert.doesNotMatch(pageSource, /value: 'Enterprise'/);
   assert.doesNotMatch(requestFunctionSource, /financial|cogs|margin|sellin|orders/i);
   assert.doesNotMatch(requestFunctionSource, /\/api\/secured\/bi\//);
 });

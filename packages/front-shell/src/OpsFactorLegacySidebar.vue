@@ -3,6 +3,8 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import OpsFactorNavigationIcon from './OpsFactorNavigationIcon.vue';
 import { getModuleIconName, getPageIconName, getSectionIconName } from './navigation-icons';
+import { unavailableEditionLabel } from './edition-navigation-policy';
+import OfxEditionAvailabilityMark from './OfxEditionAvailabilityMark.vue';
 
 export interface LegacyNavigationItem {
   key: string;
@@ -118,12 +120,31 @@ function moduleLinkClass(path: string) {
 
   if (isLightTheme.value) {
     return isSelected(path)
-      ? 'border-[color:var(--ofx-border-selected)] text-[color:var(--ofx-text)]'
+      ? 'text-[color:var(--ofx-text)]'
       : 'border-transparent bg-transparent text-[color:var(--ofx-text-subtle)] hover:border-[color:var(--ofx-border)] hover:bg-[color:var(--ofx-surface-elevated)] hover:text-[color:var(--ofx-text)]';
   }
   return isSelected(path)
     ? 'border-white/10 text-white'
     : 'border-transparent bg-transparent text-white/44 hover:border-white/8 hover:bg-white/6 hover:text-white/88';
+
+}
+
+/**
+ * Mantém o módulo ativo legível sem transformar a seleção clara em um anel de
+ * foco. O tema escuro conserva o tratamento visual de referência; no claro, a
+ * borda e a sombra usam o accent do próprio módulo com contraste reduzido.
+ */
+function moduleLinkStyle(module: LegacyNavigationModule) {
+
+  if (!isSelected(module.path)) return undefined;
+
+  const shadowStrength = isLightTheme.value ? 14 : 28;
+  return {
+    boxShadow: `0 10px 30px color-mix(in srgb, ${module.accent} ${shadowStrength}%, transparent)`,
+    ...(isLightTheme.value
+      ? { borderColor: `color-mix(in srgb, ${module.accent} 24%, var(--ofx-border))` }
+      : {}),
+  };
 
 }
 
@@ -159,13 +180,13 @@ onBeforeUnmount(clearCloseTimer);
       <div class="relative flex h-[calc(100vh-2rem)] items-start" @mouseleave="scheduleFlyoutClose">
         <div class="sidebar-rail flex h-full min-h-0 w-[72px] flex-col items-center gap-4 overflow-hidden rounded-[28px] border px-3 py-4 shadow-[var(--ofx-shadow-lg)] backdrop-blur-xl" :class="isLightTheme ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface)]' : 'border-white/8 bg-[color:rgb(8_13_23_/_0.92)]'" @mouseenter="clearCloseTimer">
           <nav ref="railNavRef" class="sidebar-module-nav flex min-h-0 w-full flex-1 flex-col items-center gap-2.5 overflow-y-auto overflow-x-hidden py-1 pr-0.5">
-            <RouterLink v-for="module in planningModules" :key="module.key" :to="module.path" :data-module-key="module.key" class="sidebar-module-link relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition-all duration-150" :style="isSelected(module.path) ? { boxShadow: `0 10px 30px color-mix(in srgb, ${module.accent} 28%, transparent)` } : undefined" :class="[moduleLinkClass(module.path), isUnavailable(module) ? 'cursor-not-allowed opacity-45' : '']" :title="module.label" :aria-disabled="isUnavailable(module)" @mouseenter="openFlyout(module.key)" @focus="openFlyout(module.key)" @click="handleNavigation($event, module)">
+            <RouterLink v-for="module in planningModules" :key="module.key" :to="module.path" :data-module-key="module.key" class="sidebar-module-link relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition-all duration-150" :style="moduleLinkStyle(module)" :class="[moduleLinkClass(module.path), isUnavailable(module) ? 'cursor-not-allowed' : '']" :title="module.label" :aria-disabled="isUnavailable(module)" @mouseenter="openFlyout(module.key)" @focus="openFlyout(module.key)" @click="handleNavigation($event, module)">
               <span class="absolute inset-0 rounded-2xl" :style="isSelected(module.path) ? { background: `color-mix(in srgb, ${module.accent} 22%, transparent)` } : undefined"></span>
               <span class="absolute left-[-12px] h-6 w-1 rounded-full transition-opacity" :style="{ backgroundColor: module.accent, opacity: isSelected(module.path) ? 1 : 0 }"></span>
               <span class="relative"><OpsFactorNavigationIcon :name="getModuleIconName(module.key)" :size="18" /></span>
             </RouterLink>
             <div class="my-1.5 h-px w-7 shrink-0" :class="isLightTheme ? 'bg-[color:var(--ofx-border)]' : 'bg-white/10'"></div>
-            <RouterLink v-for="module in platformModules" :key="module.key" :to="module.path" :data-module-key="module.key" class="sidebar-module-link relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition-all duration-150" :style="isSelected(module.path) ? { boxShadow: `0 10px 30px color-mix(in srgb, ${module.accent} 28%, transparent)` } : undefined" :class="[moduleLinkClass(module.path), isUnavailable(module) ? 'cursor-not-allowed opacity-45' : '']" :title="module.label" :aria-disabled="isUnavailable(module)" @mouseenter="openFlyout(module.key)" @focus="openFlyout(module.key)" @click="handleNavigation($event, module)">
+            <RouterLink v-for="module in platformModules" :key="module.key" :to="module.path" :data-module-key="module.key" class="sidebar-module-link relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition-all duration-150" :style="moduleLinkStyle(module)" :class="[moduleLinkClass(module.path), isUnavailable(module) ? 'cursor-not-allowed' : '']" :title="module.label" :aria-disabled="isUnavailable(module)" @mouseenter="openFlyout(module.key)" @focus="openFlyout(module.key)" @click="handleNavigation($event, module)">
               <span class="absolute inset-0 rounded-2xl" :style="isSelected(module.path) ? { background: `color-mix(in srgb, ${module.accent} 22%, transparent)` } : undefined"></span>
               <span class="absolute left-[-12px] h-6 w-1 rounded-full transition-opacity" :style="{ backgroundColor: module.accent, opacity: isSelected(module.path) ? 1 : 0 }"></span>
               <span class="relative"><OpsFactorNavigationIcon :name="getModuleIconName(module.key)" :size="18" /></span>
@@ -178,7 +199,7 @@ onBeforeUnmount(clearCloseTimer);
         <div v-if="previewModule" v-show="flyoutVisible" class="absolute left-[76px] top-0 w-[320px]" @mouseenter="clearCloseTimer" @mouseleave="scheduleFlyoutClose">
           <div class="h-[calc(100vh-2rem)] overflow-hidden rounded-[28px] border shadow-[var(--ofx-shadow-lg)] backdrop-blur-xl" :class="isLightTheme ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface)]' : 'border-white/8 bg-[color:rgb(10_16_29_/_0.96)]'">
             <div class="border-b px-4 py-4" :class="isLightTheme ? 'border-[color:var(--ofx-border)]' : 'border-white/6'"><div class="flex items-center gap-3"><div class="flex h-9 w-9 items-center justify-center rounded-2xl border" :style="{ color: previewModule.accent, borderColor: `color-mix(in srgb, ${previewModule.accent} 20%, transparent)`, background: `color-mix(in srgb, ${previewModule.accent} 14%, transparent)` }"><OpsFactorNavigationIcon :name="getModuleIconName(previewModule.key)" :size="16" /></div><div><div class="text-lg font-semibold" :class="isLightTheme ? 'text-[color:var(--ofx-text)]' : 'text-white/94'">{{ previewModule.label }}</div></div></div></div>
-            <div class="h-[calc(100%-74px)] overflow-y-auto px-3 py-3"><div v-for="section in previewModule.sections" :key="section.label" class="mb-3 rounded-[20px] border p-3 last:mb-0" :class="isLightTheme ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface-elevated)]' : 'border-white/7 bg-white/[0.025]'"><div class="px-1"><div class="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em]" :class="isLightTheme ? 'text-[color:var(--ofx-text-subtle)]' : 'text-white/34'"><OpsFactorNavigationIcon :name="getSectionIconName(section.label)" :size="13" /><span>{{ section.label }}</span></div></div><div class="mt-3 space-y-2"><RouterLink v-for="item in section.items" :key="item.path" :to="item.path" class="block rounded-[16px] border px-3 py-2.5 transition" :class="[flyoutItemClass(item.path), isUnavailable(item) ? 'cursor-not-allowed opacity-50' : '']" :aria-disabled="isUnavailable(item)" @click="handleNavigation($event, item)"><div class="flex items-center gap-3"><div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border" :style="{ color: previewModule.accent, borderColor: `color-mix(in srgb, ${previewModule.accent} 18%, transparent)`, background: `color-mix(in srgb, ${previewModule.accent} 10%, transparent)` }"><OpsFactorNavigationIcon :name="getPageIconName(item.label)" :size="15" /></div><div class="min-w-0"><div class="text-sm font-medium">{{ item.label }}</div><div v-if="isUnavailable(item)" class="mt-0.5 text-[10px] uppercase tracking-[0.14em]" :class="isLightTheme ? 'text-[color:var(--ofx-text-subtle)]' : 'text-white/35'">Enterprise</div></div></div></RouterLink></div></div></div>
+            <div class="h-[calc(100%-74px)] overflow-y-auto px-3 py-3"><div v-for="section in previewModule.sections" :key="section.label" class="mb-3 rounded-[20px] border p-3 last:mb-0" :class="isLightTheme ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface-elevated)]' : 'border-white/7 bg-white/[0.025]'"><div class="px-1"><div class="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em]" :class="isLightTheme ? 'text-[color:var(--ofx-text-subtle)]' : 'text-white/34'"><OpsFactorNavigationIcon :name="getSectionIconName(section.label)" :size="13" /><span>{{ section.label }}</span></div></div><div class="mt-3 space-y-2"><RouterLink v-for="item in section.items" :key="item.path" :to="item.path" class="block rounded-[16px] border px-3 py-2.5 transition" :class="[flyoutItemClass(item.path), isUnavailable(item) ? 'cursor-not-allowed' : '']" :aria-disabled="isUnavailable(item)" @click="handleNavigation($event, item)"><div class="flex items-center gap-3"><div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border" :style="{ color: previewModule.accent, borderColor: `color-mix(in srgb, ${previewModule.accent} 18%, transparent)`, background: `color-mix(in srgb, ${previewModule.accent} 10%, transparent)` }"><OpsFactorNavigationIcon :name="getPageIconName(item.label)" :size="15" /></div><div class="min-w-0"><div class="flex items-center gap-1.5"><div class="text-sm font-medium">{{ item.label }}</div><OfxEditionAvailabilityMark v-if="isUnavailable(item)" :edition-label="unavailableEditionLabel(previewModule.key)" :theme-mode="props.themeMode" :size="11" /></div></div></div></RouterLink></div></div></div>
           </div>
         </div>
       </div>
@@ -187,9 +208,9 @@ onBeforeUnmount(clearCloseTimer);
 </template>
 
 <style scoped>
-.sidebar-module-nav { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--ofx-text-muted) 42%, transparent) transparent; }
-.sidebar-module-nav::-webkit-scrollbar { width: 6px; }
-.sidebar-module-nav::-webkit-scrollbar-thumb { border-radius: 9999px; background: color-mix(in srgb, var(--ofx-text-muted) 42%, transparent); }
-.sidebar-module-nav::-webkit-scrollbar-track { background: transparent; }
+.sidebar-module-nav { scrollbar-width: none; }
+.sidebar-module-nav::-webkit-scrollbar { display: none; width: 0; }
+.sidebar-module-link { height: 2.25rem !important; width: 2.25rem !important; }
 @media (max-height: 860px) { .sidebar-rail { gap: 0.75rem; padding-top: 0.875rem; padding-bottom: 0.875rem; } .sidebar-module-nav { gap: 0.375rem; } .sidebar-module-link { height: 2.375rem; width: 2.375rem; border-radius: 0.9375rem; } .sidebar-rail__footer { padding-top: 0.75rem; } .sidebar-logout-button { height: 2.25rem; width: 2.25rem; } }
+@media (max-height: 740px) { .sidebar-module-nav { gap: 0.25rem !important; } .sidebar-module-link { height: 2rem !important; width: 2rem !important; border-radius: 0.75rem; } }
 </style>

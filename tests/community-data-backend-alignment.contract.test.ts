@@ -25,9 +25,13 @@ function readCommunityBackendDataSubpaths() {
   ].map((match) => match[1]);
   const manuallyDeclaredSubpaths = [
     ...backendContractSource.matchAll(
-      /route\("(?:GET|POST|DELETE)", "api\/secured\/data(?:\/file)?\/([^/"{]+)(?:\/[^\"]*)?"\)/g,
+      /route\("(?:GET|POST|DELETE)", "api\/secured\/data(?:\/file)?\/([^\"]+)"\)/g,
     ),
-  ].map((match) => match[1]);
+  ]
+    .map((match) => match[1].replace(/\/\{.*$/, ''))
+    // Deactivation is an auxiliary operation of an existing integration
+    // family, not a separate Planning Front catalogue topic.
+    .filter((subpath) => !subpath.endsWith('/deactivate'));
 
   return {
     backendContractSource,
@@ -38,7 +42,8 @@ function readCommunityBackendDataSubpaths() {
 test('Community Data SPA catalog is exactly the backend-published Community integration catalog', () => {
 
   const { backendContractSource, subpaths } = readCommunityBackendDataSubpaths();
-  const frontendSubpaths = COMMUNITY_DATA_FAMILIES.map((family) => family.subPath).sort();
+  const frontendSubpaths = COMMUNITY_DATA_FAMILIES.flatMap((family) =>
+    family.variants?.map((variant) => variant.subPath) ?? [family.subPath]).sort();
 
   assert.deepEqual(frontendSubpaths, subpaths);
   assert.match(backendContractSource, /List\.of\("api\/secured\/data\/file\/"\)/);

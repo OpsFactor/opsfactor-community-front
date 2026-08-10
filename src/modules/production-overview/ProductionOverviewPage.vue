@@ -1,11 +1,21 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
-import { OfxEmptyState, OfxKpiCard, OfxPageHeader, OfxSectionCard } from '@opsfactor/front-shell';
+import {
+  OfxEmptyState,
+  OfxKpiCard,
+  OfxPageHeader,
+  OfxSectionCard,
+  type OfxExportFormat,
+  type OfxTableColumn,
+} from '@opsfactor/front-shell';
 import DashboardPageLayout from '@/layouts/page/DashboardPageLayout.vue';
 import OfxSelectField from '@/components/ofx/forms/OfxSelectField.vue';
 import OfxEntityMultiSelect from '@/components/ofx/data-entry/OfxEntityMultiSelect.vue';
+import OfxDataTable from '@/components/ofx/data-display/OfxDataTable.vue';
 import OfxPivotTable from '@/components/ofx/data-display/OfxPivotTable.vue';
+import OfxTableToolbar from '@/components/ofx/data-display/OfxTableToolbar.vue';
 import EChartAdapter from '@/wrappers/echarts/EChartAdapter.vue';
+import { getCapacityUtilizationCellStyle } from './capacity-utilization';
 import {
   getProductionOverview,
   getProductionOverviewResourceDetail,
@@ -45,6 +55,8 @@ interface ResourceRow {
   periodIndex: number;
   constrainedOccupation: number;
   unconstrainedOccupation: number;
+  constrainedProduction: number;
+  unconstrainedProduction: number;
   capacity: number | undefined;
 }
 
@@ -56,6 +68,7 @@ const supplyPlanId = ref<number | null>(null);
 const uomId = ref('');
 const selectedMaterialIds = ref<string[]>([]);
 const selectedLocationIds = ref<string[]>([]);
+const selectedProductionResourceIds = ref<string[]>([]);
 const overview = ref<ProductionOverview | null>(null);
 const isLoadingSelectors = ref(true);
 const isLoadingOverview = ref(false);
@@ -63,13 +76,15 @@ const errorMessage = ref<string | null>(null);
 const resourceDetail = ref<ProductionOverviewResourceDetail | null>(null);
 const isLoadingResourceDetail = ref(false);
 const resourceDetailErrorMessage = ref<string | null>(null);
+const constrainedResourceTableRef = ref<InstanceType<typeof OfxDataTable> | null>(null);
+const unconstrainedResourceTableRef = ref<InstanceType<typeof OfxDataTable> | null>(null);
+const resourceDetailTableRef = ref<InstanceType<typeof OfxDataTable> | null>(null);
+const exportFormat = ref<OfxExportFormat>('xlsx');
 
-/** The Community page never expands a missing selector into the whole active scope. */
+/** Matches Planning Front: location and material filters are optional and empty means the whole loaded scope. */
 const canLoadOverview = computed(() => (
   supplyPlanId.value !== null
   && uomId.value.length > 0
-  && selectedMaterialIds.value.length > 0
-  && selectedLocationIds.value.length > 0
 ));
 const activeMaterials = computed(() => materials.value.filter((option) => option.active !== false));
 const activeLocations = computed(() => locations.value.filter((option) => option.active !== false));
@@ -93,17 +108,44 @@ const materialOptions = computed(() => activeMaterials.value.map((material) => (
   value: material.id,
 })));
 const periodLabels = computed(() => overview.value?.finalDateTimeByPeriod.map((period) => formatDate(period)) ?? []);
+const productionResourceOptions = computed(() => {
 
-/** The cards retain the reference dashboard hierarchy while exposing only physical Community facts. */
+  const uniqueResources = new Map<string, { label: string; value: string }>();
+  for (const row of resourceRows.value) {
+    uniqueResources.set(row.productionResourceId, {
+      label: `${row.productionResourceId} - ${row.locationId}`,
+      value: row.productionResourceId,
+    });
+  }
+
+  return [...uniqueResources.values()].sort((left, right) => left.label.localeCompare(right.label));
+
+});
+
+/** Applies the optional slice locally, preserving the whole report whenever no values are selected. */
+function isIncludedInSelectedScope(selectedIds: string[], id: string): boolean {
+
+  return selectedIds.length === 0 || selectedIds.includes(id);
+
+}
+
+/** Mirrors the legacy dashboard summaries across the complete selected horizon. */
 const summaryCards = computed(() => {
 
-  const latestRows = quantityRows.value.filter((row) => row.periodEnd === overview.value?.finalDateTimeByPeriod.at(-1));
-  const sum = (key: keyof QuantityRow) => latestRows.reduce((total, row) => total + Number(row[key] ?? 0), 0);
+  const periodCount = periodLabels.value.length;
+  const averageByPeriod = (key: keyof QuantityRow) => {
+    if (periodCount === 0) return 0;
+    const total = quantityRows.value.reduce((sum, row) => sum + Number(row[key] ?? 0), 0);
+    return total / periodCount;
+  };
+  const selectedUomLabel = uomId.value;
+  const formatAverage = (value: number) => `${Math.round(value).toLocaleString('en-US')} ${selectedUomLabel}`.trim();
+
   return [
-    { label: 'Constrained stock', value: formatValue(sum('constrainedInventory')), tone: 'default' as const },
-    { label: 'Unconstrained stock', value: formatValue(sum('unconstrainedInventory')), tone: 'success' as const },
-    { label: 'Constrained production', value: formatValue(sum('constrainedProduction')), tone: 'default' as const },
-    { label: 'Constrained direct demand', value: formatValue(sum('constrainedDirectDemand')), tone: 'warning' as const },
+    { label: 'Avg Constrained Met Demand', value: formatAverage(averageByPeriod('constrainedDirectDemand')), tone: 'success' as const },
+    { label: 'Avg Constrained Production', value: formatAverage(averageByPeriod('constrainedProduction')), tone: 'default' as const },
+    { label: 'Avg Unconstrained Met Demand', value: formatAverage(averageByPeriod('unconstrainedDirectDemand')), tone: 'default' as const },
+    { label: 'Avg Unconstrained Production', value: formatAverage(averageByPeriod('unconstrainedProduction')), tone: 'default' as const },
   ];
 });
 
@@ -121,16 +163,16 @@ function buildVolumeOption(plan: 'constrained' | 'unconstrained') {
 
   return {
     tooltip: { trigger: 'axis' },
-    legend: { bottom: 0 },
-    grid: { top: 30, right: 24, bottom: 58, left: 56 },
+    legend: { top: 0 },
+    grid: { top: 42, right: 18, bottom: 28, left: 42 },
     xAxis: { type: 'category', data: periodLabels.value },
     yAxis: { type: 'value', name: uomId.value },
     series: [
-      { name: 'Stock', type: 'line', smooth: true, data: sumForPeriod(`${prefix}Inventory` as keyof QuantityRow) },
-      { name: 'Inbound', type: 'line', smooth: true, data: sumForPeriod(`${prefix}Inbound` as keyof QuantityRow) },
-      { name: 'Production', type: 'line', smooth: true, data: sumForPeriod(`${prefix}Production` as keyof QuantityRow) },
-      { name: 'Direct demand', type: 'line', smooth: true, data: sumForPeriod(`${prefix}DirectDemand` as keyof QuantityRow) },
-      { name: 'Indirect demand', type: 'line', smooth: true, data: sumForPeriod(`${prefix}IndirectDemand` as keyof QuantityRow) },
+      { name: 'Stock', type: 'line', smooth: true, data: sumForPeriod(`${prefix}Inventory` as keyof QuantityRow), lineStyle: { color: '#7aa2ff', width: 2 }, itemStyle: { color: '#7aa2ff' } },
+      { name: 'Direct demand', type: 'bar', stack: plan, data: sumForPeriod(`${prefix}DirectDemand` as keyof QuantityRow), itemStyle: { color: '#ff7f66' }, barMaxWidth: 18 },
+      { name: 'Indirect demand', type: 'bar', stack: plan, data: sumForPeriod(`${prefix}IndirectDemand` as keyof QuantityRow), itemStyle: { color: '#f4b860' }, barMaxWidth: 18 },
+      { name: 'Inbound', type: 'line', smooth: true, data: sumForPeriod(`${prefix}Inbound` as keyof QuantityRow), lineStyle: { color: '#8b7cff', width: 2 }, itemStyle: { color: '#8b7cff' } },
+      { name: 'Production', type: 'line', smooth: true, data: sumForPeriod(`${prefix}Production` as keyof QuantityRow), lineStyle: { color: '#3ad6bf', width: 3 }, itemStyle: { color: '#3ad6bf' } },
     ],
   };
 
@@ -157,7 +199,12 @@ const quantityRows = computed<QuantityRow[]>(() => {
     demandByLocationAndMaterial.set(`${demand.locationId}\u0000${demand.materialId}`, demand);
   }
 
-  return overview.value.stockAndProductionByLocationAndMaterialGrouping.flatMap((stockAndProduction) => (
+  return overview.value.stockAndProductionByLocationAndMaterialGrouping
+    .filter((stockAndProduction) => (
+      isIncludedInSelectedScope(selectedLocationIds.value, stockAndProduction.locationId)
+      && isIncludedInSelectedScope(selectedMaterialIds.value, stockAndProduction.materialId)
+    ))
+    .flatMap((stockAndProduction) => (
     overview.value!.finalDateTimeByPeriod.map((periodEnd, periodIndex) => {
       const demand = demandByLocationAndMaterial.get(`${stockAndProduction.locationId}\u0000${stockAndProduction.materialId}`);
       return toQuantityRow(stockAndProduction, demand, periodEnd, periodIndex);
@@ -178,18 +225,27 @@ const resourceRows = computed<ResourceRow[]>(() => {
 
   const occupationByResourcePeriod = new Map<string, ResourceRow>();
   for (const occupation of overview.value.occupationAndProductionByProductionResourceAndMaterialGrouping) {
+    if (!isIncludedInSelectedScope(selectedLocationIds.value, occupation.locationId)
+      || !isIncludedInSelectedScope(selectedMaterialIds.value, occupation.materialId)) {
+      continue;
+    }
     addOccupationRows(occupationByResourcePeriod, occupation, overview.value.finalDateTimeByPeriod, capacityByResource);
   }
   for (const capacity of overview.value.capacityByProductionResource) {
+    if (!isIncludedInSelectedScope(selectedLocationIds.value, capacity.locationId)) {
+      continue;
+    }
     for (const [periodIndex, periodEnd] of overview.value.finalDateTimeByPeriod.entries()) {
       const key = `${resourceKey(capacity.locationId, capacity.productionResourceId)}\u0000${periodIndex}`;
       occupationByResourcePeriod.set(key, occupationByResourcePeriod.get(key) ?? {
         locationId: capacity.locationId,
-      productionResourceId: capacity.productionResourceId,
-      periodEnd,
+        productionResourceId: capacity.productionResourceId,
+        periodEnd,
         periodIndex,
         constrainedOccupation: 0,
         unconstrainedOccupation: 0,
+        constrainedProduction: 0,
+        unconstrainedProduction: 0,
         capacity: capacity.capacityInHoursOrQuantity[periodIndex],
       });
     }
@@ -242,14 +298,125 @@ function addOccupationRows(
       periodIndex,
       constrainedOccupation: 0,
       unconstrainedOccupation: 0,
+      constrainedProduction: 0,
+      unconstrainedProduction: 0,
       capacity: capacity?.capacityInHoursOrQuantity[periodIndex],
     };
     row.constrainedOccupation += occupation.constrainedOccupationInHoursOrQuantity[periodIndex] ?? 0;
     row.unconstrainedOccupation += occupation.unconstrainedOccupationInHoursOrQuantity[periodIndex] ?? 0;
+    row.constrainedProduction += occupation.constrainedProductionQuantity[periodIndex] ?? 0;
+    row.unconstrainedProduction += occupation.unconstrainedProductionQuantity[periodIndex] ?? 0;
     rowsByResourcePeriod.set(key, row);
   }
 
 }
+
+/** Applies the public production-resource selector to charts and grids after the report is loaded. */
+const selectedResourceRows = computed(() => resourceRows.value.filter((row) => (
+  selectedProductionResourceIds.value.length === 0
+  || selectedProductionResourceIds.value.includes(row.productionResourceId)
+)));
+
+function buildOccupationOption(plan: 'constrained' | 'unconstrained') {
+
+  const capacity = new Array(periodLabels.value.length).fill(0);
+  const occupation = new Array(periodLabels.value.length).fill(0);
+  const production = new Array(periodLabels.value.length).fill(0);
+
+  for (const row of selectedResourceRows.value) {
+    capacity[row.periodIndex] += row.capacity ?? 0;
+    occupation[row.periodIndex] += plan === 'constrained' ? row.constrainedOccupation : row.unconstrainedOccupation;
+    production[row.periodIndex] += plan === 'constrained' ? row.constrainedProduction : row.unconstrainedProduction;
+  }
+
+  return {
+    tooltip: { trigger: 'axis' },
+    legend: { top: 0 },
+    grid: { top: 42, right: 42, bottom: 28, left: 42 },
+    xAxis: { type: 'category', data: periodLabels.value },
+    yAxis: [
+      { type: 'value', name: 'Hours' },
+      { type: 'value', name: uomId.value },
+    ],
+    series: [
+      { name: 'Total capacity', type: 'bar', data: capacity, itemStyle: { color: 'rgba(185,194,217,0.55)' }, barMaxWidth: 18, yAxisIndex: 0 },
+      { name: 'Allocated capacity', type: 'line', smooth: true, data: occupation, lineStyle: { color: '#ff8a65', width: 3 }, itemStyle: { color: '#ff8a65' }, yAxisIndex: 0 },
+      { name: 'Production', type: 'line', smooth: true, data: production, lineStyle: { color: '#5b8cff', width: 2 }, itemStyle: { color: '#5b8cff' }, yAxisIndex: 1 },
+    ],
+  };
+
+}
+
+const constrainedOccupationOption = computed(() => buildOccupationOption('constrained'));
+const unconstrainedOccupationOption = computed(() => buildOccupationOption('unconstrained'));
+
+function toCapacityPercent(occupation: number, capacity: number | undefined): number | null {
+
+  return capacity === undefined || !Number.isFinite(capacity) || capacity === 0
+    ? null
+    : (occupation / capacity) * 100;
+
+}
+
+const resourceColumns = computed<OfxTableColumn[]>(() => [
+  { field: 'location', header: 'Location', width: '18%', dataType: 'text' },
+  { field: 'resource', header: 'Production resource', width: '20%', dataType: 'text' },
+  ...periodLabels.value.map((periodLabel, periodIndex) => ({
+    field: `period-${periodIndex}`,
+    header: periodLabel,
+    width: '11%',
+    dataType: 'percent-1' as const,
+    cellStyle: ({ value }: { value: unknown }) => ({
+      ...(getCapacityUtilizationCellStyle(value) ?? {}),
+      cursor: 'pointer',
+    }),
+  })),
+]);
+
+function buildResourceGridRows(plan: 'constrained' | 'unconstrained'): Record<string, unknown>[] {
+
+  const rowsByResource = new Map<string, Record<string, unknown>>();
+  for (const row of selectedResourceRows.value) {
+    const key = resourceKey(row.locationId, row.productionResourceId);
+    const gridRow = rowsByResource.get(key) ?? {
+      rowKey: key,
+      location: row.locationId,
+      locationId: row.locationId,
+      resource: row.productionResourceId,
+      productionResourceId: row.productionResourceId,
+    };
+    const occupation = plan === 'constrained' ? row.constrainedOccupation : row.unconstrainedOccupation;
+    gridRow[`period-${row.periodIndex}`] = toCapacityPercent(occupation, row.capacity);
+    rowsByResource.set(key, gridRow);
+  }
+
+  return [...rowsByResource.values()];
+
+}
+
+const constrainedResourceRows = computed(() => buildResourceGridRows('constrained'));
+const unconstrainedResourceRows = computed(() => buildResourceGridRows('unconstrained'));
+
+const resourceDetailColumns: OfxTableColumn[] = [
+  { field: 'outputMaterialId', header: 'Material', width: '140', minWidth: 130, dataType: 'text' },
+  { field: 'outputMaterialDescription', header: 'Description', width: '180', minWidth: 160, dataType: 'text' },
+  { field: 'productionVersionId', header: 'Production version', width: '150', minWidth: 140, dataType: 'text' },
+  { field: 'routingId', header: 'Routing', width: '130', minWidth: 120, dataType: 'text' },
+  { field: 'billOfMaterialsId', header: 'BOM', width: '130', minWidth: 120, dataType: 'text' },
+  { field: 'unitOfMeasureId', header: 'UOM', width: '90', minWidth: 80, dataType: 'text' },
+  { field: 'unconstrainedQuantity', header: 'Unrestricted qty', width: '140', minWidth: 130, dataType: 'number-2', align: 'right' },
+  { field: 'constrainedQuantity', header: 'Restricted qty', width: '130', minWidth: 120, dataType: 'number-2', align: 'right' },
+  { field: 'workPlanQuantity', header: 'Work plan qty', width: '130', minWidth: 120, dataType: 'number-2', align: 'right' },
+  { field: 'resourceCapacityUnitOfMeasureId', header: 'Capacity UOM', width: '110', minWidth: 100, dataType: 'text' },
+  { field: 'unconstrainedHours', header: 'Unrestricted consumption', width: '180', minWidth: 170, dataType: 'number-2', align: 'right' },
+  { field: 'constrainedHours', header: 'Restricted consumption', width: '170', minWidth: 160, dataType: 'number-2', align: 'right' },
+  { field: 'workPlanHours', header: 'Work plan consumption', width: '170', minWidth: 160, dataType: 'number-2', align: 'right' },
+];
+
+const resourceDetailRows = computed<Record<string, unknown>[]>(() => resourceDetail.value?.rows.map((row, index) => ({
+  rowKey: `${row.outputMaterialId}::${row.productionVersionId ?? 'no-version'}::${row.routingId}::${row.billOfMaterialsId}::${index}`,
+  ...row,
+})) ?? []);
 
 function resourceKey(locationId: string, productionResourceId: string): string {
 
@@ -286,15 +453,6 @@ function formatValue(value: number | undefined): string {
 
 }
 
-/** A zero/absent capacity is explicitly unavailable, never a division or synthetic zero utilization. */
-function formatOccupationByCapacity(occupation: number, capacity: number | undefined): string {
-
-  return capacity === undefined || !Number.isFinite(capacity) || capacity === 0
-    ? '—'
-    : `${formatValue(occupation)} / ${formatValue(capacity)}`;
-
-}
-
 async function loadSelectors(): Promise<void> {
 
   isLoadingSelectors.value = true;
@@ -306,8 +464,6 @@ async function loadSelectors(): Promise<void> {
     unitOfMeasureIds.value = selectors.unitOfMeasureIds;
     materials.value = selectors.materials;
     locations.value = selectors.locations;
-    supplyPlanId.value ??= selectors.supplyPlans[0]?.supplyPlanId ?? null;
-    uomId.value ||= selectors.unitOfMeasureIds[0] ?? '';
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Unable to load Production Overview selectors.';
   } finally {
@@ -323,6 +479,7 @@ async function loadOverview(): Promise<void> {
   isLoadingOverview.value = true;
   errorMessage.value = null;
   clearResourceDetail();
+  selectedProductionResourceIds.value = [];
 
   try {
     overview.value = await getProductionOverview({
@@ -365,6 +522,42 @@ async function loadResourceDetail(row: ResourceRow): Promise<void> {
 
 }
 
+/** Translates a clicked period column back to the backend's zero-based period identity. */
+async function loadResourceDetailFromCell(payload: { row: Record<string, unknown>; field: string; value: unknown }): Promise<void> {
+
+  if (!payload.field.startsWith('period-')) return;
+  const periodIndex = Number(payload.field.slice('period-'.length));
+  const locationId = String(payload.row.locationId ?? '');
+  const productionResourceId = String(payload.row.productionResourceId ?? '');
+  const row = selectedResourceRows.value.find((candidate) => (
+    candidate.locationId === locationId
+    && candidate.productionResourceId === productionResourceId
+    && candidate.periodIndex === periodIndex
+  ));
+  if (!row) return;
+
+  await loadResourceDetail(row);
+
+}
+
+function exportConstrainedResourceTable(): void {
+
+  constrainedResourceTableRef.value?.exportData(exportFormat.value);
+
+}
+
+function exportUnconstrainedResourceTable(): void {
+
+  unconstrainedResourceTableRef.value?.exportData(exportFormat.value);
+
+}
+
+function exportResourceDetailTable(): void {
+
+  resourceDetailTableRef.value?.exportData(exportFormat.value);
+
+}
+
 /** A detail belongs to exactly one overview snapshot and physical selection. */
 function clearResourceDetail(): void {
 
@@ -374,16 +567,18 @@ function clearResourceDetail(): void {
 
 }
 
-watch([supplyPlanId, uomId, selectedMaterialIds, selectedLocationIds], clearResourceDetail, { deep: true });
+watch(
+  [supplyPlanId, uomId, selectedMaterialIds, selectedLocationIds, selectedProductionResourceIds],
+  clearResourceDetail,
+  { deep: true },
+);
 
 onMounted(loadSelectors);
 </script>
 
 <template>
   <DashboardPageLayout class="occupation-volumes-page">
-    <OfxPageHeader eyebrow="Production" title="Production Overview">
-      <template #actions><button class="secondary-button" :disabled="isLoadingSelectors || isLoadingOverview" @click="loadSelectors">Refresh selectors</button></template>
-    </OfxPageHeader>
+    <OfxPageHeader eyebrow="Production" title="Production Overview" />
 
     <div v-if="isLoadingSelectors" class="dashboard-state">Loading report selectors…</div>
     <p v-else-if="errorMessage && !overview" class="error" role="alert">{{ errorMessage }}</p>
@@ -398,52 +593,99 @@ onMounted(loadSelectors);
           </div>
         </OfxSectionCard>
 
-        <OfxSectionCard title="Selection - locations and materials" description="Community keeps the same selection area, with an explicit physical scope.">
+        <OfxSectionCard title="Selection - locations and materials" description="Refine the loaded dashboard by location and material. Leave a filter empty to keep all values.">
           <div class="selector-grid">
-            <OfxEntityMultiSelect v-model="selectedLocationIds" label="Locations" :options="locationOptions" placeholder="Select one or more locations" />
-            <OfxEntityMultiSelect v-model="selectedMaterialIds" label="Materials" :options="materialOptions" placeholder="Select one or more materials" />
-            <div class="enterprise-slot selector-actions" aria-disabled="true"><span>Dynamic characteristics</span><small>Enterprise</small></div>
+            <OfxEntityMultiSelect v-model="selectedLocationIds" label="Locations" :options="locationOptions" placeholder="All locations selected" />
+            <OfxEntityMultiSelect v-model="selectedMaterialIds" label="Materials" :options="materialOptions" placeholder="All materials selected" />
           </div>
         </OfxSectionCard>
       </div>
 
       <p v-if="errorMessage && overview" class="error" role="alert">{{ errorMessage }}</p>
       <OfxEmptyState v-if="errorMessage && !overview && !isLoadingOverview" title="Production data unavailable" :description="errorMessage" />
-      <OfxEmptyState v-else-if="!overview && !isLoadingOverview" title="Select plan and unit to open the dashboard" description="Select a Supply Plan, unit, locations and materials to open the dashboard." />
+      <OfxEmptyState v-else-if="!overview && !isLoadingOverview" title="Select plan and unit to open the dashboard" description="Choose a Supply Plan version and unit of measure, then click Open Dashboard." />
       <div v-else-if="isLoadingOverview" class="dashboard-state">Running the Production Overview report…</div>
 
       <template v-else-if="overview">
         <div class="kpi-grid"><OfxKpiCard v-for="card in summaryCards" :key="card.label" :label="card.label" :value="card.value" :tone="card.tone" /></div>
 
         <div class="chart-grid">
-          <OfxSectionCard title="Production volume / Occupation - Constrained"><EChartAdapter :option="constrainedVolumeOption" :height="340" /></OfxSectionCard>
-          <OfxSectionCard title="Production volume / Occupation - Unconstrained"><EChartAdapter :option="unconstrainedVolumeOption" :height="340" /></OfxSectionCard>
+          <OfxSectionCard title="Stock, demand, inbound and production - Constrained"><EChartAdapter :option="constrainedVolumeOption" :height="340" /></OfxSectionCard>
+          <OfxSectionCard title="Stock, demand, inbound and production - Unconstrained"><EChartAdapter :option="unconstrainedVolumeOption" :height="340" /></OfxSectionCard>
         </div>
 
         <OfxSectionCard title="Pivot Table">
           <OfxPivotTable :data="pivotRows" :rows="['location', 'material', 'planVersion', 'series']" :columns="['period']" :measures="[{ field: 'value', label: 'Quantity', aggregation: 'sum', allowAggregationChange: false, allowedAggregations: ['sum'] }]" :height="440" :allow-measure-selection="false" :allow-aggregation-selection="false" :show-measure-controls="false" :show-totals-controls="false" :open-settings-by-default="false" :allow-split-by-selection="false" :show-datagrid-toolbar="false" :show-reset-control="false" :show-plugin-selector="false" :show-plugin-settings-control="false" :show-all-columns-section="false" :show-expressions-section="false" :show-status-metrics="false" :show-title-field="false" :show-actions="false" group-rollup-mode="flat" :allow-group-rollup-mode-selection="true" :hide-grand-totals="true" base-name="production-overview-pivot" />
         </OfxSectionCard>
 
-        <OfxSectionCard title="Production Capacity - Production Resources Selection" description="The published Community snapshot supplies the resource capacity and occupation."><p class="muted">Resource selection and sequencing controls remain visible in the Enterprise edition. Community presents the authorized physical resource snapshot below.</p></OfxSectionCard>
+        <OfxSectionCard title="Production Capacity - Production Resources Selection" description="Filters used to narrow the occupation charts and resource grids.">
+          <OfxEntityMultiSelect
+            v-model="selectedProductionResourceIds"
+            label="Production resources"
+            :options="productionResourceOptions"
+            placeholder="All resources selected"
+            help-text="The available list follows the selected locations, just like the Planning Front flow."
+          />
+        </OfxSectionCard>
 
         <div class="chart-grid">
-          <OfxSectionCard title="Occupation by Production Resource - Constrained">
-            <p v-if="!resourceRows.length" class="muted">No constrained resource rows</p>
-            <div v-else class="table-scroll"><table><thead><tr><th>Period end</th><th>Location</th><th>Resource</th><th>Constrained occupancy / capacity</th><th></th></tr></thead><tbody><tr v-for="row in resourceRows" :key="`${row.periodEnd}-${row.locationId}-${row.productionResourceId}-constrained`"><td>{{ formatDate(row.periodEnd) }}</td><td>{{ row.locationId }}</td><td>{{ row.productionResourceId }}</td><td>{{ formatOccupationByCapacity(row.constrainedOccupation, row.capacity) }}</td><td><button class="secondary-button" :disabled="isLoadingResourceDetail" @click="loadResourceDetail(row)">{{ isLoadingResourceDetail ? 'Loading…' : 'Details' }}</button></td></tr></tbody></table></div>
+          <OfxSectionCard title="Production volume / Occupation - Constrained" description="Capacity availability / consumption on the primary axis and production on the secondary axis.">
+            <EChartAdapter :option="constrainedOccupationOption" :height="340" />
           </OfxSectionCard>
-          <OfxSectionCard title="Occupation by Production Resource - Unconstrained">
-            <p v-if="!resourceRows.length" class="muted">No unconstrained resource rows</p>
-            <div v-else class="table-scroll"><table><thead><tr><th>Period end</th><th>Location</th><th>Resource</th><th>Unconstrained occupancy / capacity</th></tr></thead><tbody><tr v-for="row in resourceRows" :key="`${row.periodEnd}-${row.locationId}-${row.productionResourceId}-unconstrained`"><td>{{ formatDate(row.periodEnd) }}</td><td>{{ row.locationId }}</td><td>{{ row.productionResourceId }}</td><td>{{ formatOccupationByCapacity(row.unconstrainedOccupation, row.capacity) }}</td></tr></tbody></table></div>
+          <OfxSectionCard title="Production volume / Occupation - Unconstrained" description="Capacity availability / consumption on the primary axis and production on the secondary axis.">
+            <EChartAdapter :option="unconstrainedOccupationOption" :height="340" />
           </OfxSectionCard>
         </div>
 
-        <OfxSectionCard class="enterprise-slot" title="Production sequencing" description="Persisted setup sequencing and the Gantt track are Enterprise capabilities."><button class="secondary-button" disabled>Available in Enterprise</button></OfxSectionCard>
+        <div class="chart-grid">
+          <OfxSectionCard title="Occupation by Production Resource - Constrained">
+            <div v-if="constrainedResourceRows.length" class="table-stack">
+              <OfxTableToolbar :download-format="exportFormat" @update:download-format="exportFormat = $event" @download="exportConstrainedResourceTable" />
+              <OfxDataTable
+                ref="constrainedResourceTableRef"
+                :rows="constrainedResourceRows"
+                :columns="resourceColumns"
+                row-key="rowKey"
+                :dense="true"
+                :page-size="10"
+                text-size="xs"
+                export-base-name="occupation-by-resource-constrained"
+                @cell-click="loadResourceDetailFromCell"
+              />
+            </div>
+            <OfxEmptyState v-else title="No constrained resource rows" description="The current slice produced no constrained capacity rows for the selected locations and resources." />
+          </OfxSectionCard>
+          <OfxSectionCard title="Occupation by Production Resource - Unconstrained">
+            <div v-if="unconstrainedResourceRows.length" class="table-stack">
+              <OfxTableToolbar :download-format="exportFormat" @update:download-format="exportFormat = $event" @download="exportUnconstrainedResourceTable" />
+              <OfxDataTable
+                ref="unconstrainedResourceTableRef"
+                :rows="unconstrainedResourceRows"
+                :columns="resourceColumns"
+                row-key="rowKey"
+                :dense="true"
+                :page-size="10"
+                text-size="xs"
+                export-base-name="occupation-by-resource-unconstrained"
+                @cell-click="loadResourceDetailFromCell"
+              />
+            </div>
+            <OfxEmptyState v-else title="No unconstrained resource rows" description="The current slice produced no unconstrained capacity rows for the selected locations and resources." />
+          </OfxSectionCard>
+        </div>
 
         <OfxSectionCard v-if="resourceDetail || resourceDetailErrorMessage || isLoadingResourceDetail" title="Production Resource Detail">
           <div class="section-header"><p>Read-only physical lines. Quantities and capacity consumption remain in the units returned for each line.</p><button class="secondary-button" :disabled="isLoadingResourceDetail" @click="clearResourceDetail">Close</button></div>
           <p v-if="isLoadingResourceDetail" class="muted">Loading production resource detail…</p>
           <OfxEmptyState v-else-if="resourceDetailErrorMessage" title="Production resource detail unavailable" :description="resourceDetailErrorMessage" />
-          <template v-else-if="resourceDetail"><dl class="detail-summary"><div><dt>Location</dt><dd>{{ resourceDetail.locationId }}<template v-if="resourceDetail.locationDescription"> — {{ resourceDetail.locationDescription }}</template></dd></div><div><dt>Resource</dt><dd>{{ resourceDetail.productionResourceId }}<template v-if="resourceDetail.productionResourceDescription"> — {{ resourceDetail.productionResourceDescription }}</template></dd></div><div><dt>Period</dt><dd>{{ formatDate(resourceDetail.plannedDate) }}</dd></div><div><dt>Available capacity</dt><dd>{{ formatValue(resourceDetail.availableCapacityInHoursOrQuantity ?? undefined) }} {{ resourceDetail.resourceCapacityUnitOfMeasureId }}</dd></div></dl><OfxEmptyState v-if="!resourceDetail.rows.length" title="No allocation details" description="No production lines were returned for this resource, period and selected material scope." /><div v-else class="table-scroll"><table><thead><tr><th>Material</th><th>Production version</th><th>Routing</th><th>BOM</th><th>Quantity UOM</th><th>Unconstrained quantity</th><th>Constrained quantity</th><th>Working quantity</th><th>Capacity UOM</th><th>Unconstrained consumption</th><th>Constrained consumption</th><th>Working consumption</th></tr></thead><tbody><tr v-for="row in resourceDetail.rows" :key="`${row.outputMaterialId}-${row.productionVersionId ?? 'none'}-${row.routingId}-${row.billOfMaterialsId}`"><td>{{ row.outputMaterialId }}<template v-if="row.outputMaterialDescription"> — {{ row.outputMaterialDescription }}</template></td><td>{{ row.productionVersionId ?? '—' }}</td><td>{{ row.routingId }}<template v-if="row.routingDescription"> — {{ row.routingDescription }}</template></td><td>{{ row.billOfMaterialsId }}<template v-if="row.billOfMaterialsDescription"> — {{ row.billOfMaterialsDescription }}</template></td><td>{{ row.unitOfMeasureId }}</td><td>{{ formatValue(row.unconstrainedQuantity ?? undefined) }}</td><td>{{ formatValue(row.constrainedQuantity ?? undefined) }}</td><td>{{ formatValue(row.workPlanQuantity ?? undefined) }}</td><td>{{ row.resourceCapacityUnitOfMeasureId }}</td><td>{{ formatValue(row.unconstrainedHours ?? undefined) }}</td><td>{{ formatValue(row.constrainedHours ?? undefined) }}</td><td>{{ formatValue(row.workPlanHours ?? undefined) }}</td></tr></tbody></table></div></template>
+          <template v-else-if="resourceDetail">
+            <dl class="detail-summary"><div><dt>Location</dt><dd>{{ resourceDetail.locationId }}<template v-if="resourceDetail.locationDescription"> — {{ resourceDetail.locationDescription }}</template></dd></div><div><dt>Resource</dt><dd>{{ resourceDetail.productionResourceId }}<template v-if="resourceDetail.productionResourceDescription"> — {{ resourceDetail.productionResourceDescription }}</template></dd></div><div><dt>Period</dt><dd>{{ formatDate(resourceDetail.plannedDate) }}</dd></div><div><dt>Available capacity</dt><dd>{{ formatValue(resourceDetail.availableCapacityInHoursOrQuantity ?? undefined) }} {{ resourceDetail.resourceCapacityUnitOfMeasureId }}</dd></div></dl>
+            <OfxEmptyState v-if="!resourceDetailRows.length" title="No allocation details" description="No production lines were returned for this resource, period and selected material scope." />
+            <div v-else class="table-stack">
+              <OfxTableToolbar :download-format="exportFormat" @update:download-format="exportFormat = $event" @download="exportResourceDetailTable" />
+              <OfxDataTable ref="resourceDetailTableRef" :rows="resourceDetailRows" :columns="resourceDetailColumns" row-key="rowKey" :dense="true" :page-size="12" text-size="xs" export-base-name="production-resource-detail" />
+            </div>
+          </template>
         </OfxSectionCard>
       </template>
     </template>
@@ -457,16 +699,11 @@ onMounted(loadSelectors);
 .selector-actions { display: flex; align-items: end; justify-content: flex-end; }
 .kpi-grid { display: grid; gap: 1rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .dashboard-state { border: 1px dashed var(--ofx-border); border-radius: 12px; color: var(--ofx-text-muted); padding: 2rem; text-align: center; }
-.enterprise-slot { border-color: color-mix(in srgb, var(--ofx-border) 70%, var(--ofx-text-muted)); opacity: .8; }
-.enterprise-slot small { border: 1px solid currentColor; border-radius: 999px; font-size: .7rem; font-weight: 700; margin-left: .5rem; padding: .15rem .45rem; }
 .section-header { align-items: start; display: flex; gap: 1rem; justify-content: space-between; }
 .primary-button, .secondary-button { border: 1px solid var(--ofx-border); border-radius: .5rem; background: var(--ofx-surface-elevated); color: var(--ofx-text-strong); cursor: pointer; padding: .65rem .9rem; }
 .primary-button { border-color: var(--ofx-primary); background: var(--ofx-primary); color: var(--ofx-primary-foreground); }
 .primary-button:disabled, .secondary-button:disabled { cursor: not-allowed; opacity: .5; }
-.table-scroll { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; text-align: left; }
-th, td { border-top: 1px solid var(--ofx-border); padding: .8rem .65rem; vertical-align: top; white-space: nowrap; }
-th { color: var(--ofx-text-muted); font-size: .75rem; text-transform: uppercase; }
+.table-stack { display: grid; gap: .5rem; }
 .detail-summary { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); margin: 1rem 0; }
 .detail-summary dt { color: var(--ofx-text-muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; }
 .detail-summary dd { margin: .25rem 0 0; }

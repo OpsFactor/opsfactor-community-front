@@ -89,19 +89,32 @@ test('Demand Planning Cluster editor keeps allocation and DFU endpoints outside 
   }
 });
 
-test('Cluster editor page locks Community values and makes structural rule changes remove plus add', async () => {
+test('Clustering page preserves the Planning Front composition while retaining only Community controls', async () => {
   const source = await import('node:fs/promises').then((fs) => fs.readFile(
     new URL('../src/modules/cluster-scope/ClusterScopeInspectorPage.vue', import.meta.url),
     'utf8',
   ));
 
+  assert.match(source, /DashboardPageLayout/);
+  assert.match(source, /eyebrow="Configuration" title="Clustering"/);
+  assert.match(source, /Edit \/ Create Cluster/);
+  assert.match(source, /List of Clusters/);
+  assert.match(source, /cluster-mode-switch/);
+  assert.match(source, /Material<\/button>/);
+  assert.match(source, /Location<\/button>/);
+  assert.match(source, /Cluster Description/);
+  assert.match(source, /Cluster Priority/);
+  assert.match(source, /: 'Submit'/);
+  assert.match(source, />Delete<\/button>/);
   assert.match(source, /process: 'DP'/);
   assert.match(source, /'NOT RELEASED', 'REGULAR', 'DISCONTINUED'/);
   assert.equal(source.includes("'NEW'"), false);
-  assert.match(source, /Pricing, new-material rules, characteristics/i);
   assert.match(source, /remove it and add a new rule/i);
-  assert.match(source, /Save complete snapshot/);
   assert.match(source, /Delete .* cluster\?/);
   assert.match(source, /@click="void loadSelectedLocationClusterMembers\(\)"/);
   assert.match(source, /never used to infer a delete cascade/i);
+  assert.doesNotMatch(source, /clustering\/material\/allocation/);
+  assert.doesNotMatch(source, /clustering\/location\/allocation/);
+  assert.doesNotMatch(source, /product\/characteristics/);
+  assert.doesNotMatch(source, /location\/characteristics/);
 });

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import {
+  OfxConfirmDialog,
+  OfxEditionAvailabilityMark,
   OfxEmptyState,
   OfxPageHeader,
   OfxSectionCard,
@@ -10,36 +12,73 @@ import {
   TaskPageLayout,
 } from '@opsfactor/front-shell';
 import { httpClient } from '@/services/community-authentication.service';
+import { loadCommunityUnitOfMeasureIds } from '@/services/community-option-catalog.service';
 import { DemandExecutionProfilesInspectorService } from './demand-execution-profiles.service';
 import {
   buildCommunityDemandExecutionProfileDraft,
   buildCommunityDemandExecutionProfileSaveRequest,
   type CommunityDemandExecutionProfile,
   type CommunityDemandExecutionProfileDraft,
-  type CommunityDemandExecutionProfileSaveRequest,
 } from './demand-execution-profiles.types';
 
 const demandExecutionProfilesInspectorService = new DemandExecutionProfilesInspectorService(httpClient);
 const profiles = ref<CommunityDemandExecutionProfile[]>([]);
-const selectedProfileId = ref<string | null>(null);
+const unitOfMeasureIds = ref<string[]>([]);
+const selectedProfileId = ref('');
 const draft = ref<CommunityDemandExecutionProfileDraft | null>(null);
-const pendingSaveSnapshot = ref<CommunityDemandExecutionProfileSaveRequest | null>(null);
 const loading = ref(true);
 const saving = ref(false);
+const copying = ref(false);
+const createDialogOpen = ref(false);
+const copyDialogOpen = ref(false);
+const newProfileId = ref('');
+const newProfileDescription = ref('');
+const newProfileBucketSize = ref('Monthly');
+const copiedProfileId = ref('');
+const copiedProfileDescription = ref('');
 const errorMessage = ref<string | null>(null);
 const resultMessage = ref<string | null>(null);
 
-const selectedProfile = computed(() => profiles.value.find((profile) => profile.id === selectedProfileId.value) ?? null);
-const isBusy = computed(() => loading.value || saving.value);
-const profileOptions = computed(() => profiles.value.map((profile) => ({
-  value: profile.id,
-  label: profile.description?.trim() ? `${profile.id} — ${profile.description}` : profile.id,
-})));
+const isBusy = computed(() => loading.value || saving.value || copying.value);
+const profileOptions = computed(() => [
+  {
+    value: '',
+    label: profiles.value.length === 0 ? 'No profiles available yet' : 'Select execution profile',
+  },
+  ...profiles.value.map((profile) => ({
+    value: profile.id,
+    label: profile.description?.trim() ? `${profile.id} - ${profile.description}` : profile.id,
+  })),
+]);
+const unitOfMeasureOptions = computed(() => [
+  { value: '', label: 'No default UOM' },
+  ...unitOfMeasureIds.value.map((unitOfMeasureId) => ({
+    value: unitOfMeasureId,
+    label: unitOfMeasureId,
+  })),
+]);
+const bucketOptions = ['Yearly', 'Monthly', 'Weekly', 'Daily'].map((bucketSize) => ({
+  value: bucketSize,
+  label: bucketSize,
+}));
+
+/**
+ * Keeps the four canonical overview cards in the same order as Planning Front.
+ * Community has no auto-fit catalog, so the last card truthfully reports None.
+ */
 const summaryCards = computed(() => draft.value === null ? [] : [
-  { label: 'Profile', value: draft.value.id },
-  { label: 'Bucket size', value: draft.value.bucketSize || 'Not informed' },
-  { label: 'Planning horizon', value: draft.value.planningHorizonInPeriods || 'Not informed' },
-  { label: 'Historical document', value: 'Sell-out' },
+  { label: 'Bucket', value: draft.value.bucketSize || 'Not defined' },
+  {
+    label: 'Horizon',
+    value: draft.value.planningHorizonInPeriods
+      ? `${draft.value.planningHorizonInPeriods} periods`
+      : 'Open',
+  },
+  {
+    label: 'Edit window',
+    value: draft.value.constrainPlanEditPeriods ? 'Fixed horizon' : 'Open editing',
+  },
+  { label: 'Auto-fit', value: 'None' },
 ]);
 
 function toErrorMessage(error: unknown, fallback: string): string {
@@ -48,22 +87,31 @@ function toErrorMessage(error: unknown, fallback: string): string {
 
 }
 
-/** Reloads the authoritative Community catalog and retains no stale form clone. */
-async function loadProfiles(forceReload = false): Promise<void> {
-
-  if (loading.value || (saving.value && !forceReload)) {
-    return;
-  }
+/**
+ * Reloads the authoritative Community catalog and selects either the requested
+ * profile or the first available profile, matching the canonical page behavior.
+ */
+async function loadProfiles(preferredProfileId = ''): Promise<void> {
 
   loading.value = true;
   errorMessage.value = null;
 
   try {
-    profiles.value = await demandExecutionProfilesInspectorService.getProfiles();
-    selectedProfileId.value = null;
-    draft.value = null;
-    pendingSaveSnapshot.value = null;
+    const [loadedProfiles, loadedUnitOfMeasureIds] = await Promise.all([
+      demandExecutionProfilesInspectorService.getProfiles(),
+      loadCommunityUnitOfMeasureIds(),
+    ]);
+    profiles.value = loadedProfiles;
+    unitOfMeasureIds.value = loadedUnitOfMeasureIds;
+
+    const profileIdToSelect = loadedProfiles.some((profile) => profile.id === preferredProfileId)
+      ? preferredProfileId
+      : loadedProfiles[0]?.id ?? '';
+    selectProfileById(profileIdToSelect);
   } catch (error) {
+    profiles.value = [];
+    selectedProfileId.value = '';
+    draft.value = null;
     errorMessage.value = toErrorMessage(error, 'Unable to load Demand Planning execution profiles.');
   } finally {
     loading.value = false;
@@ -71,63 +119,21 @@ async function loadProfiles(forceReload = false): Promise<void> {
 
 }
 
-/** Opens only a profile returned by GET; Community never creates a blank profile here. */
-function selectProfile(profile: CommunityDemandExecutionProfile): void {
+/** Resolves a select value only through the authoritative catalog snapshot. */
+function selectProfileById(profileId: string): void {
 
-  if (isBusy.value || profile.id.trim().length === 0) {
-    return;
-  }
-
-  selectedProfileId.value = profile.id;
-  draft.value = buildCommunityDemandExecutionProfileDraft(profile);
+  selectedProfileId.value = profileId;
+  const profile = profiles.value.find((candidate) => candidate.id === profileId);
+  draft.value = profile === undefined ? null : buildCommunityDemandExecutionProfileDraft(profile);
   errorMessage.value = null;
   resultMessage.value = null;
 
 }
 
-/** Resolves the select-field value to the authoritative catalog entry. */
-function selectProfileById(profileId: string): void {
+/** Saves the complete Community-safe representation and reloads it afterwards. */
+async function saveProfile(): Promise<void> {
 
-  const profile = profiles.value.find((candidate) => candidate.id === profileId);
-  if (profile !== undefined) {
-    selectProfile(profile);
-  }
-}
-
-/** Drops browser edits without changing the persisted profile. */
-function cancelEditing(): void {
-
-  if (saving.value) {
-    return;
-  }
-
-  selectedProfileId.value = null;
-  draft.value = null;
-  pendingSaveSnapshot.value = null;
-
-}
-
-/** Validates the narrow Community payload before the explicit final action. */
-function requestSaveConfirmation(): void {
-
-  if (draft.value === null || saving.value) {
-    return;
-  }
-
-  try {
-    pendingSaveSnapshot.value = buildCommunityDemandExecutionProfileSaveRequest(draft.value);
-    errorMessage.value = null;
-  } catch (error) {
-    errorMessage.value = toErrorMessage(error, 'Review the Demand Planning profile fields before saving.');
-  }
-
-}
-
-/** Saves one confirmed snapshot and refreshes it from the server afterwards. */
-async function confirmSave(): Promise<void> {
-
-  const snapshot = pendingSaveSnapshot.value;
-  if (snapshot === null || saving.value) {
+  if (draft.value === null || isBusy.value) {
     return;
   }
 
@@ -136,9 +142,10 @@ async function confirmSave(): Promise<void> {
   resultMessage.value = null;
 
   try {
+    const snapshot = buildCommunityDemandExecutionProfileSaveRequest(draft.value);
     const response = await demandExecutionProfilesInspectorService.saveProfile(snapshot);
-    await loadProfiles(true);
-    resultMessage.value = response.trim() || 'Demand Planning execution profile saved and reloaded from the server.';
+    await loadProfiles(snapshot.id);
+    resultMessage.value = response.trim() || `${snapshot.id} was saved successfully.`;
   } catch (error) {
     errorMessage.value = toErrorMessage(error, 'Unable to save Demand Planning execution profile.');
   } finally {
@@ -147,9 +154,129 @@ async function confirmSave(): Promise<void> {
 
 }
 
+/** Opens creation without hiding it behind an edition gate. */
+function openCreateDialog(): void {
+
+  newProfileId.value = '';
+  newProfileDescription.value = '';
+  newProfileBucketSize.value = 'Monthly';
+  createDialogOpen.value = true;
+
+}
+
+/** Discards incomplete creation values. */
+function closeCreateDialog(): void {
+
+  createDialogOpen.value = false;
+  newProfileId.value = '';
+  newProfileDescription.value = '';
+  newProfileBucketSize.value = 'Monthly';
+
+}
+
+/** Creates a Community profile with explicit sell-out and no Enterprise fields. */
+async function createProfile(): Promise<void> {
+
+  const id = newProfileId.value.trim();
+  if (id.length === 0) {
+    errorMessage.value = 'Demand Planning execution profile ID is required.';
+    return;
+  }
+  if (profiles.value.some((profile) => profile.id === id)) {
+    errorMessage.value = `Demand Planning execution profile ${id} already exists.`;
+    return;
+  }
+
+  saving.value = true;
+  errorMessage.value = null;
+  resultMessage.value = null;
+
+  try {
+    const snapshot = buildCommunityDemandExecutionProfileSaveRequest({
+      id,
+      description: newProfileDescription.value.trim() || id,
+      bucketSize: newProfileBucketSize.value,
+      planningHorizonInPeriods: '12',
+      constrainPlanEditPeriods: false,
+      initialPlanEditPeriod: '',
+      finalPlanEditPeriod: '',
+      defaultDemandPlanningUomId: '',
+    });
+    await demandExecutionProfilesInspectorService.saveProfile(snapshot);
+    closeCreateDialog();
+    await loadProfiles(id);
+    resultMessage.value = `${id} was created successfully.`;
+  } catch (error) {
+    errorMessage.value = toErrorMessage(error, 'Unable to create Demand Planning execution profile.');
+  } finally {
+    saving.value = false;
+  }
+
+}
+
+/** Prepares a separate identifier while preserving the selected source profile. */
+function openCopyDialog(): void {
+
+  if (draft.value === null) {
+    return;
+  }
+
+  copiedProfileId.value = `${draft.value.id}_COPY`;
+  copiedProfileDescription.value = `Copy of ${draft.value.description || draft.value.id}`;
+  copyDialogOpen.value = true;
+
+}
+
+/** Clears transient copy values after cancel or a successful POST. */
+function closeCopyDialog(): void {
+
+  copyDialogOpen.value = false;
+  copiedProfileId.value = '';
+  copiedProfileDescription.value = '';
+
+}
+
+/** Copies only the fields supported by Community under a new identifier. */
+async function copyProfile(): Promise<void> {
+
+  if (draft.value === null) {
+    return;
+  }
+
+  const id = copiedProfileId.value.trim();
+  if (id.length === 0) {
+    errorMessage.value = 'A new Demand Planning execution profile ID is required.';
+    return;
+  }
+  if (profiles.value.some((profile) => profile.id === id)) {
+    errorMessage.value = `Demand Planning execution profile ${id} already exists.`;
+    return;
+  }
+
+  copying.value = true;
+  errorMessage.value = null;
+  resultMessage.value = null;
+
+  try {
+    const snapshot = buildCommunityDemandExecutionProfileSaveRequest({
+      ...draft.value,
+      id,
+      description: copiedProfileDescription.value.trim() || id,
+    });
+    await demandExecutionProfilesInspectorService.saveProfile(snapshot);
+    closeCopyDialog();
+    await loadProfiles(id);
+    resultMessage.value = `${id} was copied successfully.`;
+  } catch (error) {
+    errorMessage.value = toErrorMessage(error, 'Unable to copy Demand Planning execution profile.');
+  } finally {
+    copying.value = false;
+  }
+
+}
+
 onMounted(async () => {
 
-  loading.value = false;
   await loadProfiles();
 
 });
@@ -160,30 +287,30 @@ onMounted(async () => {
     <OfxPageHeader
       eyebrow="Demand Planning"
       title="Demand Execution Profiles"
-      description="Editor for demand planning horizon, MAPE aggregation, planner edit windows, and the default auto-fit behavior used by demand analysis."
+      description="Configure the demand planning horizon, planner edit window, time bucket, and default unit of measure."
     >
       <template #actions>
-        <button
-          type="button"
-          class="rounded-[10px] border border-[color:var(--ofx-border)] px-4 py-2 text-sm font-medium text-[color:var(--ofx-text-subtle)]"
-          disabled
-          title="Profile copying is available in Enterprise."
-        >
-          Copy profile · Enterprise
-        </button>
-        <button class="primary-button" type="button" :disabled="!draft || isBusy" @click="requestSaveConfirmation">
-          {{ saving ? 'Saving profile…' : 'Save profile' }}
-        </button>
+        <div class="flex flex-wrap justify-end gap-3">
+          <button class="secondary-button" type="button" :disabled="!draft || isBusy" @click="openCopyDialog">
+            Copy profile
+          </button>
+          <button class="primary-button" type="button" :disabled="!draft || isBusy" @click="saveProfile">
+            {{ saving ? 'Saving profile...' : 'Save profile' }}
+          </button>
+        </div>
       </template>
     </OfxPageHeader>
 
     <p v-if="errorMessage" class="message message-error" role="alert">{{ errorMessage }}</p>
     <p v-if="resultMessage" class="message message-success" role="status">{{ resultMessage }}</p>
 
-    <OfxSectionCard title="Profile catalog" description="Select an existing profile or create a new one before editing its demand planning parameters.">
-      <div class="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_auto] xl:items-end">
+    <OfxSectionCard
+      title="Profile selection"
+      description="Select the demand execution profile whose Community parameters you want to edit."
+    >
+      <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
         <OfxSelectField
-          :model-value="selectedProfileId ?? ''"
+          :model-value="selectedProfileId"
           label="Execution profile"
           :options="profileOptions"
           :disabled="isBusy"
@@ -191,116 +318,141 @@ onMounted(async () => {
           loading-label="Loading profiles..."
           @update:model-value="selectProfileById"
         />
-        <button
-          type="button"
-          class="secondary-button"
-          disabled
-          title="Creating a Demand Execution Profile is available in Enterprise."
-        >
-          New profile · Enterprise
+        <button class="secondary-button" type="button" :disabled="isBusy" @click="openCreateDialog">
+          New profile
         </button>
       </div>
-      <p v-if="!loading && profiles.length === 0" class="empty-copy">No Community execution profiles were returned.</p>
     </OfxSectionCard>
 
     <div v-if="draft" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      <div v-for="item in summaryCards" :key="item.label" class="rounded-[14px] border border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface)] px-4 py-3 shadow-[inset_0_1px_0_rgb(255_255_255_/_0.04)]">
-        <div class="text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ofx-text-subtle)]">{{ item.label }}</div>
-        <div class="mt-1 text-sm font-semibold text-[color:var(--ofx-text)]">{{ item.value }}</div>
+      <div v-for="item in summaryCards" :key="item.label" class="summary-card">
+        <div class="summary-label">{{ item.label }}</div>
+        <div class="summary-value">{{ item.value }}</div>
       </div>
     </div>
 
-    <div v-if="draft && selectedProfile" class="grid gap-4 xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,0.95fr)]">
-      <form class="space-y-4" @submit.prevent="requestSaveConfirmation">
+    <form v-if="draft" class="space-y-4" @submit.prevent="saveProfile">
+      <div class="grid gap-4 xl:grid-cols-2 xl:items-start">
         <OfxSectionCard title="General parameters" description="Core profile metadata and aggregation settings.">
           <div class="grid gap-4 md:grid-cols-2">
-            <OfxTextField :model-value="draft.id" label="Profile ID" disabled />
-            <OfxTextField v-model="draft.description" label="Profile description" :disabled="saving" />
-            <OfxTextField v-model="draft.bucketSize" label="Bucket size" :disabled="saving" />
-            <OfxSelectField model-value="SELLOUT" label="Historical sales document type" :options="[{ label: 'Sell-out', value: 'SELLOUT' }]" locked locked-label="Community" />
-            <OfxTextField v-model="draft.defaultDemandPlanningUomId" label="Default UOM" :disabled="saving" help-text="Enter the persisted UOM ID when one is already associated with the profile." />
-            <OfxSelectField model-value="" label="Material aggregation level for MAPE" :options="[]" locked locked-label="Enterprise" />
-            <OfxSelectField model-value="" label="Location aggregation level for MAPE" :options="[]" locked locked-label="Enterprise" />
+            <OfxTextField v-model="draft.description" label="Profile description" :disabled="isBusy" />
+            <OfxSelectField v-model="draft.bucketSize" label="Bucket size" :options="bucketOptions" :disabled="isBusy" />
+            <OfxSelectField
+              model-value="Sell-out"
+              label="Historical sales document type"
+              :options="[{ label: 'Sell-out', value: 'Sell-out' }]"
+              locked
+              locked-label="Pro / Enterprise"
+            />
+            <OfxSelectField
+              v-model="draft.defaultDemandPlanningUomId"
+              label="Default UOM"
+              :options="unitOfMeasureOptions"
+              :disabled="isBusy"
+            />
+            <OfxSelectField
+              model-value=""
+              label="Material aggregation level for MAPE"
+              :options="[{ label: 'Consolidated', value: '' }]"
+              locked
+              locked-label="Pro / Enterprise"
+            />
+            <OfxSelectField
+              model-value=""
+              label="Location aggregation level for MAPE"
+              :options="[{ label: 'Consolidated', value: '' }]"
+              locked
+              locked-label="Pro / Enterprise"
+            />
           </div>
         </OfxSectionCard>
 
         <OfxSectionCard title="Forecast and collaboration" description="Planner horizon, edit window, and default auto-fit link.">
           <div class="grid gap-4 md:grid-cols-2">
-            <OfxTextField v-model="draft.planningHorizonInPeriods" :label="`Planning horizon in periods${draft.bucketSize ? ` (${draft.bucketSize})` : ''}`" type="number" :disabled="saving" />
-            <OfxSelectField model-value="" label="Default auto-fit configuration" :options="[]" locked locked-label="Enterprise" />
+            <OfxTextField
+              v-model="draft.planningHorizonInPeriods"
+              :label="`Planning horizon in periods${draft.bucketSize ? ` (${draft.bucketSize})` : ''}`"
+              type="number"
+              :disabled="isBusy"
+            />
+            <OfxSelectField
+              model-value=""
+              label="Default auto-fit configuration"
+              :options="[{ label: 'None', value: '' }]"
+              locked
+              locked-label="Pro / Enterprise"
+            />
             <div class="md:col-span-2">
-              <OfxToggleField v-model="draft.constrainPlanEditPeriods" label="Constrain manual inputs to a fixed horizon" :disabled="saving" />
+              <OfxToggleField
+                :model-value="false"
+                label="Constrain manual inputs to a fixed horizon"
+                locked
+                locked-label="Pro / Enterprise"
+              />
             </div>
-            <OfxTextField v-if="draft.constrainPlanEditPeriods" v-model="draft.initialPlanEditPeriod" :label="`Initial edit period${draft.bucketSize ? ` (${draft.bucketSize})` : ''}`" type="number" :disabled="saving" />
-            <OfxTextField v-if="draft.constrainPlanEditPeriods" v-model="draft.finalPlanEditPeriod" :label="`Final edit period${draft.bucketSize ? ` (${draft.bucketSize})` : ''}`" type="number" :disabled="saving" />
-          </div>
-        </OfxSectionCard>
-
-        <OfxSectionCard title="Auto-fit execution" description="Strategy and tuning values for cluster-level or regression-tree auto-fit.">
-          <div class="grid gap-4 md:grid-cols-2">
-            <OfxSelectField model-value="" label="Auto-fit strategy" :options="[]" locked locked-label="Enterprise" />
-            <OfxSelectField model-value="" label="Auto-fit objective function" :options="[]" locked locked-label="Enterprise" />
-            <OfxTextField model-value="" label="Periods for evaluation" type="number" locked locked-label="Enterprise" />
-            <OfxTextField model-value="" label="Evaluation lag" type="number" locked locked-label="Enterprise" />
-            <OfxSelectField model-value="" label="Tree pruning error" :options="[]" locked locked-label="Enterprise" />
-            <OfxTextField model-value="" label="Dimensions evaluated at each growth step" type="number" locked locked-label="Enterprise" />
-            <OfxTextField model-value="" label="Maximum tree depth from the last confirmed split" type="number" locked locked-label="Enterprise" />
-            <OfxTextField model-value="" label="Minimum percent error reduction for new splits" type="number" locked locked-label="Enterprise" />
-            <OfxTextField model-value="" label="Periods for tree pruning" type="number" locked locked-label="Enterprise" />
-          </div>
-        </OfxSectionCard>
-
-        <div class="flex justify-end gap-3">
-          <button class="secondary-button" type="button" :disabled="saving" @click="cancelEditing">Cancel</button>
-          <button class="primary-button" type="submit" :disabled="saving">Review save</button>
-        </div>
-      </form>
-
-      <div class="space-y-4 xl:sticky xl:top-6 xl:self-start">
-        <OfxSectionCard title="Current profile" description="Quick reference while editing the form.">
-          <div class="grid gap-3">
-            <div class="quiet-box">{{ draft.id }}</div>
-            <div class="quiet-box">Default auto-fit: <span class="enterprise-inline">Enterprise</span></div>
-            <div class="quiet-box">MAPE: <span class="enterprise-inline">Enterprise</span></div>
-          </div>
-        </OfxSectionCard>
-
-        <OfxSectionCard title="Related pages" description="Adjacent demand-planning tasks that use this configuration.">
-          <div class="grid gap-3">
-            <RouterLink to="/demand-planning/cluster-level-configuration" class="quiet-link">Cluster-Level Configuration</RouterLink>
-            <span class="quiet-link quiet-link--locked">Auto-Fit Models <small>Enterprise</small></span>
-            <span class="quiet-link quiet-link--locked">Auto-Fit Configuration <small>Enterprise</small></span>
-            <RouterLink to="/demand-planning/planning-book" class="quiet-link">Planning Book</RouterLink>
           </div>
         </OfxSectionCard>
       </div>
-    </div>
+
+      <OfxSectionCard
+        title="Auto-fit execution"
+        class="auto-fit-pro-section"
+      >
+        <template #actions>
+          <OfxEditionAvailabilityMark edition-label="Pro / Enterprise" theme-mode="light" :size="12" />
+        </template>
+      </OfxSectionCard>
+    </form>
 
     <OfxEmptyState
       v-else-if="!loading"
       title="No demand execution profile selected"
-      description="Choose one from the catalog above to edit the Community demand-planning behavior."
+      description="Create a new profile or choose one from the selector above."
     />
-
-    <OfxSectionCard v-if="pendingSaveSnapshot" title="Save Demand profile snapshot?" description="The server validates this existing profile and the optional UOM ID before replacing the catalog with a fresh GET.">
-      <p class="confirmation-copy">Profile: <strong>{{ pendingSaveSnapshot.id }}</strong> · Bucket: {{ pendingSaveSnapshot.bucketSize || 'Not informed' }}.</p>
-      <template #actions>
-        <div class="flex gap-3">
-          <button class="secondary-button" type="button" :disabled="saving" @click="pendingSaveSnapshot = null">Keep editing</button>
-          <button class="primary-button" type="button" :disabled="saving" @click="confirmSave">{{ saving ? 'Saving…' : 'Save profile' }}</button>
-        </div>
-      </template>
-    </OfxSectionCard>
   </TaskPageLayout>
+
+  <OfxConfirmDialog
+    :open="createDialogOpen"
+    title="Create demand execution profile"
+    description="Set the identifier, description, and time bucket for the new Community profile."
+    :confirm-label="saving ? 'Creating profile...' : 'Create profile'"
+    cancel-label="Cancel"
+    @cancel="closeCreateDialog"
+    @confirm="createProfile"
+  >
+    <div class="space-y-4">
+      <OfxTextField v-model="newProfileId" label="Profile ID" placeholder="DP_MONTHLY_BASE" />
+      <OfxTextField v-model="newProfileDescription" label="Description" placeholder="Profile description" />
+      <OfxSelectField v-model="newProfileBucketSize" label="Bucket size" :options="bucketOptions" />
+    </div>
+  </OfxConfirmDialog>
+
+  <OfxConfirmDialog
+    :open="copyDialogOpen"
+    title="Copy demand execution profile"
+    :description="draft ? `Create a new Community profile from ${draft.id} without changing the source profile.` : ''"
+    :confirm-label="copying ? 'Copying profile...' : 'Copy profile'"
+    cancel-label="Cancel"
+    @cancel="closeCopyDialog"
+    @confirm="copyProfile"
+  >
+    <div class="space-y-4">
+      <OfxTextField
+        v-model="copiedProfileId"
+        label="New profile ID"
+        placeholder="DP_MONTHLY_COPY"
+        help-text="The new ID must not already exist."
+      />
+      <OfxTextField
+        v-model="copiedProfileDescription"
+        label="New profile description"
+        placeholder="Demand execution profile description"
+      />
+    </div>
+  </OfxConfirmDialog>
 </template>
 
 <style scoped>
-.empty-copy,
-.confirmation-copy {
-  color: var(--ofx-text-muted);
-  font-size: .8125rem;
-}
-
 .message {
   border-radius: 14px;
   padding: .85rem 1rem;
@@ -325,12 +477,18 @@ onMounted(async () => {
   height: 2.5rem;
   align-items: center;
   border: 1px solid var(--ofx-border);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--ofx-surface);
   padding: 0 1rem;
   color: var(--ofx-text);
   font-size: .875rem;
   font-weight: 600;
+  transition: border-color 150ms ease, background-color 150ms ease, opacity 150ms ease;
+}
+
+.secondary-button:hover:not(:disabled) {
+  border-color: var(--ofx-border-strong);
+  background: var(--ofx-surface-elevated);
 }
 
 .primary-button {
@@ -345,38 +503,28 @@ onMounted(async () => {
   opacity: .5;
 }
 
-.quiet-box,
-.quiet-link {
+.summary-card {
   border: 1px solid var(--ofx-border);
   border-radius: 12px;
-  background: var(--ofx-muted);
-  padding: .7rem .8rem;
+  background: var(--ofx-surface);
+  padding: 1rem;
+}
+
+.summary-label {
+  color: var(--ofx-text-subtle);
+  font-size: .6875rem;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.summary-value {
+  margin-top: .5rem;
   color: var(--ofx-text);
   font-size: .875rem;
+  font-weight: 600;
 }
 
-.quiet-link {
-  background: var(--ofx-surface);
-  text-decoration: none;
-}
-
-.quiet-link:not(.quiet-link--locked):hover {
-  border-color: var(--ofx-border-strong);
-}
-
-.quiet-link--locked {
-  display: flex;
-  cursor: not-allowed;
-  justify-content: space-between;
-  color: var(--ofx-text-muted);
-}
-
-.enterprise-inline,
-.quiet-link--locked small {
-  color: var(--ofx-text-warning);
-  font-size: .6875rem;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
+.auto-fit-pro-section :deep(.ofx-section-card__body) {
+  display: none;
 }
 </style>

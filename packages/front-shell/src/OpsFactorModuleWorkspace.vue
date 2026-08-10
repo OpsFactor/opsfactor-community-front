@@ -3,6 +3,8 @@ import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import type { AppModuleCardLink, AppModuleSummary } from './legacy-navigation';
 import { getPageIconName, getSectionIconName } from './navigation-icons';
+import { unavailableEditionLabel } from './edition-navigation-policy';
+import OfxEditionAvailabilityMark from './OfxEditionAvailabilityMark.vue';
 import OfxNavigationIcon from './OpsFactorNavigationIcon.vue';
 import OfxPageHeader from './OfxPageHeader.vue';
 import OfxSectionCard from './OfxSectionCard.vue';
@@ -52,13 +54,6 @@ function itemIconStyle() {
   };
 }
 
-function statusClasses() {
-
-  return isLightTheme.value
-    ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface-elevated)] text-[color:var(--ofx-text-muted)]'
-    : 'border-white/10 bg-white/[0.04] text-white/72';
-}
-
 function isUnavailable(item: AppModuleCardLink): boolean {
 
   return item.availableInCurrentRuntime === false;
@@ -95,7 +90,7 @@ function handleItemNavigation(event: MouseEvent, item: AppModuleCardLink) {
             :key="item.path"
             :to="item.path"
             class="group rounded-[14px] border p-4 transition hover:-translate-y-0.5"
-            :class="[isLightTheme ? 'hover:border-[color:var(--ofx-border-strong)]' : 'hover:border-white/14', isUnavailable(item) ? 'cursor-not-allowed opacity-55' : '']"
+            :class="[isLightTheme ? 'hover:border-[color:var(--ofx-border-strong)]' : 'hover:border-white/14', isUnavailable(item) ? 'cursor-not-allowed' : '']"
             :style="itemCardStyle()"
             :aria-disabled="isUnavailable(item)"
             @click="handleItemNavigation($event, item)"
@@ -110,21 +105,7 @@ function handleItemNavigation(event: MouseEvent, item: AppModuleCardLink) {
                   <div class="mt-2 text-sm leading-6" :class="isLightTheme ? 'text-[color:var(--ofx-text-muted)]' : 'text-white/54'">{{ item.description }}</div>
                 </div>
               </div>
-              <span v-if="item.status === 'legacy-transplant'" :class="['inline-flex rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.14em]', statusClasses()]">Legacy</span>
-              <span v-if="isUnavailable(item)" :class="['inline-flex rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.14em]', statusClasses()]">Enterprise</span>
-            </div>
-
-            <div class="mt-4 flex flex-wrap gap-2">
-              <span
-                v-for="keyword in item.keywords.slice(0, 4)"
-                :key="keyword"
-                class="rounded-full border px-2.5 py-1 text-[11px]"
-                :class="isLightTheme ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface-elevated)] text-[color:var(--ofx-text-muted)]' : 'border-white/8 bg-white/[0.035] text-white/52'"
-              >{{ keyword }}</span>
-            </div>
-
-            <div v-if="item.status === 'legacy-transplant' && item.legacyPath" class="mt-4 text-xs uppercase tracking-[0.14em]" :class="isLightTheme ? 'text-[color:var(--ofx-text-subtle)]' : 'text-white/30'">
-              Legacy: {{ item.legacyPath }}
+              <OfxEditionAvailabilityMark v-if="isUnavailable(item)" :edition-label="unavailableEditionLabel(props.moduleInfo?.key ?? '')" :theme-mode="props.themeMode" />
             </div>
           </RouterLink>
         </div>

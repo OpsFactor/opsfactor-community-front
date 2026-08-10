@@ -28,6 +28,7 @@ const icons: Record<string, IconDefinition> = {
   pricing: { paths: ['M11 4H5v6l8.5 8.5a2 2 0 0 0 2.8 0l4.2-4.2a2 2 0 0 0 0-2.8Z'], circles: [{ cx: 8, cy: 8, r: 1.3 }] },
   agent: { paths: ['M12 6V3', 'M8 3h8', 'M6 9h12a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-5a3 3 0 0 1 3-3Z', 'M10 17h4'], circles: [{ cx: 9, cy: 14, r: 1 }, { cx: 15, cy: 14, r: 1 }] },
   'log-out': { paths: ['M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4', 'M15 8l4 4-4 4', 'M9 12h10'] },
+  lock: { paths: ['M7 11V8a5 5 0 0 1 10 0v3', 'M5 11h14v10H5Z', 'M12 15v2'], circles: [{ cx: 12, cy: 15, r: 0.9 }] },
   workspace: { rects: [{ x: 4, y: 4, width: 6, height: 6, rx: 1.5 }, { x: 14, y: 4, width: 6, height: 6, rx: 1.5 }, { x: 4, y: 14, width: 6, height: 6, rx: 1.5 }, { x: 14, y: 14, width: 6, height: 6, rx: 1.5 }] },
   planning: { paths: ['M5 4.5A2.5 2.5 0 0 1 7.5 2H20v18H7.5A2.5 2.5 0 0 0 5 22Z', 'M5 4.5V22', 'M9 7h7', 'M9 11h7'] },
   history: { paths: ['M4 12a8 8 0 1 0 2.3-5.7', 'M4 4v5h5', 'M12 8v4l3 2'] },

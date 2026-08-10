@@ -29,11 +29,11 @@ test('Manual UOM Conversion Detail Inspector stays independent from UOM Gaps and
   const page = readFileSync(new URL('../src/modules/uom-conversion-detail/UomConversionDetailInspectorPage.vue', import.meta.url), 'utf8');
   const service = readFileSync(new URL('../src/modules/uom-conversion-detail/uom-conversion-detail.service.ts', import.meta.url), 'utf8');
 
-  assert.match(page, /independent manual verification/);
+  assert.match(page, /independent verification/);
   assert.match(page, /Missing-path diagnosis remains in UOM Conversion Gaps/);
-  assert.match(page, /Material ID/);
-  assert.match(page, /Origin UOM ID/);
-  assert.match(page, /Target UOM ID/);
+  assert.match(page, /Material<select/);
+  assert.match(page, /Origin UOM<select/);
+  assert.match(page, /Target UOM<select/);
   assert.match(service, /buildMaterialUomConversionDetailEndpoint/);
   for (const forbiddenFragment of [
     'unitofmeasure/conversiondetail/${encodeURIComponent(originUomId)}',

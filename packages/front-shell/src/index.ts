@@ -8,6 +8,7 @@ export { default as OpsFactorWorkspaceHome } from './OpsFactorWorkspaceHome.vue'
 export { default as OpsFactorApiDocumentationRedirect } from './OpsFactorApiDocumentationRedirect.vue';
 export { default as OpsFactorNavigationIcon } from './OpsFactorNavigationIcon.vue';
 export { default as OfxNavigationIcon } from './OpsFactorNavigationIcon.vue';
+export { default as OfxEditionAvailabilityMark } from './OfxEditionAvailabilityMark.vue';
 export { default as OfxPageHeader } from './OfxPageHeader.vue';
 export { default as OfxSectionCard } from './OfxSectionCard.vue';
 export { default as TaskPageLayout } from './TaskPageLayout.vue';
@@ -33,6 +34,7 @@ export { default as OfxMaterialCharacteristicsFilter } from './OfxMaterialCharac
 export type { OfxSelectOption } from './OfxSelectOption';
 export { default as OfxDateRangePicker } from './OfxDateRangePicker.vue';
 export { default as OfxDownloadSplitButton } from './OfxDownloadSplitButton.vue';
+export { default as OfxButton } from './OfxButton.vue';
 export type { OfxDownloadActionVariant, OfxDownloadOption } from './OfxDownloadSplitButton.vue';
 export { default as OfxTableToolbar } from './OfxTableToolbar.vue';
 export type { OfxExportFormat } from './OfxTableToolbar.vue';
@@ -66,6 +68,7 @@ export {
   ENTERPRISE_NAVIGATION_MODULE_KEYS,
   ENTERPRISE_NAVIGATION_PAGE_KEYS,
   isEnterpriseNavigationItem,
+  unavailableEditionLabel,
 } from './edition-navigation-policy';
 export {
   getModuleIconName,

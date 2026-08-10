@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import OfxEditionAvailabilityMark from './OfxEditionAvailabilityMark.vue';
+import OfxLockedControlIcon from './OfxLockedControlIcon.vue';
 
 type SelectValue = string | number;
 
@@ -18,6 +20,7 @@ const props = withDefaults(
     loadingLabel?: string;
     maxRenderedOptions?: number;
     themeMode?: 'light' | 'dark';
+    requiredEdition?: 'Enterprise' | 'Pro / Enterprise';
   }>(),
   {
     helpText: '',
@@ -49,6 +52,15 @@ const dropdownStyle = ref<Record<string, string>>({});
 const selectedLabelOverflows = ref(false);
 const selectedLabelTooltipVisible = ref(false);
 const isLightTheme = computed(() => props.themeMode === 'light');
+const lockedEdition = computed<'Enterprise' | 'Pro / Enterprise' | null>(() => {
+
+  if (!props.locked) return null;
+  if (/^enterprise$/i.test(props.lockedLabel)) return 'Enterprise';
+  if (/^pro\s*\/\s*enterprise$/i.test(props.lockedLabel)) return 'Pro / Enterprise';
+  return null;
+
+});
+const isLockedVisual = computed(() => props.locked || Boolean(props.disabled && props.requiredEdition));
 
 const placeholderOption = computed(() => props.options.find((option) => option.value === ''));
 const syntheticPlaceholderOption = computed(() => (
@@ -65,6 +77,11 @@ const displayLabel = computed(() => (
       ?? placeholderOption.value?.label
       ?? props.placeholderLabel
       ?? (props.options.length ? props.placeholderLabel : 'No values available')
+));
+const triggerAriaLabel = computed(() => (
+  isLockedVisual.value
+    ? `${props.label}: ${displayLabel.value}. Locked control.`
+    : `${props.label}: ${displayLabel.value}`
 ));
 const hasValue = computed(() => props.modelValue !== '' && props.modelValue !== null && props.modelValue !== undefined);
 const isPlaceholderSelected = computed(() => !hasValue.value && Boolean(placeholderOption.value ?? syntheticPlaceholderOption.value));
@@ -110,10 +127,8 @@ const tooltipClass = computed(() => (
 const helperClass = computed(() => (isLightTheme.value ? 'text-[color:var(--ofx-text-muted)]' : 'text-white/56'));
 
 function triggerStateClass() {
-  if (props.locked) {
-    return isLightTheme.value
-      ? 'cursor-not-allowed border-[color:var(--ofx-border-selected)] bg-[color:rgb(75_124_255_/_0.08)] shadow-[inset_0_1px_0_rgb(75_124_255_/_0.1)]'
-      : 'cursor-not-allowed border-[color:rgb(75_124_255_/_0.42)] bg-[color:rgb(75_124_255_/_0.10)] shadow-[inset_0_1px_0_rgb(75_124_255_/_0.12)]';
+  if (isLockedVisual.value) {
+    return 'cursor-not-allowed border-[color:var(--ofx-border-strong)] bg-[linear-gradient(180deg,var(--ofx-surface-elevated),var(--ofx-muted))] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.7)]';
   }
 
   if (props.loading) {
@@ -150,10 +165,8 @@ function displayValueClass() {
 }
 
 function caretContainerClass() {
-  if (props.locked) {
-    return isLightTheme.value
-      ? 'border-[color:var(--ofx-border-selected)] bg-[color:rgb(75_124_255_/_0.1)] text-[color:var(--ofx-text)]'
-      : 'border-[color:rgb(75_124_255_/_0.34)] bg-[color:rgb(75_124_255_/_0.12)] text-white/88';
+  if (isLockedVisual.value) {
+    return 'border-[color:var(--ofx-border-strong)] bg-[color:var(--ofx-muted)] text-[color:var(--ofx-text-muted)]';
   }
 
   if (props.loading) {
@@ -331,9 +344,13 @@ watch(
 <template>
   <div ref="rootRef" class="relative flex min-w-0 flex-col gap-2">
     <div class="flex min-w-0 items-center justify-between gap-3">
-      <span class="min-w-0 truncate text-[13px] font-medium" :class="labelClass">{{ props.label }}</span>
+      <span class="inline-flex min-w-0 items-center gap-1.5 text-[13px] font-medium" :class="labelClass">
+        <span class="truncate">{{ props.label }}</span>
+        <OfxEditionAvailabilityMark v-if="props.requiredEdition" :edition-label="props.requiredEdition" :theme-mode="props.themeMode" :size="12" />
+      </span>
+      <OfxEditionAvailabilityMark v-if="lockedEdition" :edition-label="lockedEdition" :theme-mode="props.themeMode" :size="12" />
       <span
-        v-if="props.locked"
+        v-else-if="props.locked"
         class="inline-flex items-center rounded-full border border-[color:var(--ofx-border-selected)] bg-[color:rgb(75_124_255_/_0.12)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ofx-text)]"
       >
         {{ props.lockedLabel }}
@@ -344,10 +361,11 @@ watch(
       <div
         class="flex h-10 min-w-0 cursor-pointer items-center justify-between gap-3 rounded-[12px] border px-3.5 text-left transition"
         :class="[triggerBaseClass, triggerStateClass()]"
+        :data-locked="isLockedVisual ? 'true' : undefined"
         :aria-expanded="open"
         :aria-disabled="isNonInteractive"
         :aria-busy="props.loading"
-        :aria-label="displayLabel"
+        :aria-label="triggerAriaLabel"
         role="button"
         :tabindex="isNonInteractive ? -1 : 0"
         @click="toggleOpen"
@@ -372,6 +390,7 @@ watch(
           <svg v-if="props.loading" viewBox="0 0 20 20" fill="none" class="h-3.5 w-3.5 animate-spin" aria-hidden="true">
             <circle cx="10" cy="10" r="6.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="26 14" />
           </svg>
+          <OfxLockedControlIcon v-else-if="isLockedVisual" />
           <svg v-else viewBox="0 0 20 20" fill="none" class="h-3.5 w-3.5" aria-hidden="true">
             <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
           </svg>

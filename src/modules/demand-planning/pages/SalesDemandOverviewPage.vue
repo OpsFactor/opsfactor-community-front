@@ -54,7 +54,7 @@ type SeriesValueBundle = {
  * sources as a selectable client-side request.
  */
 const COMMUNITY_FIXED_HISTORY_OPTIONS = [
-  { label: 'Sell-out (Community)', value: 'sell-out' },
+  { label: 'Sell-out', value: 'sell-out' },
 ];
 
 /**
@@ -466,6 +466,7 @@ const kpiSections = computed(() => [
         key: 'historical-quantity',
         label: selectedUomId.value ? `Historical Sales Avg (${selectedUomId.value})` : 'Historical Sales Avg (Quantity)',
         value: formatMetricValue(computeEffectiveAverage(quantitySeriesValues.value.sales), 'quantity'),
+        requiredEdition: undefined,
         tone: 'default' as const,
       },
       ...(hasDemandPlanContext.value
@@ -473,6 +474,7 @@ const kpiSections = computed(() => [
             key: 'demand-quantity',
             label: selectedUomId.value ? `Demand Plan Avg (${selectedUomId.value})` : 'Demand Plan Avg (Quantity)',
             value: formatMetricValue(computeEffectiveAverage(quantitySeriesValues.value.demandPlan), 'quantity'),
+            requiredEdition: undefined,
             tone: 'success' as const,
           }]
         : []),
@@ -480,22 +482,23 @@ const kpiSections = computed(() => [
   },
   {
     /**
-     * Preserve the two financial columns from the legacy dashboard so that
-     * Community does not collapse its visual hierarchy. No numerical fallback
-     * is permitted here: the values require Enterprise financial measures.
+     * Keep the financial columns visible while avoiding a misleading numeric
+     * fallback when the measures are unavailable in Community.
      */
     key: 'gross',
     cards: [
       {
         key: 'historical-gross',
         label: 'Historical Sales Avg (Gross)',
-        value: 'Enterprise',
+        value: '—',
+        requiredEdition: 'Pro / Enterprise' as const,
         tone: 'default' as const,
       },
       {
         key: 'demand-gross',
         label: 'Demand Plan Avg (Gross)',
-        value: 'Enterprise',
+        value: '—',
+        requiredEdition: 'Pro / Enterprise' as const,
         tone: 'default' as const,
       },
     ],
@@ -507,13 +510,15 @@ const kpiSections = computed(() => [
       {
         key: 'historical-net',
         label: 'Historical Sales Avg (Net)',
-        value: 'Enterprise',
+        value: '—',
+        requiredEdition: 'Pro / Enterprise' as const,
         tone: 'default' as const,
       },
       {
         key: 'demand-net',
         label: 'Demand Plan Avg (Net)',
-        value: 'Enterprise',
+        value: '—',
+        requiredEdition: 'Pro / Enterprise' as const,
         tone: 'default' as const,
       },
     ],
@@ -603,7 +608,7 @@ onMounted(() => {
       <OfxSectionCard
         v-if="!selectionCollapsed || !report"
         title="Selection Workspace"
-        description="Load the base once using the legacy opening contract. After execution, the screen switches to local filtering over the received dataset."
+        description="Choose the initial scope once. After loading, use the workspace filters to explore the available data."
       >
         <div class="space-y-6">
           <div class="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.8fr)_minmax(0,0.95fr)]">
@@ -611,7 +616,7 @@ onMounted(() => {
               :model-value="selectedDemandPlanId"
               label="Demand plan version"
               :options="demandPlanOptions"
-              help-text="Community compares the selected plan with its Sell-out history."
+              help-text="Compares the selected plan with its Sell-out history."
               @update:model-value="selectedDemandPlanId = $event"
             />
 
@@ -619,9 +624,9 @@ onMounted(() => {
               model-value="sell-out"
               label="Historical sales type"
               :options="COMMUNITY_FIXED_HISTORY_OPTIONS"
-              help-text="Community fixes history to Sell-out; choosing a source is Enterprise."
+              help-text="Sell-out is the historical sales source for this view."
               locked
-              locked-label="Enterprise"
+              locked-label="Pro / Enterprise"
             />
 
             <OfxSelectField
@@ -636,7 +641,7 @@ onMounted(() => {
               label="Historical periods"
               type="number"
               placeholder="12"
-              help-text="The backend accepts daily, weekly, and monthly buckets here."
+              help-text="Use daily, weekly, or monthly periods."
               @update:model-value="selectedHistoricalPeriods = $event"
             />
 
@@ -644,33 +649,33 @@ onMounted(() => {
               model-value="dfu"
               label="Detail level"
               :options="ENTERPRISE_DETAIL_LEVEL_OPTIONS"
-              help-text="Request-level aggregation is available in Enterprise."
+              help-text="This view uses the DFU detail level."
               locked
-              locked-label="Enterprise"
+              locked-label="Pro / Enterprise"
             />
           </div>
 
           <OfxOperationFilters
             title="Characteristic Selectors"
-            description="The legacy opening workspace keeps these selectors visible. Community does not request characteristic filters from its canonical overview endpoint."
+            description="Use material and location characteristics to define the initial scope."
           >
             <OfxSelectField
               model-value=""
               label="Material characteristics"
               :options="[]"
-              placeholder-label="Available in Enterprise"
-              help-text="Initial characteristic selection is an Enterprise request capability."
+              placeholder-label="Not available"
+              help-text="Not available in the current edition."
               locked
-              locked-label="Enterprise"
+              locked-label="Pro / Enterprise"
             />
             <OfxSelectField
               model-value=""
               label="Location characteristics"
               :options="[]"
-              placeholder-label="Available in Enterprise"
-              help-text="Initial characteristic selection is an Enterprise request capability."
+              placeholder-label="Not available"
+              help-text="Not available in the current edition."
               locked
-              locked-label="Enterprise"
+              locked-label="Pro / Enterprise"
             />
           </OfxOperationFilters>
 
@@ -685,7 +690,7 @@ onMounted(() => {
             </button>
 
             <p class="text-sm text-white/46">
-              Sell-out quantity is the Community source; additional sources and initial filters are marked Enterprise.
+              Sell-out quantity is the historical source available in this view.
             </p>
           </div>
         </div>
@@ -713,7 +718,7 @@ onMounted(() => {
         <OfxSectionCard
           v-if="selectionCollapsed"
           title="Loaded Selection"
-          description="The initial selection is now closed. Use the filters below to slice only the data already returned by the backend."
+          description="The initial selection is closed. Use the filters below to explore the loaded data."
         >
           <div class="flex flex-wrap items-center justify-between gap-4">
             <div class="flex flex-wrap items-center gap-2 text-sm text-white/68">
@@ -778,9 +783,9 @@ onMounted(() => {
                 :model-value="selectedMetricId"
                 label="Display metric"
                 :options="metricOptions"
-                help-text="Gross and net sales measures are available in Enterprise."
+                help-text="Gross and net sales measures are not available in the current edition."
                 locked
-                locked-label="Enterprise"
+                locked-label="Pro / Enterprise"
                 @update:model-value="selectedMetricId = $event as MetricId"
               />
             </div>
@@ -800,6 +805,7 @@ onMounted(() => {
                 :label="card.label"
                 :value="card.value"
                 :tone="card.tone"
+                :required-edition="card.requiredEdition"
               />
             </div>
           </div>

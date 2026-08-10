@@ -14,8 +14,8 @@ export interface ProductionOverviewSelection {
 
 /**
  * Materializes the exact canonical request instead of serializing UI state.
- * Locations and materials are deliberately mandatory in this SPA slice even
- * though an empty historical backend selection would mean the whole scope.
+ * Empty locations and materials preserve the whole scope, matching the
+ * Planning Front dashboard. The browser then applies the optional slice locally.
  */
 export function buildProductionOverviewRequest(selection: ProductionOverviewSelection): {
   supplyPlanId: number;

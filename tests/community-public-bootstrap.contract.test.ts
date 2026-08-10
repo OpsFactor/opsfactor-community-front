@@ -24,14 +24,18 @@ function assertBefore(source: string, earlierFragment: string, laterFragment: st
 test('Community bootstrap fixes the theme and validates the Community runtime before resolving the route and mounting the SPA', () => {
 
   const hostSource = readSource('../src/app/main.ts');
+  const viteSource = readSource('../vite.config.ts');
+  const perspectiveViteSource = readSource('../packages/front-perspective/vite.config.ts');
   const sharedBootstrapSource = readSource('../packages/front-core/src/runtime/frontend-bootstrap.ts');
 
   assert.match(hostSource, /bootstrapFrontendApplication.*bootstrapRuntimeInfo.*renderBootstrapFailure.*@opsfactor\/front-core/);
   assert.match(hostSource, /bootstrapTheme,/);
   assert.match(hostSource, /bootstrapRuntimeInfo: \(\) => bootstrapRuntimeInfo\(APPLICATION_EDITION\)/);
-  assert.match(hostSource, /ensurePerspectiveViewerRuntime,/);
+  assert.match(hostSource, /ensurePerspectiveViewerRuntime: async \(\) => undefined,/);
   assert.match(hostSource, /bootstrapFrontendApplication\(\{[\s\S]*renderBootstrapFailure\(error, APPLICATION_EDITION\)/);
   assert.doesNotMatch(hostSource, /function renderBootstrapFailure/);
+  assert.match(viteSource, /isCustomElement: \(tag\) => tag === 'perspective-viewer'/);
+  assert.match(perspectiveViteSource, /isCustomElement: \(tag\) => tag === 'perspective-viewer'/);
 
   assertBefore(sharedBootstrapSource, 'dependencies.bootstrapTheme();', 'await dependencies.bootstrapRuntimeInfo();');
   assertBefore(sharedBootstrapSource, 'await dependencies.bootstrapRuntimeInfo();', 'await dependencies.ensurePerspectiveViewerRuntime();');

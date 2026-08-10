@@ -27,25 +27,30 @@ test('Planning Book resolves a summarized visual field to the canonical timestam
   assert.equal(resolvePlanningBookPeriod(planningBook, '2026-08-31'), '2026-08-31T23:59:59.000Z');
 });
 
-test('Demand Planning Book uses the neutral virtualized grid without changing its Community operational handlers', () => {
+test('Demand Planning Book consumes the canonical legacy AG Grid with Community operational handlers', () => {
   const communityPage = readFileSync(new URL('../src/modules/demand-planning/DemandPlanningBookCommunityPage.vue', import.meta.url), 'utf8');
-  const richGrid = readFileSync(new URL('../packages/front-planning-book/src/components/PlanningBookVirtualGrid.vue', import.meta.url), 'utf8');
+  const canonicalGrid = readFileSync(new URL('../packages/front-planning-book/src/components/LegacyPlanningBookGrid.vue', import.meta.url), 'utf8');
 
-  assert.match(communityPage, /PlanningBookVirtualGrid/);
-  assert.match(communityPage, /buildCommunityPlanningBookRichRows/);
+  assert.match(communityPage, /LegacyPlanningBookGrid/);
+  assert.doesNotMatch(communityPage, /PlanningBookVirtualGrid|buildCommunityPlanningBookRichRows/);
   assert.match(communityPage, /loadPlanningBook\(/);
   assert.match(communityPage, /savePlanningBookCells\(/);
-  assert.match(communityPage, /editableDemandPlanningBookKeyFigures/);
   assert.match(communityPage, /autoSubmitChanges/);
   assert.match(communityPage, /pendingCells/);
+  assert.match(communityPage, /descriptorValues/);
+  assert.match(communityPage, /queueCellUpdate/);
   assert.match(communityPage, /exportOpenedPlanningBook/);
   assert.match(communityPage, /openedPlanningBookSelection/);
   assert.match(communityPage, /Export XLSX/);
-  assert.match(richGrid, /ROW_HEIGHT/);
-  assert.match(richGrid, /renderedRows/);
-  assert.match(richGrid, /filterText/);
-  assert.match(richGrid, /hierarchyParentRowKey/);
-  assert.doesNotMatch(richGrid, /api\/secured|referencePlan|xlsx|upload|changeLog/i);
+  assert.match(communityPage, /Planning Book Log/);
+  assert.match(communityPage, /Reload workbook/);
+  assert.match(communityPage, /Save in batch/);
+  assert.match(canonicalGrid, /AgGridVue/);
+  assert.match(canonicalGrid, /PlanningBookTreeCellRenderer/);
+  assert.match(canonicalGrid, /aggregatePlanningBookSubtotalField/);
+  assert.match(canonicalGrid, /filter-changed/);
+  assert.match(canonicalGrid, /sort-changed/);
+  assert.doesNotMatch(canonicalGrid, /api\/secured|referencePlan|xlsx|upload|changeLog/i);
 });
 
 test('Planning Book tree-cell renderers are owned by the Community package and consumed by the Enterprise extension', () => {
@@ -131,9 +136,10 @@ test('Demand Planning Book preserves the legacy context and collaboration hierar
   assert.match(communityPage, /OfxEmptyState/);
   assert.match(communityPage, /OfxSelectField/);
   assert.match(communityPage, /OfxToggleField/);
-  assert.match(communityPage, /Include a reference plan · Enterprise/);
-  assert.match(communityPage, /locked-label="Enterprise"/);
-  assert.match(communityPage, /Collaborate via Excel <em>Enterprise<\/em>/);
+  assert.match(communityPage, /label="Include a reference plan"/);
+  assert.match(communityPage, /required-edition="Pro \/ Enterprise"/);
+  assert.match(communityPage, /Collaborate via Excel <OfxEditionAvailabilityMark/);
+  assert.doesNotMatch(communityPage, /<em>Enterprise<\/em>/);
   assert.match(communityPage, /disabled>/);
   assert.match(communityPage, /Export XLSX/);
   assert.match(communityPage, /Demand Planning Workspace/);
@@ -189,6 +195,17 @@ test('Configured Views payload fixes every Community-only setting', () => {
     viewType: 'Demand Planning Book',
     unitOfMeasure: 'EA',
     keyFigureList: [{ keyFigure: 'Direct Demand', allowChanges: true }],
+    materialIdFilterList: ['PAPER-01'],
+    locationIdFilterList: ['MILL-01'],
+    materialCharacteristicDetailList: [{
+      characteristicId: 'MATERIAL_STATUS', characteristicDescription: undefined,
+      aggregationType: 'Do Not Show Characteristic', columnPosition: null, filteredValues: ['Regular'],
+    }],
+    locationCharacteristicDetailList: [{
+      characteristicId: 'COUNTRY', characteristicDescription: undefined,
+      aggregationType: 'Do Not Show Characteristic', columnPosition: null, filteredValues: ['BR'],
+    }],
+    allowInputFrozenHorizon: true,
   });
 
   assert.deepEqual(payload, {
@@ -196,12 +213,26 @@ test('Configured Views payload fixes every Community-only setting', () => {
     viewName: 'Demand View',
     viewType: 'Demand Planning Book',
     unitOfMeasure: 'EA',
-    keyFigureList: [{ keyFigure: 'Direct Demand', allowChanges: true }],
+    keyFigureList: [
+      { keyFigure: 'Direct Demand', allowChanges: true, position: 1 },
+      { keyFigure: 'Baseline', allowChanges: false, position: 2 },
+      { keyFigure: 'Demand Adjustment', allowChanges: true, position: 3 },
+    ],
+    materialIdFilterList: ['PAPER-01'],
+    locationIdFilterList: ['MILL-01'],
+    materialCharacteristicDetailList: [{
+      characteristicId: 'MATERIAL_STATUS', characteristicDescription: undefined,
+      aggregationType: 'Do Not Show Characteristic', columnPosition: null, filteredValues: ['Regular'],
+    }],
+    locationCharacteristicDetailList: [{
+      characteristicId: 'COUNTRY', characteristicDescription: undefined,
+      aggregationType: 'Do Not Show Characteristic', columnPosition: null, filteredValues: ['BR'],
+    }],
+    autoSubmitChanges: false,
+    allowInputFrozenHorizon: false,
     showMaterialLevel: true,
     showLocationLevel: true,
     directDemandUpdateKeyFigure: 'Demand Adjustment',
-    materialCharacteristicDetailList: [],
-    locationCharacteristicDetailList: [],
     materialLocationCharacteristicDetailList: [],
     demandPlanWorkflowId: null,
     demandPlanWorkflowStageId: null,
@@ -245,7 +276,17 @@ test('Supply Planning Book uses the neutral rich grid while preserving on-demand
   assert.match(communityPage, /function leavePlanningBook/);
   assert.match(communityPage, /v-if="!planningBook"/);
   assert.match(communityPage, /!row\.additionalClasses\[field\]\?\.includes\('crosshatch'\)/);
+  assert.match(communityPage, /column\.field === 'uom'/);
+  assert.doesNotMatch(communityPage, /read-only in Community|<span>•<\/span> Community/);
   assert.doesNotMatch(communityPage, /referencePlanId|xlsx\/import|change log|\/data\//i);
+});
+
+test('Demand Planning Book renders the plan UOM in its descriptor column', () => {
+  const communityPage = readFileSync(new URL('../src/modules/demand-planning/DemandPlanningBookCommunityPage.vue', import.meta.url), 'utf8');
+  const canonicalNormalization = readFileSync(new URL('../packages/front-planning-book/src/planning-book.normalization.ts', import.meta.url), 'utf8');
+
+  assert.match(communityPage, /LegacyPlanningBookGrid/);
+  assert.match(canonicalNormalization, /uom: dto\.uom/);
 });
 
 test('Production Planning Book preserves the legacy production workbook selection hierarchy', () => {

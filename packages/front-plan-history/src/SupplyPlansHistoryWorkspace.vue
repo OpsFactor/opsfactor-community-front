@@ -175,7 +175,7 @@ onMounted(() => {
     <div class="space-y-4">
       <OfxSectionCard>
         <div v-if="isLoading" class="space-y-4">
-          <OfxLoadingState label="Loading supply plan versions from the backend" />
+          <OfxLoadingState label="Loading supply plan versions" />
         </div>
 
         <div v-else-if="loadError && !rows.length" class="space-y-4">
@@ -232,7 +232,7 @@ onMounted(() => {
             <template #empty>
               <OfxEmptyState
                 title="No supply plans found"
-                description="The backend returned no supply-plan versions for this environment."
+                description="No supply-plan versions are available yet."
               />
             </template>
 
@@ -279,7 +279,7 @@ onMounted(() => {
     >
       <div class="space-y-4">
         <div class="rounded-lg border border-[color:rgb(211_155_42_/_0.24)] bg-[color:rgb(211_155_42_/_0.08)] px-4 py-3 text-sm text-[color:var(--ofx-text-warning)]">
-          Supply-plan deletion is submitted asynchronously by the backend. A refresh may still show the same rows for a short time while the task finishes.
+          Supply-plan deletion runs in the background. A refresh may still show the same rows briefly while the task finishes.
         </div>
 
         <div class="rounded-lg border border-[color:rgb(208_69_95_/_0.24)] bg-[color:rgb(208_69_95_/_0.08)] px-4 py-3 text-sm text-[color:var(--ofx-text-danger)]">

@@ -1,4 +1,4 @@
-import { authenticationService } from '@/services/community-authentication.service';
+import { authenticationService, httpClient } from '@/services/community-authentication.service';
 
 export interface SessionBootstrapResponse {
   authenticated: boolean;
@@ -9,9 +9,18 @@ export interface SessionBootstrapResponse {
   };
 }
 
+export interface IdentityOptionsResponse {
+  oidcEnabled: boolean;
+}
+
 /**
- * Community authentication is stateless HTTP Basic. Credentials live only in
- * the active tab's memory and are never translated into a form-login cookie.
+ * Restores the Community session from the active tab's in-memory HTTP Basic
+ * credential.
+ *
+ * <p>The Community backend is deliberately stateless and exposes no session
+ * introspection endpoint. A tab without a restored credential must therefore
+ * reach the login route normally instead of probing a protected URL during
+ * bootstrap.</p>
  */
 export async function fetchSessionBootstrap(): Promise<SessionBootstrapResponse> {
 
@@ -38,9 +47,22 @@ export async function loginWithPassword(username: string, password: string): Pro
 
 }
 
-/** Clears only browser-memory Basic credentials; no Community session cookie exists. */
-export function logoutSession(): void {
+/** Clears browser-memory Basic credentials and invalidates an OIDC session when present. */
+export async function logoutSession(): Promise<void> {
 
   authenticationService.logout();
+  await httpClient.request<void>('/logout', { method: 'POST' });
+
+}
+
+export async function fetchIdentityOptions(): Promise<IdentityOptionsResponse> {
+
+  return httpClient.request<IdentityOptionsResponse>('/api/open/identity');
+
+}
+
+export function beginOpsFactorLogin(): void {
+
+  window.location.assign('/oauth2/authorization/opsfactor');
 
 }

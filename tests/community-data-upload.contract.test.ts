@@ -7,6 +7,7 @@ import {
   COMMUNITY_DATA_FAMILIES,
   type CommunityDataFamily,
 } from '../src/modules/data/community-data-upload.types.ts';
+import { PLANNING_FRONT_DATA_THEMES } from '../src/modules/data/planning-front-data-taxonomy.ts';
 
 function family(id: string): CommunityDataFamily {
 
@@ -27,19 +28,32 @@ test('Community Data catalog exactly mirrors the approved operational families',
     COMMUNITY_DATA_FAMILIES.map((candidate) => candidate.subPath),
     [
       'unitofmeasure', 'unitconversion', 'unitconversionmaterial', 'location', 'material',
-      'materiallocationparameters', 'inventorypolicy', 'inventorypolicydetail', 'supplynetworkversion',
+      'characteristic/material', 'characteristic/location', 'materiallocationparameters', 'inventorypolicy', 'inventorypolicydetail', 'supplynetworkversion',
       'transportationlane', 'transportationlanematerial', 'productionresourceavailability', 'bom',
       'bomcomponents', 'productionresource', 'productionrouting', 'operationproductionrouting',
-      'simpleproductionversion', 'stock', 'sellout', 'inventoryplan',
+      'simpleproductionversion', 'stock', 'sellout', 'fulfilleddemand', 'demandplan', 'distributionplan',
+      'productionplan/volume', 'productionplan/occupation', 'inventoryplan',
     ],
   );
 
   const catalog = COMMUNITY_DATA_FAMILIES.map((candidate) => candidate.subPath).join('\n');
   for (const forbiddenSubPath of [
     'configuredview', 'fillwithdemandplan', 'autofit', 'inventoryoptimization', 'sellin', 'order',
-    'pricelist', 'costlist', 'optimizationmodel', 'productionplan', 'maintenance', 'shift', 'workflow',
+    'pricelist', 'costlist', 'optimizationmodel', 'maintenance', 'shift', 'workflow',
   ]) {
     assert.equal(catalog.includes(forbiddenSubPath), false, `Community Data catalog must not expose ${forbiddenSubPath}.`);
+  }
+});
+
+test('Every executable Community family resolves to one exact Planning Front topic path', () => {
+
+  for (const candidate of COMMUNITY_DATA_FAMILIES) {
+    const theme = PLANNING_FRONT_DATA_THEMES.find((catalogTheme) => catalogTheme.id === candidate.theme);
+    const group = theme?.groups.find((catalogGroup) => catalogGroup.id === candidate.group);
+    const section = group?.subgroups.find((catalogSection) => catalogSection.id === candidate.section);
+    const topic = section?.topics.find((catalogTopic) => catalogTopic.id === candidate.catalogTopicId);
+
+    assert.ok(topic, `Community family ${candidate.id} does not resolve at ${candidate.theme}/${candidate.group}/${candidate.section}/${candidate.catalogTopicId}.`);
   }
 });
 
@@ -53,6 +67,9 @@ test('Community Data declares exceptions per family instead of offering a univer
   assert.deepEqual(family('inventory-plan-export').operations.map((candidate) => candidate.kind), [
     'download-file', 'download-json',
   ]);
+  assert.deepEqual(family('fulfilled-demand-export').operations.map((candidate) => candidate.kind), [
+    'download-file', 'download-json',
+  ]);
 
   for (const familyId of ['stock', 'sell-out']) {
     const deleteOperation = operation(familyId, 'delete-json');
@@ -61,6 +78,7 @@ test('Community Data declares exceptions per family instead of offering a univer
   assert.equal(family('materials').operations.some((candidate) => candidate.kind === 'delete-json'), true);
   assert.equal(family('unit-of-measure').operations.some((candidate) => candidate.kind === 'delete-json'), false);
   assert.equal(family('inventory-plan-export').operations.some((candidate) => candidate.kind === 'delete-json'), false);
+  assert.equal(family('fulfilled-demand-export').operations.some((candidate) => candidate.kind === 'delete-json'), false);
 });
 
 test('Community Data builds only canonical endpoint paths with required scoped identifiers', () => {
@@ -75,12 +93,28 @@ test('Community Data builds only canonical endpoint paths with required scoped i
     '/api/secured/data/stock/2026-01-01/2026-01-31',
   );
   assert.equal(
+    buildCommunityDataEndpoint({ family: family('material-characteristics'), operation: operation('material-characteristics', 'download-file'), variantSubPath: 'characteristic/material/value' }),
+    '/api/secured/data/file/characteristic/material/value',
+  );
+  assert.equal(
+    buildCommunityDataEndpoint({ family: family('demand-plan-detailed-export'), operation: operation('demand-plan-detailed-export', 'download-file'), demandPlanId: '12' }),
+    '/api/secured/data/file/demandplan/12',
+  );
+  assert.equal(
+    buildCommunityDataEndpoint({ family: family('fulfilled-demand-export'), operation: operation('fulfilled-demand-export', 'download-json'), supplyPlanId: '94', unitOfMeasureId: 'MT' }),
+    '/api/secured/data/fulfilleddemand/94/MT',
+  );
+  assert.equal(
     buildCommunityDataEndpoint({ family: family('inventory-plan-export'), operation: operation('inventory-plan-export', 'download-file'), supplyPlanId: ' PLAN / 1 ' }),
     '/api/secured/data/file/inventoryplan/PLAN%20%2F%201',
   );
   assert.throws(
     () => buildCommunityDataEndpoint({ family: family('stock'), operation: operation('stock', 'delete-json') }),
     /initial and final dates/i,
+  );
+  assert.throws(
+    () => buildCommunityDataEndpoint({ family: family('fulfilled-demand-export'), operation: operation('fulfilled-demand-export', 'download-json'), supplyPlanId: '94' }),
+    /unit of measure/i,
   );
   assert.throws(
     () => buildCommunityDataEndpoint({ family: family('inventory-plan-export'), operation: operation('inventory-plan-export', 'download-json') }),
@@ -110,9 +144,13 @@ test('Community Data transport uses fixed targets, multipart field file, and Res
   assert.match(source, /target\.operation\.kind === 'delete-json' \? 'DELETE' : 'POST'/);
   assert.match(source, /buildCommunityDataEndpoint\(target\)/);
   assert.match(source, /toResponseMessage\(response, fallback\)/);
+  assert.match(source, /downloadTabularData/);
+  assert.match(source, /XLSX\.writeFile/);
+  assert.match(source, /csvStandard/);
+  assert.match(source, /csvSystemLocale/);
 });
 
-test('Community Data preserves the legacy catalog hierarchy without turning Planning Book views into Data operations', () => {
+test('Community Data overlays availability on the Planning Front hierarchy without rewriting it', () => {
   const navigationHost = readFileSync(new URL('../src/app/navigation.config.ts', import.meta.url), 'utf8');
   const sharedNavigation = readFileSync(new URL('../packages/front-shell/src/legacy-navigation.ts', import.meta.url), 'utf8');
   const page = readFileSync(new URL('../src/modules/data/CommunityDataUploadPage.vue', import.meta.url), 'utf8');
@@ -125,20 +163,59 @@ test('Community Data preserves the legacy catalog hierarchy without turning Plan
   assert.match(page, /Group/);
   assert.match(page, /Section/);
   assert.match(page, /Topic/);
-  assert.match(page, /Fixed controller contracts only; no arbitrary paths/);
-  assert.match(page, /Enterprise-only topics/);
-  assert.match(page, /Transactional Data <strong>Enterprise<\/strong>/);
-  assert.match(page, /Configuration Data <strong>Enterprise<\/strong>/);
-  assert.match(page, /Planning Data <strong>Enterprise<\/strong>/);
-  assert.match(page, /Demand Auto-fit Models <strong>Enterprise<\/strong>/);
-  assert.match(page, /Inventory Optimization <strong>Enterprise<\/strong>/);
-  assert.match(page, /Detailed Production and Sequencing <strong>Enterprise<\/strong>/);
+  assert.match(page, /PLANNING_FRONT_DATA_THEMES/);
+  assert.match(page, /familyForTopic/);
+  assert.match(page, /themeHasCommunityTopic/);
+  assert.match(page, /groupHasCommunityTopic/);
+  assert.match(page, /catalogSelectionIsExecutable/);
+  assert.match(page, /selectCatalogTheme/);
+  assert.match(page, /selectCatalogSection/);
+  assert.match(page, /Pro \/ Enterprise/);
+  assert.doesNotMatch(page, /Firm production, purchase, transfer, sell-in, and customer-order flows/);
+  assert.match(page, /:disabled="familyForTopic/);
+  assert.match(page, /This topic is not available in the current edition/);
+  assert.doesNotMatch(page, /Community \/ \{\{ selectedTheme\.title \}\}/);
+  assert.doesNotMatch(page, /community-badge/);
   assert.match(page, /OfxDataTopicWorkspace/);
   assert.match(page, /:operations="operationOptions"/);
   assert.match(page, /:download-visible="downloadVisible"/);
   assert.match(page, /:import-visible="importVisible"/);
-  assert.match(page, /:import-description="currentOperation\.kind === 'upload-file'/);
-  assert.match(page, /:danger-visible="dangerVisible"/);
+  assert.match(page, /:download-format="downloadFormat"/);
+  assert.match(page, /:download-options="downloadOptions"/);
+  assert.match(page, /download-presentation="format-select"/);
+  assert.match(page, /label: 'XLSX'/);
+  assert.doesNotMatch(page, /Download FILE rows/);
+  assert.doesNotMatch(page, /Download JSON/);
+  assert.doesNotMatch(page, /Upload JSON/);
   assert.match(page, /theme-mode="light"/);
   assert.equal(page.includes('dataupload/'), false, 'Community Data must use only canonical data roots.');
+
+  const transactionalTheme = PLANNING_FRONT_DATA_THEMES.find((theme) => theme.id === 'transactional-data');
+  assert.ok(transactionalTheme);
+  const inventoryGroup = transactionalTheme.groups.find((group) => group.id === 'inventory');
+  const salesGroup = transactionalTheme.groups.find((group) => group.id === 'sales');
+  assert.ok(inventoryGroup);
+  assert.equal(inventoryGroup.title, 'Inventory');
+  assert.equal(inventoryGroup.subgroups[0]?.title, 'Stock');
+  assert.ok(salesGroup);
+  assert.equal(salesGroup.title, 'Sales');
+  assert.deepEqual(salesGroup.subgroups[0]?.topics.map((topic) => topic.title), ['Sales / Sell-out', 'Sales / Sell-in']);
+  assert.ok(transactionalTheme.groups.some((group) => group.title === 'Orders'));
+  assert.ok(transactionalTheme.groups.some((group) => group.title === 'Campaign / Event Data'));
+});
+
+test('Community Data makes the Supply and Demand baseline inputs discoverable in the transactional hierarchy', () => {
+  const stock = family('stock');
+  const sellOut = family('sell-out');
+
+  assert.equal(stock.theme, 'transactional-data');
+  assert.equal(stock.group, 'inventory');
+  assert.equal(stock.section, 'inventory-snapshots');
+  assert.equal(stock.catalogTopicId, 'stock');
+  assert.match(stock.description, /Supply Planning/);
+  assert.equal(sellOut.theme, 'transactional-data');
+  assert.equal(sellOut.group, 'sales');
+  assert.equal(sellOut.section, 'historical-sales');
+  assert.equal(sellOut.catalogTopicId, 'sales-sell-out');
+  assert.match(sellOut.description, /Demand Planning/);
 });

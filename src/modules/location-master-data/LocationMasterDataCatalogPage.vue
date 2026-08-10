@@ -41,12 +41,12 @@ async function loadLocations(): Promise<void> {
     <OfxPageHeader
       eyebrow="Master Data"
       title="Location Master-Data Catalog"
-      description="Read the published Community location snapshot without duplicating Data lifecycle operations."
+      description="Read the published location snapshot without duplicating Data lifecycle operations."
     />
 
-    <OfxSectionCard class="boundary-card" title="Bounded Community scope">
+    <OfxSectionCard class="boundary-card" title="Available information">
       <p>This catalog is read-only. Creation, update, activation, deactivation, and import remain in Data Operations.</p>
-      <p>It excludes clusters, members, allocation, characteristics, coordinates, deployment, and Enterprise geography.</p>
+      <p>Clusters, allocation rules, characteristics, coordinates and deployment settings are managed in their own workspaces when available.</p>
     </OfxSectionCard>
 
     <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
@@ -54,7 +54,7 @@ async function loadLocations(): Promise<void> {
     <OfxSectionCard class="catalog-card" title="Locations">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Community catalog</p>
+          <p class="eyebrow">Catalog</p>
           <p v-if="locations !== null" class="muted">{{ locationCountLabel }} returned by the authoritative snapshot.</p>
           <p v-else class="muted">The catalog remains unloaded until requested.</p>
         </div>
@@ -83,7 +83,7 @@ async function loadLocations(): Promise<void> {
           </tbody>
         </table>
       </div>
-      <p v-else class="empty-state">Load locations to retrieve the complete Community catalog.</p>
+      <p v-else class="empty-state">Load locations to retrieve the complete catalog.</p>
     </OfxSectionCard>
   </TaskPageLayout>
 </template>

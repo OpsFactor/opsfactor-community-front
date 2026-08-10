@@ -29,6 +29,31 @@ function getRequiredApiProxyTarget(environment: Record<string, string>): string 
 
 }
 
+/**
+ * Development must follow the shared package sources directly.  The published
+ * package entries deliberately target dist/ for releases, but relying on them
+ * while Vite serves would otherwise require a manual package rebuild after
+ * every edit to the shared Community foundation.
+ */
+function getSharedPackageSourceAliases(command: string) {
+
+  if (command !== 'serve') {
+    return [];
+  }
+
+  return [
+    // Keep the generated Tailwind stylesheet as the package's public style entry.
+    { find: '@opsfactor/front-shell/styles.css', replacement: fileURLToPath(new URL('./packages/front-shell/dist/index.css', import.meta.url)) },
+    { find: '@opsfactor/front-core', replacement: fileURLToPath(new URL('./packages/front-core/src', import.meta.url)) },
+    { find: '@opsfactor/front-plan-history', replacement: fileURLToPath(new URL('./packages/front-plan-history/src', import.meta.url)) },
+    { find: '@opsfactor/front-planning-book', replacement: fileURLToPath(new URL('./packages/front-planning-book/src', import.meta.url)) },
+    { find: '@opsfactor/front-processes', replacement: fileURLToPath(new URL('./packages/front-processes/src', import.meta.url)) },
+    { find: '@opsfactor/front-perspective', replacement: fileURLToPath(new URL('./packages/front-perspective/src', import.meta.url)) },
+    { find: '@opsfactor/front-shell', replacement: fileURLToPath(new URL('./packages/front-shell/src', import.meta.url)) },
+  ];
+
+}
+
 export default defineConfig(({ command, mode }) => {
 
   /*
@@ -40,11 +65,18 @@ export default defineConfig(({ command, mode }) => {
   const apiProxyTarget = command === 'serve' ? getRequiredApiProxyTarget(environment) : undefined;
 
   return {
-    plugins: [vue()],
-    resolve: {
-      alias: {
-        '@': fileURLToPath(new URL('./src', import.meta.url)),
+    plugins: [vue({
+      template: {
+        compilerOptions: {
+          isCustomElement: (tag) => tag === 'perspective-viewer',
+        },
       },
+    })],
+    resolve: {
+      alias: [
+        { find: '@', replacement: fileURLToPath(new URL('./src', import.meta.url)) },
+        ...getSharedPackageSourceAliases(command),
+      ],
       // The edition foundation is linked as a local package. Without
       // deduplication Rollup may retain one Vue / Vue Router runtime for the
       // foundation and another for the Community application. Router

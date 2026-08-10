@@ -1,10 +1,9 @@
 # OpsFactor Community Frontend
 
-The OpsFactor Community frontend is a Vue and Vite single-page application
-for the source-available Community edition of OpsFactor.
+The OpsFactor Community frontend is a Vue and Vite single-page application for
+the downloadable edition built on the OpsFactor Open Core foundation.
 
-It is distributed under the [Sustainable Use License 1.0](LICENSE.md). This
-is source-available software, not an OSI-approved open-source project.
+It is distributed under the [Sustainable Use License 1.0](LICENSE.md).
 Practical licensing examples are available in the
 [Community licensing FAQ](https://docs.opsfactor.com/documentation/community/licensing-faq/).
 

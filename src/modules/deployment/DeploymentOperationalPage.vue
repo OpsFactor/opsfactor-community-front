@@ -96,7 +96,7 @@ async function loadSelectors(): Promise<void> {
     destinationLocationId.value ||= selectors.locations.find((location) => location.active !== false && location.id !== originLocationId.value)?.id ?? '';
     materialId.value ||= selectors.materials.find((material) => material.active !== false)?.id ?? '';
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Unable to load Community deployment selectors.';
+    errorMessage.value = error instanceof Error ? error.message : 'Unable to load deployment selectors.';
   } finally {
     isLoadingSelectors.value = false;
   }
@@ -122,7 +122,7 @@ async function loadDeployment(): Promise<void> {
     });
     plannedInboundQuantity.value = deployment.value.plannedInboundQuantity;
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Unable to load the Community deployment route.';
+    errorMessage.value = error instanceof Error ? error.message : 'Unable to load the deployment route.';
   } finally {
     isLoadingLine.value = false;
   }
@@ -149,7 +149,7 @@ async function confirmUpdate(): Promise<void> {
     confirmationOpen.value = false;
     resultMessage.value = 'Planned inbound quantity was updated from the current Working Plan snapshot.';
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Unable to update the Community deployment route.';
+    errorMessage.value = error instanceof Error ? error.message : 'Unable to update the deployment route.';
   } finally {
     isUpdating.value = false;
   }
@@ -172,7 +172,7 @@ onMounted(loadSelectors);
       <div class="section-header">
         <div>
           <h2 id="deployment-selection-title">Physical route</h2>
-          <p>All four selectors are required. Route viability remains validated by the Community backend.</p>
+          <p>All four selectors are required. Route viability remains validated by the backend.</p>
         </div>
       </div>
       <label>Supply Plan <small>required</small><select v-model.number="supplyPlanId" :disabled="isLoadingSelectors"><option :value="null" disabled>Select a Supply Plan</option><option v-for="supplyPlan in supplyPlans" :key="supplyPlan.supplyPlanId" :value="supplyPlan.supplyPlanId">{{ supplyPlanLabel(supplyPlan) }}</option></select></label>

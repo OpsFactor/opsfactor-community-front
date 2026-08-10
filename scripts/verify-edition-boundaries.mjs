@@ -191,13 +191,13 @@ async function verifyCommunityLegacyNavigationCut() {
   const violations = [];
   const forbiddenPageLoaders = [
     'DemandPlanChangeLogReportPage.vue', 'DemandAccuracyPage.vue', 'AutoFitModelsPage.vue', 'AutoFitConfigurationPage.vue',
-    'ConstraintTrackerPage.vue', 'SupplyNetworkExplorerPage.vue', 'SupplyPlanFlowsPage.vue', 'LineSchedulingPage.vue', 'OccupationVolumesPage.vue',
+    'ConstraintTrackerPage.vue', 'SupplyPlanFlowsPage.vue', 'LineSchedulingPage.vue', 'OccupationVolumesPage.vue',
     'DeploymentPage.vue', 'DrpParametrizationPage.vue', 'FreightCostPage.vue', 'SalesBaricenterPage.vue',
     'PlanComparisonPage.vue', 'InventoryOptimizationPage.vue', 'AlertsPage.vue', 'ReportsPage.vue',
-    'ProcessExecutionPage.vue', 'PriceSimulationPage.vue', 'ElasticityPage.vue', 'AssortmentPage.vue',
+    'PriceSimulationPage.vue', 'ElasticityPage.vue', 'AssortmentPage.vue',
     'PlanningAgentChatPage.vue', 'SalesCurvesPage.vue', 'TransportationLinePage.vue', 'ProductLocationPage.vue',
     'ConfigurationProductionPage.vue', 'ClusteringPage.vue', 'MaterialFilterPage.vue', 'ProductDetailsPage.vue',
-    'UserViewsPage.vue', 'UserSettingsPage.vue', 'SettingsPage.vue',
+    'UserSettingsPage.vue', 'SettingsPage.vue',
   ];
 
   for (const pageLoader of forbiddenPageLoaders) {
@@ -247,16 +247,22 @@ async function verifyCommunityLegacyNavigationCut() {
     'ENTERPRISE_NAVIGATION_MODULE_KEYS', 'ENTERPRISE_NAVIGATION_PAGE_KEYS',
     'distribution', 'visibility', 'pricing', 'planning-agent',
     'demand-plan-change-log-report', 'demand-demand-accuracy', 'demand-autofit-models', 'demand-autofit-configuration',
-    'supply-constraint-tracker', 'supply-network-explorer', 'supply-supply-plan-flows',
-    'production-line-scheduling', 'production-production-overview', 'process-execution',
+    'supply-constraint-tracker', 'supply-supply-plan-flows',
+    'production-line-scheduling',
     'configuration-sales-curves', 'configuration-transportation-line', 'configuration-product-location',
-    'configuration-production', 'configuration-clustering', 'configuration-material-filter', 'configuration-product-details',
-    'admin-user-views', 'admin-user-settings', 'admin-settings',
+    'configuration-production', 'configuration-material-filter', 'configuration-product-details',
+    'admin-user-settings', 'admin-settings',
   ];
   for (const expectedEnterprisePolicyEntry of expectedEnterprisePolicyEntries) {
     if (!navigationPolicySource.includes(expectedEnterprisePolicyEntry)) {
       violations.push(`Community navigation policy omits the June Enterprise cut ${expectedEnterprisePolicyEntry}.`);
     }
+  }
+  if (navigationPolicySource.includes("'supply-network-explorer'")) {
+    violations.push('Supply Network Explorer is incorrectly gated as Enterprise instead of Community.');
+  }
+  if (!navigationSource.includes("'supply-network-explorer': () => import('@/modules/supply-network/pages/SupplyNetworkExplorerPage.vue')")) {
+    violations.push('Community navigation does not expose the canonical Supply Network Explorer page.');
   }
   if (!sharedNavigationFactorySource.includes("filter((page) => page.availableInCurrentRuntime !== false)")) {
     violations.push('Community route registry does not exclude unavailable legacy pages through the shared navigation factory.');
@@ -300,6 +306,9 @@ async function verifyCommunityLegacyNavigationCut() {
     '@/modules/demand-planning/DemandPlanningBookCommunityPage.vue',
     '@/modules/supply-planning/SupplyPlanningBookCommunityPage.vue',
     '@/modules/production-planning/ProductionPlanningBookCommunityPage.vue',
+    '@/modules/planning-books/UserViewsCommunityPage.vue',
+    '@/modules/production-overview/ProductionOverviewPage.vue',
+    '@/modules/processes/pages/ProcessExecutionPage.vue',
     '@/modules/demand-planning/ClusterLevelConfigurationCommunityPage.vue',
     '@/modules/demand-execution-profiles/DemandExecutionProfilesInspectorPage.vue',
     '@/modules/supply-execution-profiles/SupplyExecutionProfilesInspectorPage.vue',

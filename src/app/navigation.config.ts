@@ -28,14 +28,19 @@ const pageComponents = {
   'demand-execution-profiles': () => import('@/modules/demand-execution-profiles/DemandExecutionProfilesInspectorPage.vue'),
   'supply-planning-book': () => import('@/modules/supply-planning/SupplyPlanningBookCommunityPage.vue'),
   'supply-plans': () => import('@/modules/supply-network/pages/SupplyPlansPage.vue'),
+  'supply-network-explorer': () => import('@/modules/supply-network/pages/SupplyNetworkExplorerPage.vue'),
   'supply-execution-profiles': () => import('@/modules/supply-execution-profiles/SupplyExecutionProfilesInspectorPage.vue'),
   'supply-inventory-overview': () => import('@/modules/inventory-overview/InventoryOverviewPage.vue'),
   'production-planning-book': () => import('@/modules/production-planning/ProductionPlanningBookCommunityPage.vue'),
+  'production-production-overview': () => import('@/modules/production-overview/ProductionOverviewPage.vue'),
+  'process-execution': () => import('@/modules/processes/pages/ProcessExecutionPage.vue'),
   'process-status': () => import('@/modules/processes/pages/ProcessStatusPage.vue'),
   'data-download-upload': () => import('@/modules/data/CommunityDataUploadPage.vue'),
   'data-api-documentation': OpsFactorApiDocumentationRedirect,
   'configuration-global-parameters': () => import('@/modules/configuration/GlobalParametersCommunityPage.vue'),
+  'configuration-clustering': () => import('@/modules/cluster-scope/ClusterScopeInspectorPage.vue'),
   'admin-users': () => import('@/modules/user-administration/CommunityUserAdministrationPage.vue'),
+  'admin-user-views': () => import('@/modules/planning-books/UserViewsCommunityPage.vue'),
 };
 
 const navigation = createLegacyNavigation({

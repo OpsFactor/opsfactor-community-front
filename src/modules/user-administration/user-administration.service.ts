@@ -31,7 +31,7 @@ export class CommunityUserAdministrationService {
     try {
       return await this.httpClient.request<CommunityUser[]>('/api/secured/user');
     } catch (error) {
-      throw toBackendError(error, 'Unable to load Community users.');
+      throw toBackendError(error, 'Unable to load users.');
     }
   }
 
@@ -41,7 +41,7 @@ export class CommunityUserAdministrationService {
     try {
       return await this.httpClient.request<string[]>('/api/secured/user/rolelist');
     } catch (error) {
-      throw toBackendError(error, 'Unable to load the Community user role.');
+      throw toBackendError(error, 'Unable to load the user role.');
     }
   }
 
@@ -55,7 +55,7 @@ export class CommunityUserAdministrationService {
         body: JSON.stringify(request),
       });
     } catch (error) {
-      throw toBackendError(error, 'Unable to save the Community user.');
+      throw toBackendError(error, 'Unable to save the user.');
     }
   }
 }

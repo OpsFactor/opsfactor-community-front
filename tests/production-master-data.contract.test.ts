@@ -71,11 +71,12 @@ test('Production Resource page confines mutation to a confirmed row and reloads 
 
   assert.match(source, /productionResourceDraft/);
   assert.match(source, /pendingProductionResourceSave/);
-  assert.match(source, /:disabled="savingProductionResource \|\| !productionResourceDraft\.isNew"/);
-  assert.match(source, /Enter an existing Location ID; no catalog is loaded/);
-  assert.match(source, /await productionMasterDataService\.saveProductionResource\(snapshot\)/);
-  assert.match(source, /await loadTab\('productionResources'\)/);
-  assert.match(source, /There is no delete or dependent-record reconciliation/);
+  assert.match(source, /:disabled="\s*savingProductionResource \|\| !productionResourceDraft\.isNew\s*"/);
+  assert.match(source, /loadCommunityLocations/);
+  assert.match(source, /Location<select[\s\S]*?v-model="productionResourceDraft\.locationId"/);
+  assert.match(source, /await productionMasterDataService\.saveProductionResource\(\s*snapshot\s*\)/);
+  assert.match(source, /await loadTab\(["']productionResources["']\)/);
+  assert.match(source, /There is no delete or[\s\S]*dependent-record reconciliation/);
 });
 
 test('Production Resource transport excludes lifecycle delete and private production capabilities', async () => {

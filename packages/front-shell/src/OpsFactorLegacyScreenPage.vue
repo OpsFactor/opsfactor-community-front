@@ -89,7 +89,7 @@ const noteClass = computed(() => (isLightTheme.value ? 'text-[color:var(--ofx-te
     <OfxPageHeader :eyebrow="props.eyebrow" :title="props.title" :description="props.description">
       <template #actions>
         <div v-if="props.legacyPath" :class="['rounded-[10px] border px-3 py-2 text-xs', legacyPathClass]">
-          Legacy: {{ props.legacyPath }}
+          Reference: {{ props.legacyPath }}
         </div>
       </template>
     </OfxPageHeader>
@@ -102,14 +102,14 @@ const noteClass = computed(() => (isLightTheme.value ? 'text-[color:var(--ofx-te
     </div>
 
     <div class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-      <OfxSectionCard title="What lives here" description="This page is already positioned in the new SPA navigation and now describes the legacy workflow in a more task-oriented structure.">
+      <OfxSectionCard title="What you can do here" description="Review the available activities and choose the action that matches your task.">
         <ul v-if="props.summary?.length" :class="['space-y-3 text-sm leading-6', bodyTextClass]">
           <li v-for="item in props.summary" :key="item" :class="['rounded-[12px] border px-4 py-3', bodyItemClass]">{{ item }}</li>
         </ul>
         <p v-else :class="['text-sm leading-6', bodyTextClass]">This route is available in the new shell and ready for deeper migration work.</p>
       </OfxSectionCard>
 
-      <OfxSectionCard title="Search keywords" description="Keywords feed the topbar search and make this route easier to find by legacy and business vocabulary.">
+      <OfxSectionCard title="Related terms" description="Use these terms to find this page from the global search.">
         <div class="flex flex-wrap gap-2"><span v-for="keyword in props.keywords ?? []" :key="keyword" :class="['rounded-full border px-2.5 py-1 text-[11px]', keywordClass]">{{ keyword }}</span></div>
         <div v-if="props.relatedLinks?.length" class="mt-5 space-y-2">
           <div :class="['text-[11px] uppercase tracking-[0.16em]', relatedLabelClass]">Related pages</div>

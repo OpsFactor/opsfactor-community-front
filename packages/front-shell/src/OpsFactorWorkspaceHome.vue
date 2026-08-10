@@ -2,7 +2,9 @@
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import { getModuleIconName } from './navigation-icons';
+import { unavailableEditionLabel } from './edition-navigation-policy';
 import type { AppModuleSummary } from './legacy-navigation';
+import OfxEditionAvailabilityMark from './OfxEditionAvailabilityMark.vue';
 import OpsFactorNavigationIcon from './OpsFactorNavigationIcon.vue';
 
 const props = defineProps<{
@@ -94,7 +96,7 @@ function handleModuleNavigation(event: MouseEvent, module: AppModuleSummary) {
               :key="module.key"
               :to="module.path"
               class="group relative overflow-hidden rounded-[26px] border p-6 transition duration-200 hover:-translate-y-0.5"
-              :class="[isLightTheme ? 'hover:border-[color:var(--ofx-border-strong)]' : 'hover:border-white/14', isUnavailable(module) ? 'cursor-not-allowed opacity-55' : '']"
+              :class="[isLightTheme ? 'hover:border-[color:var(--ofx-border-strong)]' : 'hover:border-white/14', isUnavailable(module) ? 'cursor-not-allowed' : '']"
               :style="moduleSurface(module.accent)"
               :aria-disabled="isUnavailable(module)"
               @click="handleModuleNavigation($event, module)"
@@ -103,8 +105,10 @@ function handleModuleNavigation(event: MouseEvent, module: AppModuleSummary) {
               <div class="flex h-full flex-col gap-5">
                 <div class="flex items-start gap-4"><div class="flex h-12 w-12 items-center justify-center rounded-2xl border" :style="iconSurface(module.accent)"><OpsFactorNavigationIcon :name="getModuleIconName(module.key)" :size="20" /></div></div>
                 <div class="space-y-3">
-                  <h3 class="text-2xl font-semibold tracking-[-0.03em]" :class="isLightTheme ? 'text-[color:var(--ofx-text)]' : 'text-white/96'">{{ module.label }}</h3>
-                  <span v-if="isUnavailable(module)" class="inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]" :class="isLightTheme ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface-elevated)] text-[color:var(--ofx-text-subtle)]' : 'border-white/10 bg-white/[0.04] text-white/45'">Enterprise</span>
+                  <h3 class="inline-flex items-center gap-2 text-2xl font-semibold tracking-[-0.03em]" :class="isLightTheme ? 'text-[color:var(--ofx-text)]' : 'text-white/96'">
+                    <span>{{ module.label }}</span>
+                    <OfxEditionAvailabilityMark v-if="isUnavailable(module)" :edition-label="unavailableEditionLabel(module.key)" :theme-mode="props.themeMode" />
+                  </h3>
                   <p class="text-sm leading-7" :class="isLightTheme ? 'text-[color:var(--ofx-text-muted)]' : 'text-white/56'">{{ module.description }}</p>
                 </div>
                 <div class="mt-auto flex flex-wrap gap-2"><span v-for="preview in module.previewItems.slice(0, 3)" :key="preview" class="rounded-full border px-3 py-1.5 text-[11px]" :class="isLightTheme ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface)] text-[color:var(--ofx-text-muted)]' : 'border-white/8 bg-white/[0.035] text-white/56'">{{ preview }}</span></div>
@@ -121,7 +125,7 @@ function handleModuleNavigation(event: MouseEvent, module: AppModuleSummary) {
               :key="module.key"
               :to="module.path"
               class="group block overflow-hidden rounded-[24px] border p-5 transition duration-200 hover:-translate-y-0.5"
-              :class="[isLightTheme ? 'hover:border-[color:var(--ofx-border-strong)]' : 'hover:border-white/14', isUnavailable(module) ? 'cursor-not-allowed opacity-55' : '']"
+              :class="[isLightTheme ? 'hover:border-[color:var(--ofx-border-strong)]' : 'hover:border-white/14', isUnavailable(module) ? 'cursor-not-allowed' : '']"
               :style="moduleSurface(module.accent)"
               :aria-disabled="isUnavailable(module)"
               @click="handleModuleNavigation($event, module)"
@@ -129,8 +133,10 @@ function handleModuleNavigation(event: MouseEvent, module: AppModuleSummary) {
               <div class="flex items-start gap-4">
                 <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border" :style="iconSurface(module.accent)"><OpsFactorNavigationIcon :name="getModuleIconName(module.key)" :size="18" /></div>
                 <div class="min-w-0">
-                  <div class="text-lg font-semibold" :class="isLightTheme ? 'text-[color:var(--ofx-text)]' : 'text-white/94'">{{ module.label }}</div>
-                  <span v-if="isUnavailable(module)" class="mt-2 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]" :class="isLightTheme ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface-elevated)] text-[color:var(--ofx-text-subtle)]' : 'border-white/10 bg-white/[0.04] text-white/45'">Enterprise</span>
+                  <div class="inline-flex items-center gap-2 text-lg font-semibold" :class="isLightTheme ? 'text-[color:var(--ofx-text)]' : 'text-white/94'">
+                    <span>{{ module.label }}</span>
+                    <OfxEditionAvailabilityMark v-if="isUnavailable(module)" :edition-label="unavailableEditionLabel(module.key)" :theme-mode="props.themeMode" />
+                  </div>
                   <div class="mt-2 text-sm leading-6" :class="isLightTheme ? 'text-[color:var(--ofx-text-muted)]' : 'text-white/54'">{{ module.description }}</div>
                   <div class="mt-3 flex flex-wrap gap-2"><span v-for="preview in module.previewItems.slice(0, 2)" :key="preview" class="rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.12em]" :class="isLightTheme ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface)] text-[color:var(--ofx-text-muted)]' : 'border-white/8 bg-white/[0.035] text-white/48'">{{ preview }}</span></div>
                 </div>

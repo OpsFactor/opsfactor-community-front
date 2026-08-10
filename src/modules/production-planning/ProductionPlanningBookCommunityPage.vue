@@ -197,7 +197,7 @@ onMounted(loadSelectors);
     <p v-if="!planningBook && !isLoadingSelectors && !locations.length" class="muted">No location is enabled for the Production Planning Book.</p>
 
     <section v-if="planningBook" class="planning-book-workspace-header">
-      <div><div class="planning-book-workspace-eyebrow">Production Planning Workspace</div><div class="planning-book-workspace-meta">Supply Plan #{{ planningBook.supplyPlanId }} <span>•</span> {{ planningBook.locationId }} <span>•</span> Community</div></div>
+      <div><div class="planning-book-workspace-eyebrow">Production Planning Workspace</div><div class="planning-book-workspace-meta">Supply Plan #{{ planningBook.supplyPlanId }} <span>•</span> {{ planningBook.locationId }}</div></div>
       <button class="secondary-button" type="button" :disabled="isSaving" @click="leavePlanningBook">Reopen selection</button>
     </section>
 

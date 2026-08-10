@@ -21,7 +21,7 @@ onMounted(() => {
 
     <OfxSectionCard class="max-w-2xl">
       <p class="text-sm leading-7 text-[color:var(--ofx-text-muted)]">
-        Redirecting to the backend Swagger UI.
+        Opening the integration API documentation.
       </p>
       <a
         :href="swaggerUrl"

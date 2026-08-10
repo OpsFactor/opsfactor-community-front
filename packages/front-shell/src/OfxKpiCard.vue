@@ -1,15 +1,21 @@
 <script setup lang="ts">
+import OfxEditionAvailabilityMark from './OfxEditionAvailabilityMark.vue';
+
 defineProps<{
   label: string;
   value: string;
   trend?: string;
   tone?: 'default' | 'success' | 'warning';
+  requiredEdition?: 'Enterprise' | 'Pro / Enterprise';
 }>();
 </script>
 
 <template>
   <article class="ofx-kpi-card rounded-[12px] border px-4 py-3.5 shadow-[0_14px_32px_rgb(2_8_20_/_0.22)]">
-    <p class="ofx-kpi-card__label text-[10px] font-semibold uppercase tracking-[0.22em]">{{ label }}</p>
+    <p class="ofx-kpi-card__label flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.22em]">
+      {{ label }}
+      <OfxEditionAvailabilityMark v-if="requiredEdition" :edition-label="requiredEdition" :size="12" />
+    </p>
     <div class="mt-2.5 flex items-end justify-between gap-3">
       <div class="ofx-kpi-card__value text-2xl font-semibold tracking-[-0.03em]">{{ value }}</div>
       <span

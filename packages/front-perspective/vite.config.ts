@@ -4,7 +4,13 @@ import vue from '@vitejs/plugin-vue';
 
 /** Builds the edition-neutral Perspective components without bundling host Vue or Perspective runtimes. */
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue({
+    template: {
+      compilerOptions: {
+        isCustomElement: (tag) => tag === 'perspective-viewer',
+      },
+    },
+  })],
   css: { postcss: { plugins: [] } },
   build: {
     lib: {

@@ -61,8 +61,7 @@ const COMMUNITY_DOCUMENTED_ROUTE_RECORDS: RouteRecordRaw[] = [
   },
   {
     path: '/demand-planning/demand-analysis', name: 'community-demand-analysis',
-    component: () => import('@/modules/demand-analysis/DemandAnalysisPage.vue'),
-    meta: { title: 'Demand Analysis', description: 'Configure and simulate a bounded Community demand analysis.', requiresAuth: true, subnav: [] },
+    redirect: '/demand-planning/cluster-level-configuration',
   },
   {
     path: '/demand-planning/historical-sellout', name: 'community-historical-sellout',
@@ -116,8 +115,8 @@ const COMMUNITY_DOCUMENTED_ROUTE_RECORDS: RouteRecordRaw[] = [
   },
   {
     path: '/supply-planning/dependency-explorer', name: 'community-dependency-explorer',
-    component: () => import('@/modules/dependency-explorer/DependencyExplorerPage.vue'),
-    meta: { title: 'Dependency Explorer', description: 'Read a bounded Community supply dependency tree.', requiresAuth: true, subnav: [] },
+    redirect: '/supply-network/explorer',
+    meta: { title: 'Supply Network Explorer', description: 'Open the canonical Supply Network dependency graph.', requiresAuth: true, subnav: [] },
   },
   {
     path: '/supply-planning/low-level-code', name: 'community-low-level-code',

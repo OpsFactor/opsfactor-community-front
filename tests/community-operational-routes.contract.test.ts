@@ -30,4 +30,6 @@ test('Community router exposes the documented narrow operational routes outside 
     assert.match(routerSource, new RegExp(`path: '${path}'`));
   }
   assert.match(routerSource, /const COMMUNITY_DOCUMENTED_ROUTE_RECORDS/);
+  assert.match(routerSource, /path: '\/demand-planning\/demand-analysis',[\s\S]*?redirect: '\/demand-planning\/cluster-level-configuration'/);
+  assert.doesNotMatch(routerSource, /@\/modules\/demand-analysis\/DemandAnalysisPage\.vue/);
 });

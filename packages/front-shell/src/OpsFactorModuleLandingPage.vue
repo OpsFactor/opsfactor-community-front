@@ -14,10 +14,10 @@ const props = defineProps<{
   <ReportPageLayout>
     <OfxPageHeader :eyebrow="props.moduleName" :title="props.title" :description="props.description" />
     <OfxSectionCard
-      title="Foundation Placeholder"
-      description="This module route is available inside the new OpsFactor shell. Phase 1 intentionally stops at layout, routing, and shared foundation components."
+      title="Module overview"
+      description="Choose the planning or configuration page that matches the task you want to complete."
     >
-      <p class="text-sm text-[color:var(--ofx-text-muted)]">Business pages will be added in Phase 3 after wrappers and backend assumptions are validated.</p>
+      <p class="text-sm text-[color:var(--ofx-text-muted)]">Choose a page from the navigation to continue.</p>
     </OfxSectionCard>
   </ReportPageLayout>
 </template>

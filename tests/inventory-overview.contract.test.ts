@@ -33,12 +33,14 @@ test('Inventory Overview retains the legacy dashboard comparison while gating un
   assert.match(pageSource, /Inventory Overview unavailable/);
   assert.match(pageSource, /Select the initial scope to open the report/);
   assert.match(pageSource, /Open detailed snapshot/);
-  assert.match(pageSource, /Value at cost — Enterprise/);
+  assert.match(pageSource, /Value at cost/);
+  assert.match(pageSource, /OfxEditionAvailabilityMark/);
   assert.match(pageSource, /Detailed inventory exploration/);
   assert.match(pageSource, /Location characteristics/);
   assert.match(pageSource, /Material characteristics/);
   assert.match(pageSource, /Show in table/);
-  assert.match(pageSource, /Detailed local pivot and alternate metrics are available in Enterprise/);
+  assert.match(pageSource, /Detailed local pivot and alternate metrics are not available in the current edition/);
+  assert.doesNotMatch(pageSource, /enterprise-badge">Enterprise/);
   assert.match(pageSource, /<EChartAdapter :option="constrainedChartOption"/);
   assert.doesNotMatch(pageSource, /financialAxis/);
 });

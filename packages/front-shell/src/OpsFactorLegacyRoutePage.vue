@@ -18,7 +18,7 @@ const legacyPath = computed(() => (typeof route.meta.legacyPath === 'string' ? r
   <TaskPageLayout class="legacy-route-page">
     <OfxPageHeader
       :eyebrow="moduleInfo?.label"
-      :title="typeof route.meta.title === 'string' ? route.meta.title : page?.label ?? 'Legacy workspace'"
+      :title="typeof route.meta.title === 'string' ? route.meta.title : page?.label ?? 'Workspace'"
       :description="description"
     >
       <template #actions>
@@ -33,10 +33,10 @@ const legacyPath = computed(() => (typeof route.meta.legacyPath === 'string' ? r
     </OfxPageHeader>
 
     <div class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-      <OfxSectionCard title="Legacy transplant" description="This page is already visible in the new SPA shell and anchored to the new navigation model, even when its deep workflow migration is still pending.">
+      <OfxSectionCard title="Available workspace" description="This page is part of the current navigation. Its complete workflow is still being prepared.">
         <div class="space-y-4 text-sm leading-7 text-[color:var(--ofx-text-muted)]">
           <p>
-            The goal here is discoverability first: every relevant legacy surface should be reachable from the new lateral navigation so we can validate the information architecture before polishing each workflow.
+            Use the related links to continue with an available task. Additional actions will appear here as they become available.
           </p>
           <p>
             This route uses the final product module, the final submenu slot, and generated search keywords, so navigation validation can start before every screen is fully rebuilt.
@@ -44,12 +44,12 @@ const legacyPath = computed(() => (typeof route.meta.legacyPath === 'string' ? r
         </div>
       </OfxSectionCard>
 
-      <OfxSectionCard title="Reference" description="Quick legacy anchor for migration follow-up.">
+      <OfxSectionCard title="Reference" description="Source reference for this workspace.">
         <div class="space-y-4 text-sm text-[color:var(--ofx-text-muted)]">
           <div>
-            <div class="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ofx-text-subtle)]">Legacy path</div>
+            <div class="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ofx-text-subtle)]">Reference path</div>
             <div class="mt-2 rounded-[10px] border border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface-elevated)] px-3 py-2 font-medium text-[color:var(--ofx-text)]">
-              {{ legacyPath ?? 'Legacy mapping not confirmed in controller yet.' }}
+              {{ legacyPath ?? 'Reference path not available.' }}
             </div>
           </div>
 

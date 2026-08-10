@@ -90,7 +90,7 @@ const actionDescription = computed(() => {
   switch (actionTone.value) {
     case 'download':
       return props.downloadPresentation === 'server-file'
-        ? 'Run this download and keep the file exactly as the backend returns it.'
+        ? 'Download the current data in the selected format.'
         : 'Choose the export format and run the extract from this highlighted action area.';
     case 'import':
       return props.importDescription ?? 'Use this entry point to upload the file for the selected topic.';

@@ -1,10 +1,12 @@
 import { useSessionStore } from '@/stores/app/session.store';
+import { restoreCommunityBasicSessionFromPeer } from '@/services/community-authentication.service';
 
 export async function bootstrapSession() {
   const sessionStore = useSessionStore();
 
-  // Cookie-backed auth is owned by the Spring backend.
-  // This placeholder bootstrap keeps the SPA ready for a future
-  // session introspection endpoint without leaking auth assumptions into pages.
+  // A route opened in a new tab has an independent sessionStorage. Ask an
+  // authenticated same-origin Community tab for its ephemeral Basic session
+  // before the backend session bootstrap decides whether login is required.
+  await restoreCommunityBasicSessionFromPeer();
   await sessionStore.bootstrap();
 }

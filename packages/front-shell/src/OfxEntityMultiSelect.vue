@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { OfxSelectOption } from './OfxSelectOption';
+import OfxEditionAvailabilityMark from './OfxEditionAvailabilityMark.vue';
+import OfxLockedControlIcon from './OfxLockedControlIcon.vue';
 
 const model = defineModel<string[]>({ default: [] });
 
@@ -12,6 +14,7 @@ const props = withDefaults(
     helpText?: string;
     inputId?: string;
     disabled?: boolean;
+    requiredEdition?: 'Enterprise' | 'Pro / Enterprise';
     /** The host-owned visual mode; Community remains light by default. */
     themeMode?: 'light' | 'dark';
   }>(),
@@ -33,6 +36,7 @@ const open = ref(false);
 const query = ref('');
 const dropdownStyle = ref<Record<string, string>>({});
 const isLightTheme = computed(() => props.themeMode === 'light');
+const isEditionLocked = computed(() => props.disabled && Boolean(props.requiredEdition));
 
 const filteredOptions = computed(() => {
   const term = query.value.trim().toLowerCase();
@@ -50,6 +54,11 @@ const summaryText = computed(() => {
   }
   return `${selectedOptions.value.length} selected`;
 });
+const triggerAriaLabel = computed(() => (
+  isEditionLocked.value
+    ? `${props.label}: ${summaryText.value}. Locked control.`
+    : `${props.label}: ${summaryText.value}`
+));
 
 const labelClass = computed(() => (isLightTheme.value ? 'text-[color:var(--ofx-text)]' : 'text-white/88'));
 const triggerBaseClass = computed(() => (
@@ -69,6 +78,12 @@ const searchInputClass = computed(() => (
     : 'border-white/8 bg-white/[0.035] text-white/88 placeholder:text-white/34 focus:border-[color:rgb(75_124_255_/_0.58)] focus:bg-white/[0.055]'
 ));
 const summaryClass = computed(() => {
+  if (isEditionLocked.value) {
+    return selectedOptions.value.length
+      ? 'text-[color:var(--ofx-text)]'
+      : 'text-[color:var(--ofx-text-muted)]';
+  }
+
   if (props.disabled) {
     return isLightTheme.value ? 'text-[color:var(--ofx-text-subtle)]' : 'text-white/32';
   }
@@ -85,7 +100,9 @@ const clearButtonClass = computed(() => (
     : 'text-white/54 hover:bg-white/[0.07] hover:text-white/86'
 ));
 const caretClass = computed(() => (
-  props.disabled
+  isEditionLocked.value
+    ? 'text-[color:var(--ofx-text-muted)]'
+    : props.disabled
     ? isLightTheme.value ? 'text-[color:var(--ofx-text-subtle)]' : 'text-white/28'
     : isLightTheme.value ? 'text-[color:var(--ofx-text-muted)]' : 'text-white/62'
 ));
@@ -97,6 +114,10 @@ const optionClass = computed(() => (
 const emptyClass = computed(() => (isLightTheme.value ? 'text-[color:var(--ofx-text-muted)]' : 'text-white/56'));
 
 function triggerStateClass() {
+  if (isEditionLocked.value) {
+    return 'cursor-not-allowed border-[color:var(--ofx-border-strong)] bg-[linear-gradient(180deg,var(--ofx-surface-elevated),var(--ofx-muted))] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.7)]';
+  }
+
   if (props.disabled) {
     return isLightTheme.value
       ? 'cursor-not-allowed border-[color:var(--ofx-border)] bg-[color:var(--ofx-muted)]'
@@ -230,16 +251,18 @@ watch(
 
 <template>
   <div ref="rootRef" class="relative flex min-w-0 flex-col gap-2">
-    <label v-if="props.inputId" :for="props.inputId" class="min-w-0 truncate text-[13px] font-medium" :class="labelClass">{{ props.label }}</label>
-    <span v-else class="min-w-0 truncate text-[13px] font-medium" :class="labelClass">{{ props.label }}</span>
+    <label v-if="props.inputId" :for="props.inputId" class="inline-flex min-w-0 items-center gap-1.5 text-[13px] font-medium" :class="labelClass"><span class="truncate">{{ props.label }}</span><OfxEditionAvailabilityMark v-if="props.requiredEdition" :edition-label="props.requiredEdition" :theme-mode="props.themeMode" :size="12" /></label>
+    <span v-else class="inline-flex min-w-0 items-center gap-1.5 text-[13px] font-medium" :class="labelClass"><span class="truncate">{{ props.label }}</span><OfxEditionAvailabilityMark v-if="props.requiredEdition" :edition-label="props.requiredEdition" :theme-mode="props.themeMode" :size="12" /></span>
 
     <div ref="triggerRef" class="relative min-w-0">
       <div
         :id="props.inputId"
         class="flex h-10 min-w-0 items-center justify-between gap-3 rounded-[12px] border px-3.5 text-left transition"
         :class="[triggerBaseClass, triggerStateClass()]"
+        :data-locked="isEditionLocked ? 'true' : undefined"
         :aria-expanded="open"
         :aria-disabled="props.disabled"
+        :aria-label="triggerAriaLabel"
         role="button"
         :tabindex="props.disabled ? -1 : 0"
         @click="toggleOpen"
@@ -259,7 +282,14 @@ watch(
           >
             Clear
           </button>
-          <span :class="caretClass">{{ open ? '▴' : '▾' }}</span>
+          <span
+            v-if="isEditionLocked"
+            class="-my-px -mr-3.5 flex h-10 w-10 items-center justify-center rounded-r-[11px] border-l border-[color:var(--ofx-border-strong)] bg-[color:var(--ofx-muted)]"
+            :class="caretClass"
+          >
+            <OfxLockedControlIcon />
+          </span>
+          <span v-else :class="caretClass">{{ open ? '▴' : '▾' }}</span>
         </div>
       </div>
 

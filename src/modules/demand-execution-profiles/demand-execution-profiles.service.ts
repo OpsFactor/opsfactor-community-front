@@ -20,7 +20,7 @@ function toBackendError(error: unknown, fallback: string): Error {
   }
 }
 
-/** Reads and saves existing Community Demand Planning profile snapshots only. */
+/** Reads and saves Community Demand Planning profiles through the canonical root endpoint. */
 export class DemandExecutionProfilesInspectorService {
   private readonly httpClient: HttpClient;
 
@@ -38,7 +38,7 @@ export class DemandExecutionProfilesInspectorService {
     }
   }
 
-  /** Sends one confirmed existing-profile snapshot; the server validates the referenced UOM. */
+  /** Creates, copies, or updates one Community-safe profile snapshot. */
   public async saveProfile(snapshot: CommunityDemandExecutionProfileSaveRequest): Promise<string> {
 
     try {

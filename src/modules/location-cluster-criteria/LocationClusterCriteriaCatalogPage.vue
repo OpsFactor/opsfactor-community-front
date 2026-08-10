@@ -41,7 +41,7 @@ async function loadCriteria(): Promise<void> {
     <OfxPageHeader
       eyebrow="Configuration"
       title="Location Cluster Criteria Catalog"
-      description="Inspect the raw criterion names allowed by the Community server."
+      description="Inspect the raw criterion names accepted by the service."
     />
 
     <OfxSectionCard class="boundary-card" title="Allowed values, not cluster state">

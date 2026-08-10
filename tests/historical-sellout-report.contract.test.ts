@@ -43,7 +43,7 @@ test('Historical sell-out report uses only the canonical POST with an explicit d
   }]);
 });
 
-test('Historical sell-out report keeps identifiers manual and omits an empty optional scope', () => {
+test('Historical sell-out report normalizes identifiers and omits an empty optional scope', () => {
   assert.deepEqual(parseExplicitIdentifiers(' A;B\nA, C '), ['A', 'B', 'C']);
   assert.deepEqual(buildCommunityHistoricalSelloutReportRequest({
     startDate: '2026-07-01', endDate: '2026-07-31', materialIds: [], locationIds: [],
@@ -53,12 +53,14 @@ test('Historical sell-out report keeps identifiers manual and omits an empty opt
   }), /before or equal/);
 });
 
-test('Historical sell-out page and route exclude characteristics, catalogs, Data, conversions and aggregation', () => {
+test('Historical sell-out page uses bounded master-data selectors and excludes characteristics, Data, conversions and aggregation', () => {
   const page = readFileSync(new URL('../src/modules/historical-sellout/HistoricalSelloutReportPage.vue', import.meta.url), 'utf8');
   const service = readFileSync(new URL('../src/modules/historical-sellout/historical-sellout.service.ts', import.meta.url), 'utf8');
 
   assert.match(page, /Document ID<\/th><th>Reference date<\/th><th>Origin location<\/th><th>Material<\/th><th>Document UOM<\/th><th>Quantity/);
-  assert.match(page, /No master-data catalog, characteristics, aggregation, demand-plan comparison, conversion, Data operation/);
+  assert.match(page, /loadCommunityMaterials/);
+  assert.match(page, /loadCommunityLocations/);
+  assert.match(page, /Characteristics, aggregation, demand-plan comparison, conversion, Data operations/);
   assert.match(service, /historicalSelloutReportEndpoint/);
   for (const forbiddenFragment of [
     'characteristic', 'unitofmeasure', '/api/secured/data/', 'GET', 'DELETE', 'PUT',

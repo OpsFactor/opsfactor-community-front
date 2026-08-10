@@ -1,7 +1,14 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
 import { httpClient } from '../../services/community-authentication.service';
+import {
+  communityNamedOptionLabel,
+  loadCommunityInventoryPolicies,
+  loadCommunityLocations,
+  loadCommunityMaterials,
+  type CommunityNamedOption,
+} from '../../services/community-option-catalog.service';
 import { InventoryPoliciesInspectorService } from './inventory-policies.service';
 import {
   buildCommunityInventoryPolicyDraft,
@@ -16,9 +23,13 @@ const inventoryPoliciesInspectorService = new InventoryPoliciesInspectorService(
 const inventoryPolicyId = ref('');
 const capturedInventoryPolicyId = ref<string | null>(null);
 const inventoryPolicy = ref<CommunityInventoryPolicy | null>(null);
+const inventoryPolicyIds = ref<string[]>([]);
+const materials = ref<CommunityNamedOption[]>([]);
+const locations = ref<CommunityNamedOption[]>([]);
 const draft = ref<CommunityInventoryPolicyDraft | null>(null);
 const pendingSaveSnapshot = ref<CommunityInventoryPolicySaveRequest | null>(null);
 const loading = ref(false);
+const loadingOptions = ref(true);
 const saving = ref(false);
 const editing = ref(false);
 const saveConfirmationOpen = ref(false);
@@ -190,6 +201,26 @@ async function reloadCapturedInventoryPolicy(policyId: string): Promise<void> {
   }
 
 }
+
+/** Loads every persisted selector used by the policy and its material/location rules. */
+onMounted(async () => {
+
+  try {
+    const [loadedInventoryPolicies, loadedMaterials, loadedLocations] = await Promise.all([
+      loadCommunityInventoryPolicies(),
+      loadCommunityMaterials(),
+      loadCommunityLocations(),
+    ]);
+    inventoryPolicyIds.value = loadedInventoryPolicies.map((policy) => policy.id);
+    materials.value = loadedMaterials;
+    locations.value = loadedLocations;
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Unable to load Inventory Policy selectors.';
+  } finally {
+    loadingOptions.value = false;
+  }
+
+});
 </script>
 
 <template>
@@ -197,17 +228,17 @@ async function reloadCapturedInventoryPolicy(policyId: string): Promise<void> {
     <OfxPageHeader eyebrow="Supply Planning" title="Inventory Policy Detail" description="Inspect and explicitly replace one operational safety-stock policy already associated with a Supply Execution Profile." />
 
     <OfxSectionCard class="boundary-card" title="Single-policy lookup">
-      <p>Enter the policy ID shown by Supply Execution Profiles. This loads one complete policy snapshot; it never loads a policy catalog or looks up Materials or Locations per rule.</p>
+      <p>Select the policy shown by Supply Execution Profiles. This loads one complete policy snapshot.</p>
       <form class="lookup-form" @submit.prevent="loadInventoryPolicy">
-        <label for="inventory-policy-id">Inventory policy ID</label>
+        <label for="inventory-policy-id">Inventory policy</label>
         <div class="lookup-controls">
-          <input id="inventory-policy-id" v-model="inventoryPolicyId" :disabled="isBusy || editing" autocomplete="off" required>
-          <button class="primary-button" type="submit" :disabled="isBusy || editing">
+          <select id="inventory-policy-id" v-model="inventoryPolicyId" :disabled="isBusy || editing || loadingOptions" required><option value="" disabled>Select an Inventory Policy</option><option v-for="policyId in inventoryPolicyIds" :key="policyId" :value="policyId">{{ policyId }}</option></select>
+          <button class="primary-button" type="submit" :disabled="isBusy || editing || loadingOptions">
             {{ loading ? 'Loading policy…' : 'Load Inventory Policy' }}
           </button>
         </div>
       </form>
-      <p class="boundary-note">Inventory Policy Optimization, replenishment frequency, effective-policy resolution, simulation and reorder analysis are Enterprise capabilities and are not displayed or sent here.</p>
+      <p class="boundary-note">Optimization, replenishment frequency, simulations and reorder analysis are not available in the current edition.</p>
     </OfxSectionCard>
 
     <p v-if="resultMessage" class="success-message" role="status">{{ resultMessage }}</p>
@@ -255,13 +286,13 @@ async function reloadCapturedInventoryPolicy(policyId: string): Promise<void> {
         </div>
         <div class="header-form">
           <label>Policy ID <input :value="draft.id" disabled></label>
-          <label>Registered priority <input v-model="draft.prioridade" :disabled="isBusy || saveConfirmationOpen" inputmode="decimal" type="text"></label>
-          <label>Effective from <input v-model="draft.dataHorarioInicio" :disabled="isBusy || saveConfirmationOpen" placeholder="YYYY-MM-DDTHH:mm:ss" type="text"></label>
-          <label>Effective until <input v-model="draft.dataHorarioFim" :disabled="isBusy || saveConfirmationOpen" placeholder="YYYY-MM-DDTHH:mm:ss" type="text"></label>
+          <label>Registered priority <input v-model="draft.prioridade" :disabled="isBusy || saveConfirmationOpen" type="number"></label>
+          <label>Effective from <input v-model="draft.dataHorarioInicio" :disabled="isBusy || saveConfirmationOpen" type="datetime-local"></label>
+          <label>Effective until <input v-model="draft.dataHorarioFim" :disabled="isBusy || saveConfirmationOpen" type="datetime-local"></label>
         </div>
 
         <div class="rules-editor-heading">
-          <div><h3>Material/location rules</h3><p>Material and Location remain explicit IDs. Replenishment fields use the raw Community values returned by the server.</p></div>
+          <div><h3>Material/location rules</h3><p>Choose Material, Location and the supported planning models from their catalogs.</p></div>
           <button class="secondary-button" type="button" :disabled="isBusy || saveConfirmationOpen" @click="addRule">Add rule</button>
         </div>
         <div v-if="draft.materialLocationList.length === 0" class="empty-state">No rules will remain after the confirmed replacement.</div>
@@ -270,13 +301,13 @@ async function reloadCapturedInventoryPolicy(policyId: string): Promise<void> {
             <thead><tr><th>Material ID</th><th>Location ID</th><th>Replenishment model</th><th>Operational model</th><th>Safety-stock calculation</th><th>Safety stock / Kanban target</th><th>DRP maximum stock</th><th><span class="sr-only">Remove</span></th></tr></thead>
             <tbody>
               <tr v-for="(rule, index) in draft.materialLocationList" :key="index">
-                <td><input v-model="rule.materialId" :disabled="isBusy || saveConfirmationOpen" type="text"></td>
-                <td><input v-model="rule.locationId" :disabled="isBusy || saveConfirmationOpen" type="text"></td>
-                <td><input v-model="rule.modeloReabastecimento" :disabled="isBusy || saveConfirmationOpen" type="text"></td>
-                <td><input v-model="rule.modeloOperacional" :disabled="isBusy || saveConfirmationOpen" type="text"></td>
-                <td><input v-model="rule.calculoSafetyStock" :disabled="isBusy || saveConfirmationOpen" type="text"></td>
-                <td><input v-model="rule.estoqueSegurancaDrpOuTargetKanban" :disabled="isBusy || saveConfirmationOpen" inputmode="decimal" type="text"></td>
-                <td><input v-model="rule.estoqueMaximoDrp" :disabled="isBusy || saveConfirmationOpen" inputmode="decimal" type="text"></td>
+                <td><select v-model="rule.materialId" :disabled="isBusy || saveConfirmationOpen || loadingOptions"><option value="" disabled>Select a material</option><option v-for="material in materials" :key="material.id" :value="material.id">{{ communityNamedOptionLabel(material) }}</option></select></td>
+                <td><select v-model="rule.locationId" :disabled="isBusy || saveConfirmationOpen || loadingOptions"><option value="" disabled>Select a location</option><option v-for="location in locations" :key="location.id" :value="location.id">{{ communityNamedOptionLabel(location) }}</option></select></td>
+                <td><select v-model="rule.modeloReabastecimento" :disabled="isBusy || saveConfirmationOpen"><option value="DRP">DRP</option><option value="KANBAN">KANBAN</option></select></td>
+                <td><select v-model="rule.modeloOperacional" :disabled="isBusy || saveConfirmationOpen"><option value="MTS">MTS</option><option value="MTO">MTO</option></select></td>
+                <td><select v-model="rule.calculoSafetyStock" :disabled="isBusy || saveConfirmationOpen"><option value="DAYS">Days</option><option value="QUANTITY">Quantity</option></select></td>
+                <td><input v-model="rule.estoqueSegurancaDrpOuTargetKanban" :disabled="isBusy || saveConfirmationOpen" step="any" type="number"></td>
+                <td><input v-model="rule.estoqueMaximoDrp" :disabled="isBusy || saveConfirmationOpen" step="any" type="number"></td>
                 <td><button class="danger-button compact-button" type="button" :disabled="isBusy || saveConfirmationOpen" @click="removeRule(index)">Remove</button></td>
               </tr>
             </tbody>
@@ -290,7 +321,7 @@ async function reloadCapturedInventoryPolicy(policyId: string): Promise<void> {
     </template>
 
     <OfxSectionCard v-else-if="!loading" class="empty-state">
-      Enter an inventory policy ID to inspect one Community operational policy.
+      Select an Inventory Policy to inspect one operational policy.
     </OfxSectionCard>
 
     <OfxSectionCard v-if="saveConfirmationOpen && pendingSaveSnapshot" class="confirmation" role="dialog" aria-modal="true" aria-labelledby="replace-inventory-policy-title">
@@ -306,5 +337,5 @@ async function reloadCapturedInventoryPolicy(policyId: string): Promise<void> {
 </template>
 
 <style scoped>
-.boundary-card, .policy-header, .rules-card, .editor-card, .confirmation { display: grid; gap: 1rem; margin-bottom: 1rem; }.boundary-card h2, .policy-header h2, .rules-card h2, .editor-card h2, .editor-card h3, .confirmation h2, .boundary-card p, .rules-card p, .editor-card p, .confirmation p { margin: 0; }.lookup-form { display: grid; gap: .45rem; max-width: 38rem; }.lookup-form label, .header-form label { font-weight: 700; }.lookup-controls, .snapshot-heading, .rules-editor-heading, .editor-actions, .section-heading { display: flex; flex-wrap: wrap; gap: .75rem; justify-content: space-between; }.lookup-controls input { border: 1px solid #b8c2d9; border-radius: .5rem; flex: 1 1 16rem; min-width: 0; padding: .65rem .75rem; }.primary-button, .secondary-button, .danger-button { border: 1px solid #c8d0de; border-radius: .5rem; background: white; cursor: pointer; padding: .7rem 1rem; }.primary-button { border-color: var(--ofx-accent); background: var(--ofx-accent); color: white; }.danger-button { border-color: #b42318; background: #b42318; color: white; }.primary-button:disabled, .secondary-button:disabled, .danger-button:disabled { cursor: not-allowed; opacity: .55; }.boundary-note, .rules-card p, .empty-state, .rules-editor-heading p { color: var(--ofx-muted); }.captured-message { border-left: 3px solid #70b694; margin: 0; padding-left: .75rem; }.success-message { border: 1px solid #70b694; border-radius: .5rem; background: #ebf8ef; color: #146c43; margin-bottom: 1rem; padding: .8rem 1rem; }.error { color: #b42318; }.policy-header dl, .header-form { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin: 0; }.policy-header dl div { border-left: 3px solid #e7e2ff; padding-left: .75rem; }.policy-header dt { color: var(--ofx-muted); font-size: .78rem; }.policy-header dd { font-weight: 700; margin: .2rem 0 0; overflow-wrap: anywhere; }.header-form label { display: grid; gap: .35rem; font-size: .85rem; }.header-form input, .editor-table input { border: 1px solid #b8c2d9; border-radius: .4rem; min-width: 8rem; padding: .55rem; width: 100%; }.table-wrap { overflow-x: auto; }table { border-collapse: collapse; min-width: 75rem; width: 100%; }th, td { border-bottom: 1px solid #e2e7f0; padding: .65rem; text-align: left; vertical-align: top; }th { background: #f7f9fc; color: var(--ofx-muted); font-size: .78rem; }td { overflow-wrap: anywhere; }.editor-table { min-width: 105rem; }.editor-table td { min-width: 10rem; }.compact-button { padding: .45rem .65rem; }.section-heading, .rules-editor-heading { align-items: start; }.replacement-warning { border-left: 3px solid #f79009; color: #7a4200; max-width: 46rem; padding-left: .75rem; }.confirmation { border: 1px solid #f0b7b2; border-radius: 1rem; background: #fff8f7; max-width: 48rem; padding: 1.5rem; }.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }.compact-hero { margin-bottom: 1rem; }
+.boundary-card, .policy-header, .rules-card, .editor-card, .confirmation { display: grid; gap: 1rem; margin-bottom: 1rem; }.boundary-card h2, .policy-header h2, .rules-card h2, .editor-card h2, .editor-card h3, .confirmation h2, .boundary-card p, .rules-card p, .editor-card p, .confirmation p { margin: 0; }.lookup-form { display: grid; gap: .45rem; max-width: 38rem; }.lookup-form label, .header-form label { font-weight: 700; }.lookup-controls, .snapshot-heading, .rules-editor-heading, .editor-actions, .section-heading { display: flex; flex-wrap: wrap; gap: .75rem; justify-content: space-between; }.lookup-controls select { border: 1px solid #b8c2d9; border-radius: .5rem; flex: 1 1 16rem; min-width: 0; padding: .65rem .75rem; }.primary-button, .secondary-button, .danger-button { border: 1px solid #c8d0de; border-radius: .5rem; background: white; cursor: pointer; padding: .7rem 1rem; }.primary-button { border-color: var(--ofx-accent); background: var(--ofx-accent); color: white; }.danger-button { border-color: #b42318; background: #b42318; color: white; }.primary-button:disabled, .secondary-button:disabled, .danger-button:disabled { cursor: not-allowed; opacity: .55; }.boundary-note, .rules-card p, .empty-state, .rules-editor-heading p { color: var(--ofx-muted); }.captured-message { border-left: 3px solid #70b694; margin: 0; padding-left: .75rem; }.success-message { border: 1px solid #70b694; border-radius: .5rem; background: #ebf8ef; color: #146c43; margin-bottom: 1rem; padding: .8rem 1rem; }.error { color: #b42318; }.policy-header dl, .header-form { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin: 0; }.policy-header dl div { border-left: 3px solid #e7e2ff; padding-left: .75rem; }.policy-header dt { color: var(--ofx-muted); font-size: .78rem; }.policy-header dd { font-weight: 700; margin: .2rem 0 0; overflow-wrap: anywhere; }.header-form label { display: grid; gap: .35rem; font-size: .85rem; }.header-form input, .editor-table input, .editor-table select { border: 1px solid #b8c2d9; border-radius: .4rem; min-width: 8rem; padding: .55rem; width: 100%; }.table-wrap { overflow-x: auto; }table { border-collapse: collapse; min-width: 75rem; width: 100%; }th, td { border-bottom: 1px solid #e2e7f0; padding: .65rem; text-align: left; vertical-align: top; }th { background: #f7f9fc; color: var(--ofx-muted); font-size: .78rem; }td { overflow-wrap: anywhere; }.editor-table { min-width: 105rem; }.editor-table td { min-width: 10rem; }.compact-button { padding: .45rem .65rem; }.section-heading, .rules-editor-heading { align-items: start; }.replacement-warning { border-left: 3px solid #f79009; color: #7a4200; max-width: 46rem; padding-left: .75rem; }.confirmation { border: 1px solid #f0b7b2; border-radius: 1rem; background: #fff8f7; max-width: 48rem; padding: 1.5rem; }.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }.compact-hero { margin-bottom: 1rem; }
 </style>

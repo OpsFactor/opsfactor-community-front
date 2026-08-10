@@ -16,7 +16,7 @@ const showShellChrome = computed(() => !navigationStore.immersiveWorkspace);
 </script>
 
 <template>
-  <OpsFactorLegacyAppFrame :show-shell-chrome="showShellChrome">
+  <OpsFactorLegacyAppFrame :show-shell-chrome="showShellChrome" :scroll-key="route.fullPath">
     <template #sidebar>
       <AppSidebar />
     </template>

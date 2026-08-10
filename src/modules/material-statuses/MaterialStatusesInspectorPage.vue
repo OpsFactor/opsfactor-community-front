@@ -41,7 +41,7 @@ async function loadStatuses(): Promise<void> {
     <OfxPageHeader
       eyebrow="Configuration"
       title="Material Status Catalog"
-      description="Inspect the raw status names accepted by the Community server."
+      description="Inspect the raw status names accepted by the service."
     />
 
     <OfxSectionCard class="boundary-card" title="Allowed values, not effective lifecycle">

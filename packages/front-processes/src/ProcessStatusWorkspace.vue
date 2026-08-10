@@ -338,7 +338,7 @@ onMounted(() => {
   <TaskPageLayout>
     <OfxPageHeader eyebrow="Processes" title="Process Status" />
 
-    <OfxFilterBar title="Visible filters" description="Keep the main status controls on canvas so operators can narrow the queue quickly without reopening a legacy form.">
+    <OfxFilterBar title="Filters" description="Filter the task queue by process, task type, user, state, or text.">
       <OfxEntityMultiSelect v-model="selectedProcessTypes" label="Process Type" :options="processTypeOptions" placeholder="All process types" />
       <OfxEntityMultiSelect v-model="selectedTaskTypes" label="Task Type" :options="taskTypeOptions" placeholder="All task types" />
       <OfxEntityMultiSelect v-model="selectedOwners" label="User" :options="ownerOptions" placeholder="All users" />
@@ -354,7 +354,7 @@ onMounted(() => {
     <div class="space-y-4">
       <OfxSectionCard>
         <div v-if="isLoading" class="space-y-4">
-          <OfxLoadingState label="Loading scheduler tasks from the backend..." />
+          <OfxLoadingState label="Loading scheduled tasks..." />
         </div>
 
         <div v-else-if="loadError && !filteredExecutionRows.length && !filteredCronRows.length" class="space-y-4">
@@ -419,7 +419,7 @@ onMounted(() => {
             <template #empty>
               <OfxEmptyState
                 title="No process executions match the current filters"
-                description="Clear the active filters or refresh the backend queue to see more executions."
+                description="Clear the active filters or refresh the list to see more executions."
               />
             </template>
 
@@ -473,7 +473,7 @@ onMounted(() => {
               <template #empty>
                 <OfxEmptyState
                   title="No scheduled cron tasks match the current filters"
-                  description="Clear the active filters or refresh the backend queue to see more cron tasks."
+                  description="Clear the active filters or refresh the list to see more scheduled tasks."
                 />
               </template>
 
@@ -515,7 +515,7 @@ onMounted(() => {
     >
       <div class="space-y-4">
         <div class="rounded-lg border border-[color:rgb(211_155_42_/_0.24)] bg-[color:rgb(211_155_42_/_0.08)] px-4 py-3 text-sm text-[color:var(--ofx-text-warning)]">
-          Task deletion is submitted asynchronously by the backend. A refresh may still show the same rows for a short time while the cleanup finishes.
+          Deletion runs in the background. The same rows may remain visible briefly while the cleanup finishes.
         </div>
 
         <div class="rounded-lg border border-[color:rgb(208_69_95_/_0.24)] bg-[color:rgb(208_69_95_/_0.08)] px-4 py-3 text-sm text-[color:var(--ofx-text-danger)]">

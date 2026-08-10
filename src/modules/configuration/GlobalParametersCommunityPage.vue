@@ -6,6 +6,7 @@ import OfxTextField from '@/components/ofx/forms/OfxTextField.vue';
 import OfxToggleField from '@/components/ofx/forms/OfxToggleField.vue';
 import { OfxLoadingState, OfxPageHeader, OfxSectionCard } from '@opsfactor/front-shell';
 import { requestJson } from '@/services/api/request';
+import { loadCommunityUnitOfMeasureIds } from '@/services/community-option-catalog.service';
 import type { OfxSelectOption } from '@/types/ui';
 
 /**
@@ -30,8 +31,9 @@ const isLoading = ref(true);
 const isSaving = ref(false);
 const feedback = ref('');
 const failure = ref('');
+const unitOptions = ref<OfxSelectOption[]>([]);
 
-const communitySalesDocumentOptions: OfxSelectOption[] = [
+const salesDocumentOptions: OfxSelectOption[] = [
   { value: 'SELLOUT', label: 'Sell-Out' },
 ];
 
@@ -63,7 +65,7 @@ function toCommunityParameters(value: CommunityGlobalParameters): CommunityGloba
     tipoDocumentoVenda: 'SELLOUT',
     horizonteForecastDias: value.horizonteForecastDias ?? 365,
     diasHistoricosForecastEstatistico: value.diasHistoricosForecastEstatistico ?? 365,
-    dpArredondaParaUnidadeVenda: value.dpArredondaParaUnidadeVenda ?? false,
+    dpArredondaParaUnidadeVenda: false,
     unidadeMedidaPadraoDP: value.unidadeMedidaPadraoDP ?? null,
     unidadeMedidaPadraoSNP: value.unidadeMedidaPadraoSNP ?? null,
   };
@@ -77,9 +79,14 @@ async function loadParameters(): Promise<void> {
   feedback.value = '';
 
   try {
-    parameters.value = toCommunityParameters(await requestJson<CommunityGlobalParameters>('/api/secured/configs/parameters'));
+    const [parameterSnapshot, unitOfMeasureIds] = await Promise.all([
+      requestJson<CommunityGlobalParameters>('/api/secured/configs/parameters'),
+      loadCommunityUnitOfMeasureIds(),
+    ]);
+    parameters.value = toCommunityParameters(parameterSnapshot);
+    unitOptions.value = unitOfMeasureIds.map((unitOfMeasureId) => ({ value: unitOfMeasureId, label: unitOfMeasureId }));
   } catch (error) {
-    failure.value = error instanceof Error ? error.message : 'Unable to load Community global parameters.';
+    failure.value = error instanceof Error ? error.message : 'Unable to load global parameters.';
   } finally {
     isLoading.value = false;
   }
@@ -104,7 +111,7 @@ async function saveParameters(): Promise<void> {
     ));
     feedback.value = 'Global parameter changes were saved.';
   } catch (error) {
-    failure.value = error instanceof Error ? error.message : 'Unable to save Community global parameters.';
+    failure.value = error instanceof Error ? error.message : 'Unable to save global parameters.';
   } finally {
     isSaving.value = false;
   }
@@ -118,7 +125,7 @@ onMounted(loadParameters);
     <OfxPageHeader
       eyebrow="Configuration"
       title="Global Parameters"
-      description="Cross-module defaults used by Community demand planning, supply planning, and transactional data handling."
+      description="Cross-module defaults used by demand planning, supply planning, and transactional data handling."
     >
       <template #actions>
         <div class="flex flex-wrap items-center justify-end gap-2">
@@ -137,50 +144,55 @@ onMounted(loadParameters);
       <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
         <OfxSectionCard title="General Parameters" description="Defaults that decide how shared configuration behaves before module-level overrides apply.">
           <div class="grid gap-4 md:grid-cols-2">
-            <OfxSelectField label="Material-Location Activation Default" :model-value="'ATIVO_SE_AUSENTE'" :options="enterpriseActivationOptions" disabled help-text="Enterprise" />
-            <OfxSelectField v-model="parameters.tipoDocumentoVenda" label="Default Sales Document Type" :options="communitySalesDocumentOptions" :show-placeholder-option="false" />
+            <OfxSelectField label="Material-Location Activation Default" :model-value="'ATIVO_SE_AUSENTE'" :options="enterpriseActivationOptions" disabled required-edition="Pro / Enterprise" />
+            <OfxSelectField v-model="parameters.tipoDocumentoVenda" label="Default Sales Document Type" :options="salesDocumentOptions" :show-placeholder-option="false" disabled required-edition="Pro / Enterprise" />
             <OfxTextField v-model="parameters.timeZone" label="Scheduling Time Zone" placeholder="America/Sao_Paulo" help-text="Used by scheduled planning tasks." />
           </div>
         </OfxSectionCard>
 
         <OfxSectionCard title="Transactional Data" description="Rules applied when orders and deliveries are interpreted by the planning engine.">
-          <OfxToggleField :model-value="false" label="Sales / Transfer / Purchase Order Quantities Represent Remaining Balance" description="Enterprise" disabled />
+          <OfxToggleField :model-value="false" label="Sales / Transfer / Purchase Order Quantities Represent Remaining Balance" disabled required-edition="Pro / Enterprise" />
         </OfxSectionCard>
       </div>
 
       <OfxSectionCard title="Demand Planning" description="Forecast horizon, normalization, forecast rounding, frozen horizon, and demand planning unit defaults.">
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <OfxTextField v-model="parameters.horizonteForecastDias" type="number" label="Forecast Horizon (days)" help-text="Number of future days projected for demand planning." />
-          <OfxSelectField label="Stockout Normalization Model" :model-value="'DESATIVADO'" :options="enterpriseDisabledOptions" :show-placeholder-option="false" disabled help-text="Enterprise" />
-          <OfxTextField :model-value="''" type="number" label="Stockout Normalization DOH" help-text="Enterprise" disabled />
-          <OfxSelectField label="Outlier Normalization Model" :model-value="'DESATIVADO'" :options="enterpriseDisabledOptions" :show-placeholder-option="false" disabled help-text="Enterprise" />
-          <OfxTextField v-model="parameters.diasHistoricosForecastEstatistico" type="number" label="Demand Planning Historical Period (days)" help-text="Number of past days considered by Community statistical forecast models." />
-          <OfxTextField :model-value="''" type="number" label="Frozen Horizon (days)" help-text="Enterprise" disabled />
-          <OfxTextField v-model="parameters.unidadeMedidaPadraoDP" label="Demand Planning Standard Unit" placeholder="Select a unit" />
+          <OfxSelectField label="Stockout Normalization Model" :model-value="'DESATIVADO'" :options="enterpriseDisabledOptions" :show-placeholder-option="false" disabled required-edition="Pro / Enterprise" />
+          <OfxTextField :model-value="''" type="number" label="Stockout Normalization DOH" disabled required-edition="Pro / Enterprise" />
+          <OfxSelectField label="Outlier Normalization Model" :model-value="'DESATIVADO'" :options="enterpriseDisabledOptions" :show-placeholder-option="false" disabled required-edition="Pro / Enterprise" />
+          <OfxTextField v-model="parameters.diasHistoricosForecastEstatistico" type="number" label="Demand Planning Historical Period (days)" help-text="Number of past days considered by statistical forecast models." />
+          <OfxTextField :model-value="''" type="number" label="Frozen Horizon (days)" disabled required-edition="Pro / Enterprise" />
+          <OfxSelectField v-model="parameters.unidadeMedidaPadraoDP" label="Demand Planning Standard Unit" :options="unitOptions" placeholder-label="Select a unit" />
         </div>
 
         <div class="mt-5 grid gap-4 lg:grid-cols-3">
-          <OfxToggleField v-model="parameters.dpArredondaParaUnidadeVenda" label="Round Forecast to Sales UOM" />
-          <OfxToggleField :model-value="false" label="Allow Aggregated Adjustments for Zero Reference Material" description="Enterprise" disabled />
-          <OfxToggleField :model-value="false" label="Allow Aggregated Adjustments for Zero Reference Location" description="Enterprise" disabled />
+          <OfxToggleField
+            :model-value="false"
+            label="Round Forecast to Sales UOM"
+            disabled
+            required-edition="Pro / Enterprise"
+          />
+          <OfxToggleField :model-value="false" label="Allow Aggregated Adjustments for Zero Reference Material" disabled required-edition="Pro / Enterprise" />
+          <OfxToggleField :model-value="false" label="Allow Aggregated Adjustments for Zero Reference Location" disabled required-edition="Pro / Enterprise" />
         </div>
       </OfxSectionCard>
 
       <OfxSectionCard title="Supply Planning" description="Supply planning availability behavior and the standard units used by network planning and logistics capacity.">
         <div class="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <OfxToggleField :model-value="false" label="Deliveries Consume Availability at First Planning Period" description="Enterprise" disabled />
+          <OfxToggleField :model-value="false" label="Deliveries Consume Availability at First Planning Period" disabled required-edition="Pro / Enterprise" />
           <div class="grid gap-4 md:grid-cols-3">
-            <OfxTextField v-model="parameters.unidadeMedidaPadraoSNP" label="Supply Network Planning Standard Unit" placeholder="Select a unit" />
-            <OfxTextField :model-value="''" label="Fleet Capacity Weight Standard Unit" placeholder="Enterprise" disabled />
-            <OfxTextField :model-value="''" label="Fleet Capacity Volume Standard Unit" placeholder="Enterprise" disabled />
+            <OfxSelectField v-model="parameters.unidadeMedidaPadraoSNP" label="Supply Network Planning Standard Unit" :options="unitOptions" placeholder-label="Select a unit" />
+            <OfxSelectField :model-value="''" label="Fleet Capacity Weight Standard Unit" :options="unitOptions" placeholder-label="Select a unit" disabled required-edition="Pro / Enterprise" />
+            <OfxSelectField :model-value="''" label="Fleet Capacity Volume Standard Unit" :options="unitOptions" placeholder-label="Select a unit" disabled required-edition="Pro / Enterprise" />
           </div>
         </div>
       </OfxSectionCard>
 
       <OfxSectionCard title="Clustering, Sales/Outbound Curves, New Products" description="Historical windows used by curve definition and new-product classification.">
         <div class="grid gap-4 md:grid-cols-2">
-          <OfxTextField :model-value="''" type="number" label="Curve Historical Period (days)" help-text="Enterprise" disabled />
-          <OfxTextField :model-value="''" type="number" label="New Product Historical Period (days)" help-text="Enterprise" disabled />
+          <OfxTextField :model-value="''" type="number" label="Curve Historical Period (days)" disabled required-edition="Pro / Enterprise" />
+          <OfxTextField :model-value="''" type="number" label="New Product Historical Period (days)" disabled required-edition="Pro / Enterprise" />
         </div>
       </OfxSectionCard>
     </div>

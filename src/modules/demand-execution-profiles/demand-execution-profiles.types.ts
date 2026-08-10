@@ -1,14 +1,14 @@
 /** Exact operational profile shape published by the Community Demand Planning catalog. */
 export interface CommunityDemandExecutionProfile {
   id: string;
-  description: string | null;
-  historicalSalesDocumentType: string | null;
-  bucketSize: string | null;
-  planningHorizonInPeriods: number | null;
-  constrainPlanEditPeriods: boolean | null;
-  initialPlanEditPeriod: number | null;
-  finalPlanEditPeriod: number | null;
-  defaultDemandPlanningUomId: string | null;
+  description?: string | null;
+  historicalSalesDocumentType?: string | null;
+  bucketSize?: string | null;
+  planningHorizonInPeriods?: number | null;
+  constrainPlanEditPeriods?: boolean | null;
+  initialPlanEditPeriod?: number | null;
+  finalPlanEditPeriod?: number | null;
+  defaultDemandPlanningUomId?: string | null;
 }
 
 /** Editable clone of one persisted Demand profile returned by the Community GET. */
@@ -27,7 +27,7 @@ export interface CommunityDemandExecutionProfileDraft {
 export interface CommunityDemandExecutionProfileSaveRequest {
   id: string;
   description: string;
-  historicalSalesDocumentType: 'SELLOUT';
+  historicalSalesDocumentType: 'Sell-out';
   bucketSize?: string;
   planningHorizonInPeriods?: number;
   constrainPlanEditPeriods: boolean;
@@ -49,9 +49,9 @@ export function buildCommunityDemandExecutionProfileDraft(
     description: profile.description ?? '',
     bucketSize: profile.bucketSize ?? '',
     planningHorizonInPeriods: formatDraftNumber(profile.planningHorizonInPeriods),
-    constrainPlanEditPeriods: profile.constrainPlanEditPeriods ?? false,
-    initialPlanEditPeriod: formatDraftNumber(profile.initialPlanEditPeriod),
-    finalPlanEditPeriod: formatDraftNumber(profile.finalPlanEditPeriod),
+    constrainPlanEditPeriods: false,
+    initialPlanEditPeriod: '',
+    finalPlanEditPeriod: '',
     defaultDemandPlanningUomId: profile.defaultDemandPlanningUomId ?? '',
   };
 
@@ -76,20 +76,20 @@ export function buildCommunityDemandExecutionProfileSaveRequest(
   return {
     id,
     description: draft.description.trim(),
-    historicalSalesDocumentType: 'SELLOUT',
+    historicalSalesDocumentType: 'Sell-out',
     bucketSize: toOptionalText(draft.bucketSize),
     planningHorizonInPeriods,
-    constrainPlanEditPeriods: draft.constrainPlanEditPeriods,
-    initialPlanEditPeriod: parseOptionalInteger(draft.initialPlanEditPeriod, 'Initial edit period'),
-    finalPlanEditPeriod: parseOptionalInteger(draft.finalPlanEditPeriod, 'Final edit period'),
+    constrainPlanEditPeriods: false,
+    initialPlanEditPeriod: undefined,
+    finalPlanEditPeriod: undefined,
     defaultDemandPlanningUomId: toOptionalText(draft.defaultDemandPlanningUomId),
   };
 
 }
 
-function formatDraftNumber(value: number | null): string {
+function formatDraftNumber(value: number | null | undefined): string {
 
-  return value === null ? '' : String(value);
+  return value === null || value === undefined ? '' : String(value);
 
 }
 
