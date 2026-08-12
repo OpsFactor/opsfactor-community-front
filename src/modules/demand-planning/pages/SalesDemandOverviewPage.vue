@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { OfxButton } from '@opsfactor/front-shell';
 import { OfxKpiCard } from '@opsfactor/front-shell';
 import OfxPivotTable from '@/components/ofx/data-display/OfxPivotTable.vue';
 import { OfxLoadingState } from '@opsfactor/front-shell';
@@ -9,6 +10,13 @@ import OfxLocationCharacteristicsFilter from '@/components/ofx/data-operations/f
 import OfxOperationFilters from '@/components/ofx/data-operations/OfxOperationFilters.vue';
 import OfxSelectField from '@/components/ofx/forms/OfxSelectField.vue';
 import OfxTextField from '@/components/ofx/forms/OfxTextField.vue';
+import MaterialLocationScopeFilters from '@/features/material-location-scope/MaterialLocationScopeFilters.vue';
+import {
+  createEmptyMaterialLocationScope,
+  type MaterialLocationScope,
+  type MaterialLocationScopeCatalog,
+} from '@/features/material-location-scope/material-location-scope.types';
+import { loadCommunityMaterialLocationFilterCatalog } from '@/services/community-option-catalog.service';
 import { OfxPageHeader } from '@opsfactor/front-shell';
 import { OfxSectionCard } from '@opsfactor/front-shell';
 import DashboardPageLayout from '@/layouts/page/DashboardPageLayout.vue';
@@ -54,16 +62,15 @@ type SeriesValueBundle = {
  * sources as a selectable client-side request.
  */
 const COMMUNITY_FIXED_HISTORY_OPTIONS = [
-  { label: 'Sell-out', value: 'sell-out' },
+  { label: 'Sell-out', value: 'Sell-out' },
 ];
 
 /**
- * These controls deliberately preserve the legacy screen's information
- * architecture. Their values are not sent by Community: selectable document
- * families and request-level detail are Enterprise capabilities.
+ * The Community response is physically detailed by material and location.
+ * Aggregation remains a local visualization choice rather than a private
+ * request contract.
  */
-const ENTERPRISE_DETAIL_LEVEL_OPTIONS = [
-  { label: 'Aggregated by characteristics', value: 'aggregated' },
+const COMMUNITY_DETAIL_LEVEL_OPTIONS = [
   { label: 'Detailed by material and location', value: 'dfu' },
 ];
 
@@ -76,7 +83,15 @@ const selectionCollapsed = ref(false);
 
 const demandPlanVersions = ref<DemandPlanVersionOptionDto[]>([]);
 const uomIds = ref<string[]>([]);
+const materialLocationCatalog = ref<MaterialLocationScopeCatalog>({
+  materials: [],
+  locations: [],
+  materialCharacteristics: [],
+  locationCharacteristics: [],
+});
+const initialScope = ref<MaterialLocationScope>(createEmptyMaterialLocationScope());
 const selectedDemandPlanId = ref('');
+const selectedHistoricalSalesType = ref<'Sell-out' | ''>('');
 const selectedUomId = ref('');
 const selectedHistoricalPeriods = ref('12');
 const selectedMetricId = ref<MetricId>('quantity');
@@ -155,12 +170,25 @@ function toSlug(value: string) {
 }
 
 function inferFilterGroup(key: string): FilterGroup {
-  return key === 'locationId' ? 'location' : 'material';
+  return key === 'locationId'
+    || materialLocationCatalog.value.locationCharacteristics.some(
+      (characteristic) => characteristic.caracteristicaId === key,
+    )
+    ? 'location'
+    : 'material';
 }
 
 function getFilterLabel(key: string) {
   if (key === 'locationId') return 'Location';
   if (key === 'materialId') return 'Material';
+
+  const materialCharacteristic = materialLocationCatalog.value.materialCharacteristics
+    .find((characteristic) => characteristic.caracteristicaId === key);
+  if (materialCharacteristic) return materialCharacteristic.descricao;
+
+  const locationCharacteristic = materialLocationCatalog.value.locationCharacteristics
+    .find((characteristic) => characteristic.caracteristicaId === key);
+  if (locationCharacteristic) return locationCharacteristic.descricao;
 
   return key;
 }
@@ -210,10 +238,21 @@ function computeEffectiveAverage(values: number[]) {
 }
 
 const demandPlanOptions = computed(() => [
+  { label: 'Only show historical sales', value: '' },
   ...demandPlanVersions.value.map((plan) => ({
     label: `${plan.id} - ${plan.periodoReferencia ?? 'No period'} - ${plan.descricao}`,
     value: String(plan.id),
   })),
+]);
+
+const historicalSalesTypeOptions = computed(() => [
+  {
+    label: selectedDemandPlanId.value
+      ? 'Inferred from the selected demand plan'
+      : 'Select a historical sales type',
+    value: '',
+  },
+  ...COMMUNITY_FIXED_HISTORY_OPTIONS,
 ]);
 
 const uomOptions = computed(() => [
@@ -242,13 +281,13 @@ const selectedDemandPlanMeta = computed(() =>
 const pivotTemporalBucketSize = computed(() => selectedDemandPlanMeta.value?.bucketSize ?? 'Monthly');
 
 const canOpenOverview = computed(() =>
-  Boolean(selectedUomId.value && selectedDemandPlanId.value),
+  Boolean(selectedUomId.value && (selectedDemandPlanId.value || selectedHistoricalSalesType.value)),
 );
 
 const compactSelectionSummary = computed(() => [
   selectedDemandPlanMeta.value
     ? `${selectedDemandPlanMeta.value.id} - ${selectedDemandPlanMeta.value.descricao}`
-    : 'No demand plan selected',
+    : 'Historical sales only',
   selectedUomId.value || 'No UOM',
   'Material/location detail',
   `${selectedHistoricalPeriods.value || '12'} periods`,
@@ -270,9 +309,26 @@ const normalizedRows = computed<NormalizedOverviewRow[]>(() => {
 
     const dimensions = Object.fromEntries(
       Object.entries(row)
-        .filter(([key, value]) => !['series', 'date', 'quantity', 'gross', 'net', 'cogs', 'margin'].includes(key) && value !== null && value !== undefined && value !== '')
+        .filter(([key, value]) => ![
+          'series',
+          'date',
+          'quantity',
+          'gross',
+          'net',
+          'cogs',
+          'margin',
+          'valuesByMaterialCharacteristicId',
+          'valuesByLocationCharacteristicId',
+        ].includes(key) && value !== null && value !== undefined && value !== '')
         .map(([key, value]) => [key, String(value)]),
     );
+
+    Object.entries(row.valuesByMaterialCharacteristicId ?? {}).forEach(([key, value]) => {
+      if (value) dimensions[key] = value;
+    });
+    Object.entries(row.valuesByLocationCharacteristicId ?? {}).forEach(([key, value]) => {
+      if (value) dimensions[key] = value;
+    });
 
     const periodRaw = String(row.date ?? '');
 
@@ -329,12 +385,26 @@ const localFilterDefinitions = computed<LocalFilterDefinition[]>(() =>
     .filter((definition) => definition.options.length > 0),
 );
 
-const materialLocalFilters = computed(() =>
-  localFilterDefinitions.value.filter((definition) => definition.group === 'material'),
+const materialEntityLocalFilters = computed(() =>
+  localFilterDefinitions.value.filter((definition) => definition.key === 'materialId'),
 );
 
-const locationLocalFilters = computed(() =>
-  localFilterDefinitions.value.filter((definition) => definition.group === 'location'),
+const locationEntityLocalFilters = computed(() =>
+  localFilterDefinitions.value.filter((definition) => definition.key === 'locationId'),
+);
+
+const materialCharacteristicLocalFilters = computed(() =>
+  localFilterDefinitions.value.filter((definition) =>
+    definition.key !== 'materialId' && definition.group === 'material'),
+);
+
+const locationCharacteristicLocalFilters = computed(() =>
+  localFilterDefinitions.value.filter((definition) =>
+    definition.key !== 'locationId' && definition.group === 'location'),
+);
+
+const hasActiveLocalFilters = computed(() =>
+  Object.values(localFilterValues).some((values) => values.length > 0),
 );
 
 watch(
@@ -533,13 +603,16 @@ async function bootstrapPage() {
   loadError.value = null;
 
   try {
-    const [plans, uoms] = await Promise.all([
+    const [plans, uoms, scopeCatalog] = await Promise.all([
       fetchDemandPlanVersions(),
       fetchUomIds(),
+      loadCommunityMaterialLocationFilterCatalog(),
     ]);
 
     demandPlanVersions.value = plans;
     uomIds.value = uoms;
+    materialLocationCatalog.value = scopeCatalog;
+    initialScope.value = createEmptyMaterialLocationScope(scopeCatalog);
   } catch (error) {
     loadError.value = 'The Sales/Demand Overview selectors could not be loaded from the backend.';
   } finally {
@@ -555,9 +628,13 @@ async function openOverview() {
 
   try {
     const nextReport = await fetchDemandPlanAndSalesHistory({
-      demandPlanId: selectedDemandPlanId.value,
+      demandPlanId: selectedDemandPlanId.value || null,
+      historicalSalesDocumentType: selectedDemandPlanId.value
+        ? null
+        : selectedHistoricalSalesType.value || null,
       unitOfMeasureId: selectedUomId.value,
       historicalPeriods: Math.max(1, Number(selectedHistoricalPeriods.value || 1)),
+      ...initialScope.value,
     });
 
     report.value = nextReport;
@@ -616,17 +693,19 @@ onMounted(() => {
               :model-value="selectedDemandPlanId"
               label="Demand plan version"
               :options="demandPlanOptions"
-              help-text="Compares the selected plan with its Sell-out history."
+              help-text="Leave empty to open historical sales only."
               @update:model-value="selectedDemandPlanId = $event"
             />
 
             <OfxSelectField
-              model-value="sell-out"
+              :model-value="selectedHistoricalSalesType"
               label="Historical sales type"
-              :options="COMMUNITY_FIXED_HISTORY_OPTIONS"
-              help-text="Sell-out is the historical sales source for this view."
-              locked
-              locked-label="Pro / Enterprise"
+              :options="historicalSalesTypeOptions"
+              :disabled="hasDemandPlanContext"
+              :help-text="hasDemandPlanContext
+                ? 'Inferred from the selected demand plan.'
+                : 'Required only when no demand plan version is selected.'"
+              @update:model-value="selectedHistoricalSalesType = $event as 'Sell-out' | ''"
             />
 
             <OfxSelectField
@@ -648,36 +727,17 @@ onMounted(() => {
             <OfxSelectField
               model-value="dfu"
               label="Detail level"
-              :options="ENTERPRISE_DETAIL_LEVEL_OPTIONS"
+              :options="COMMUNITY_DETAIL_LEVEL_OPTIONS"
               help-text="This view uses the DFU detail level."
-              locked
-              locked-label="Pro / Enterprise"
             />
           </div>
 
-          <OfxOperationFilters
-            title="Characteristic Selectors"
-            description="Use material and location characteristics to define the initial scope."
-          >
-            <OfxSelectField
-              model-value=""
-              label="Material characteristics"
-              :options="[]"
-              placeholder-label="Not available"
-              help-text="Not available in the current edition."
-              locked
-              locked-label="Pro / Enterprise"
-            />
-            <OfxSelectField
-              model-value=""
-              label="Location characteristics"
-              :options="[]"
-              placeholder-label="Not available"
-              help-text="Not available in the current edition."
-              locked
-              locked-label="Pro / Enterprise"
-            />
-          </OfxOperationFilters>
+          <MaterialLocationScopeFilters
+            v-model="initialScope"
+            :catalog="materialLocationCatalog"
+            title="Material and location scope"
+            description="Choose materials, locations or their public characteristics. Empty selections include the complete active scope."
+          />
 
           <div class="flex flex-wrap items-center gap-3">
             <button
@@ -690,7 +750,9 @@ onMounted(() => {
             </button>
 
             <p class="text-sm text-white/46">
-              Sell-out quantity is the historical source available in this view.
+              {{ hasDemandPlanContext
+                ? 'Sell-out quantity is inferred from the selected plan.'
+                : 'Choose Sell-out to open historical sales without a demand plan.' }}
             </p>
           </div>
         </div>
@@ -706,7 +768,7 @@ onMounted(() => {
       <div v-if="!report && !isLoadingOverview" class="space-y-6">
         <OfxEmptyState
           title="Open the overview workspace"
-          description="Choose a Demand Plan and quantity unit, then load its Sell-out comparison."
+          description="Choose a Demand Plan or historical sales type, then select a quantity unit."
         />
       </div>
 
@@ -745,40 +807,61 @@ onMounted(() => {
           title="Workspace Filters"
           description="These filters run locally on the dataset already loaded, using only values that exist in the returned base."
         >
-          <div class="space-y-6">
-            <div class="flex items-end justify-start xl:justify-end">
-              <button
-                type="button"
-                class="inline-flex h-11 items-center rounded-[10px] border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-white/82 transition hover:border-white/16 hover:bg-white/[0.05]"
-                @click="clearLocalFilters"
-              >
-                Clear local filters
-              </button>
-            </div>
+          <template #actions>
+            <OfxButton variant="ghost" size="compact" :disabled="!hasActiveLocalFilters" @click="clearLocalFilters">
+              Clear filters
+            </OfxButton>
+          </template>
 
-            <OfxOperationFilters
-              title="Filter Current Base"
-              description="Only values present in the loaded dataset appear here. Changes update both chart and pivot immediately."
-            >
+          <OfxOperationFilters
+            title="Filter Current Base"
+            description="Only values present in the loaded dataset appear here. Changes update both chart and pivot immediately."
+          >
+            <template #materials>
               <OfxMaterialCharacteristicsFilter
-                v-for="filter in materialLocalFilters"
+                v-for="filter in materialEntityLocalFilters"
                 :key="`local-material-${filter.key}`"
                 v-model="localFilterValues[filter.key]"
                 :label="filter.label"
                 :options="filter.options"
-                placeholder="All material values"
+                placeholder="All loaded materials"
               />
+            </template>
+
+            <template #locations>
               <OfxLocationCharacteristicsFilter
-                v-for="filter in locationLocalFilters"
+                v-for="filter in locationEntityLocalFilters"
                 :key="`local-location-${filter.key}`"
                 v-model="localFilterValues[filter.key]"
                 :label="filter.label"
                 :options="filter.options"
-                placeholder="All location values"
+                placeholder="All loaded locations"
               />
-            </OfxOperationFilters>
+            </template>
 
-            <div class="max-w-[22rem]">
+            <template #material-characteristics>
+              <OfxMaterialCharacteristicsFilter
+                v-for="filter in materialCharacteristicLocalFilters"
+                :key="`local-material-characteristic-${filter.key}`"
+                v-model="localFilterValues[filter.key]"
+                :label="filter.label"
+                :options="filter.options"
+                placeholder="All values"
+              />
+            </template>
+
+            <template #location-characteristics>
+              <OfxLocationCharacteristicsFilter
+                v-for="filter in locationCharacteristicLocalFilters"
+                :key="`local-location-characteristic-${filter.key}`"
+                v-model="localFilterValues[filter.key]"
+                :label="filter.label"
+                :options="filter.options"
+                placeholder="All values"
+              />
+            </template>
+
+            <template #custom-selectors>
               <OfxSelectField
                 :model-value="selectedMetricId"
                 label="Display metric"
@@ -788,8 +871,8 @@ onMounted(() => {
                 locked-label="Pro / Enterprise"
                 @update:model-value="selectedMetricId = $event as MetricId"
               />
-            </div>
-          </div>
+            </template>
+          </OfxOperationFilters>
         </OfxSectionCard>
 
         <template v-if="hasFilteredData">

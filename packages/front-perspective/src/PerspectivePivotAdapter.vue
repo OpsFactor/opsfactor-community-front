@@ -151,6 +151,12 @@ let hostResizeObserver: ResizeObserver | null = null;
 let hostIntersectionObserver: IntersectionObserver | null = null;
 let datagridMountObserver: MutationObserver | null = null;
 let datagridContentObserver: MutationObserver | null = null;
+/**
+ * `regular-table` owns the virtual viewport and emits `regular-table-scroll`
+ * only after it has rendered the next row range.  Keep this listener separate
+ * from the grand-total policy: every pivot needs post-render label formatting,
+ * while only a few pivots hide totals.
+ */
 let datagridScrollElement: HTMLElement | null = null;
 let datagridScrollHandler: (() => void) | null = null;
 let viewerShadowObserver: MutationObserver | null = null;
@@ -166,7 +172,15 @@ let queuedLayoutFrame = 0;
 let layoutBurstFrame = 0;
 let layoutBurstUntil = 0;
 let queuedGrandTotalsFrame = 0;
+let queuedTemporalHeaderLabelsFrame = 0;
 let hasLoadedTable = false;
+let lastMeasuredHostWidth = 0;
+/**
+ * Regular Table calculates the virtual panel after its first datagrid paint.
+ * Keep a short sequence of natural measurements after loading or a real host
+ * resize; preserving widths sooner freezes the virtual panel at 1px.
+ */
+let naturalColumnMeasurementPassesRemaining = 0;
 let isRebuilding = false;
 let rebuildPending = false;
 let lastMeaningfulConfig: { groupBy: string[]; splitBy: string[]; columns: string[] } | null = null;
@@ -378,6 +392,16 @@ function ensureViewerElementRuntime(): Promise<void> {
       await initViewerClient(fetch(viewerWasmUrl));
     }
     await import('@perspective-dev/viewer-datagrid');
+
+    // `viewer.load()` must never run against an un-upgraded custom element.
+    // Failing explicitly here prevents a blank pivot after a Vite reload and
+    // makes the renderer registration issue diagnosable instead of silent.
+    if (customElements.get('perspective-viewer') === undefined) {
+      throw new Error('Perspective viewer custom element was not registered.');
+    }
+    if (customElements.get('perspective-viewer-datagrid') === undefined) {
+      throw new Error('Perspective datagrid plugin was not registered.');
+    }
   })();
   return viewerElementRuntimePromise;
 
@@ -566,18 +590,10 @@ function applyRenderedTemporalHeaderLabelsPolicy() {
     cell.textContent = formattedText;
     if (cell instanceof HTMLElement) {
       cell.dataset.ofxTemporalHeader = display;
-      cell.style.minWidth = getTemporalHeaderMinimumWidth(display);
     }
   });
 
   return true;
-}
-
-function getTemporalHeaderMinimumWidth(display: TemporalBucketDisplay) {
-  if (display === 'datetime') return '112px';
-  if (display === 'date') return '76px';
-  if (display === 'month-year') return '56px';
-  return '44px';
 }
 
 function buildDateFormat(display: TemporalBucketDisplay) {
@@ -702,6 +718,20 @@ function queuePolicySync() {
   });
 }
 
+/**
+ * Perspective virtualizes temporal cells while the user scrolls. Refresh only
+ * their labels here: a full chrome/layout synchronization feeds back into the
+ * grid and can reset the active scroll position.
+ */
+function queueRenderedTemporalHeaderLabelsPolicy() {
+  if (!resolveRenderedTemporalDisplay() || queuedTemporalHeaderLabelsFrame) return;
+
+  queuedTemporalHeaderLabelsFrame = window.requestAnimationFrame(() => {
+    queuedTemporalHeaderLabelsFrame = 0;
+    applyRenderedTemporalHeaderLabelsPolicy();
+  });
+}
+
 function startPolicyBurst(durationMs = 1500) {
   policyBurstUntil = performance.now() + durationMs;
   if (policyBurstFrame) return;
@@ -729,55 +759,35 @@ async function refreshViewerLayout() {
     const datagrid = findDatagridElement();
     const regularTable = datagrid?.regular_table as PerspectiveRegularTableApi | undefined;
 
-    const needsViewportRecovery = () => {
-      if (!datagrid || !regularTable) return false;
-
-      const table = datagrid.shadowRoot?.querySelector('table');
-      const firstBodyRow = table?.querySelector('tbody tr');
-      const virtualPanel = regularTable.shadowRoot?.querySelector('.rt-virtual-panel');
-      const renderedTableHeight = table?.getBoundingClientRect().height ?? 0;
-      const virtualPanelHeight = virtualPanel?.getBoundingClientRect().height ?? 0;
-      const renderedRowHeight = firstBodyRow?.getBoundingClientRect().height ?? 0;
-      const estimatedRowHeight =
-        regularTable.table_model?.e?.row_height ?? regularTable.e?.row_height ?? 0;
-
-      return (
-        (virtualPanelHeight > 0 && renderedTableHeight > 0 && virtualPanelHeight + 1 < renderedTableHeight) ||
-        (estimatedRowHeight > 0 && renderedRowHeight > 0 && estimatedRowHeight + 2 < renderedRowHeight)
-      );
-    };
-
-    const recoverViewportSizing = async () => {
-      if (!datagrid || !regularTable || !datagrid.update) return;
-
-      if (regularTable.e) {
-        regularTable.e.row_height = undefined;
-      }
-      if (regularTable.table_model?.e) {
-        regularTable.table_model.e.row_height = undefined;
-      }
-      regularTable.resetAutoSize?.();
-
-      const view = await viewer.getView();
-      try {
-        await datagrid.update(view);
-      } finally {
-        await view.delete?.();
-      }
-
-      await regularTable.flush?.();
-      await viewer.flush?.();
-    };
-
     try {
-      await regularTable?.draw?.({ cache: true, invalid_viewport: true, throttle: false, preserve_width: true });
+      const hostWidth = hostRef.value?.clientWidth ?? 0;
+      const hostWidthChanged = lastMeasuredHostWidth > 0
+        && Math.abs(hostWidth - lastMeasuredHostWidth) >= 1;
+      if (hostWidthChanged) {
+        naturalColumnMeasurementPassesRemaining = Math.max(naturalColumnMeasurementPassesRemaining, 2);
+      }
+
+      const shouldMeasureNaturalColumns = naturalColumnMeasurementPassesRemaining > 0;
+
+      if (shouldMeasureNaturalColumns) {
+        // The first paint can run before Regular Table has measured every
+        // temporal header. Measure naturally only during those initial frames
+        // (and after a real resize), never by imposing a column minimum width.
+        // Afterward the native virtual table alone owns redraws on scrolling.
+        await regularTable?.draw?.({
+          cache: true,
+          invalid_viewport: true,
+          throttle: false,
+          preserve_width: false,
+        });
+        naturalColumnMeasurementPassesRemaining -= 1;
+      }
+      if (hostWidth > 0) {
+        lastMeasuredHostWidth = hostWidth;
+      }
     } catch (error) {
       if (isPerspectiveViewNotFoundError(error)) return;
       // Perspective may still be mounting; the next burst tick will retry.
-    }
-
-    if (needsViewportRecovery()) {
-      await recoverViewportSizing();
     }
 
     queuePolicySync();
@@ -825,6 +835,8 @@ async function rebuildViewer() {
       isLoading.value = true;
       errorMessage.value = null;
       hasLoadedTable = false;
+      lastMeasuredHostWidth = 0;
+      naturalColumnMeasurementPassesRemaining = 3;
 
       try {
         const viewer = viewerRef.value;
@@ -1156,6 +1168,52 @@ function ensureDatagridThemeStyle(shadowRoot: ShadowRoot) {
   shadowRoot.appendChild(style);
 }
 
+/**
+ * Regular Table owns both axes of scrolling. Style its native scrollbars in
+ * its own shadow root so the horizontal affordance remains visible without
+ * imposing an artificial width on temporal columns.
+ */
+function ensureRegularTableScrollbarStyle(shadowRoot: ShadowRoot) {
+
+  const existingStyle = shadowRoot.getElementById('ofx-regular-table-scrollbar-style');
+  if (existingStyle) return;
+
+  const style = document.createElement('style');
+  style.id = 'ofx-regular-table-scrollbar-style';
+  style.textContent = `
+    :host {
+      /* Reserve the native axis instead of shrinking temporal columns. */
+      scrollbar-gutter: stable;
+      scrollbar-color: color-mix(in srgb, var(--icon--color, #3b73f2) 76%, var(--inactive--border-color, #d7dfeb)) color-mix(in srgb, var(--plugin--background, #fff) 86%, var(--inactive--border-color, #d7dfeb));
+      scrollbar-width: auto;
+    }
+
+    :host::-webkit-scrollbar {
+      width: 14px;
+      height: 14px;
+    }
+
+    :host::-webkit-scrollbar-track,
+    :host::-webkit-scrollbar-corner {
+      background: color-mix(in srgb, var(--plugin--background, #fff) 88%, var(--inactive--border-color, #d7dfeb));
+    }
+
+    :host::-webkit-scrollbar-thumb {
+      min-width: 32px;
+      min-height: 32px;
+      border: 2px solid var(--plugin--background, #fff);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--icon--color, #3b73f2) 72%, var(--inactive--border-color, #d7dfeb));
+    }
+
+    :host::-webkit-scrollbar-thumb:hover {
+      background: var(--icon--color, #3b73f2);
+    }
+  `;
+
+  shadowRoot.appendChild(style);
+}
+
 function ensureViewerThemeStyle(shadowRoot: ShadowRoot) {
   const existingStyle = shadowRoot.getElementById('ofx-viewer-theme-style');
   if (existingStyle) return;
@@ -1238,6 +1296,10 @@ function applyDatagridThemeStyle() {
   if (!shadowRoot) return false;
 
   ensureDatagridThemeStyle(shadowRoot);
+  const regularTable = datagrid?.regular_table as PerspectiveRegularTableApi | undefined;
+  if (regularTable?.shadowRoot) {
+    ensureRegularTableScrollbarStyle(regularTable.shadowRoot);
+  }
   return true;
 }
 
@@ -1255,7 +1317,12 @@ function applySingleMeasureHeaderPolicy() {
   if (!datagrid || !shadowRoot) return false;
 
   ensureDatagridThemeStyle(shadowRoot);
+  const regularTable = datagrid.regular_table as PerspectiveRegularTableApi | undefined;
+  if (regularTable?.shadowRoot) {
+    ensureRegularTableScrollbarStyle(regularTable.shadowRoot);
+  }
   ensureDatagridHeaderPolicyStyle(shadowRoot);
+  attachDatagridViewportObserver();
   datagrid.classList.toggle('ofx-hide-single-measure-header', shouldHideSingleMeasureHeader.value);
   return true;
 }
@@ -1268,15 +1335,41 @@ async function applySingleMeasureHeaderPolicyWithRetry() {
   }
 }
 
-function cleanupGrandTotalDomObserver() {
-  datagridContentObserver?.disconnect();
-  datagridContentObserver = null;
+function cleanupDatagridViewportObserver() {
 
   if (datagridScrollElement && datagridScrollHandler) {
-    datagridScrollElement.removeEventListener('scroll', datagridScrollHandler);
+    datagridScrollElement.removeEventListener('regular-table-scroll', datagridScrollHandler);
   }
   datagridScrollElement = null;
   datagridScrollHandler = null;
+}
+
+/**
+ * Re-apply only presentation rules after Regular Table has completed its own
+ * virtual draw.  Calling viewer policy or draw from the native `scroll` event
+ * races the renderer and leaves its rows pinned to the previous viewport.
+ */
+function attachDatagridViewportObserver() {
+
+  const datagrid = findDatagridElement();
+  const regularTableElement = datagrid?.shadowRoot?.querySelector('regular-table');
+  if (!(regularTableElement instanceof HTMLElement)) return false;
+  if (datagridScrollElement === regularTableElement && datagridScrollHandler) return true;
+
+  cleanupDatagridViewportObserver();
+  datagridScrollElement = regularTableElement;
+  datagridScrollHandler = () => {
+    queueRenderedTemporalHeaderLabelsPolicy();
+    if (props.hideGrandTotals) queueGrandTotalPolicyEnforcement();
+  };
+  datagridScrollElement.addEventListener('regular-table-scroll', datagridScrollHandler);
+  return true;
+}
+
+function cleanupGrandTotalDomObserver() {
+
+  datagridContentObserver?.disconnect();
+  datagridContentObserver = null;
 
   if (queuedGrandTotalsFrame) {
     window.cancelAnimationFrame(queuedGrandTotalsFrame);
@@ -1327,27 +1420,24 @@ function attachGrandTotalDomObserver() {
 
   datagridContentObserver = new MutationObserver(() => {
     queueGrandTotalPolicyEnforcement();
-    queuePolicySync();
+    // Virtual rows are replaced during native scrolling. Mirror the legacy
+    // adapter and touch only their temporal labels here; full policy sync
+    // mutates viewer chrome while Regular Table is calculating the next range.
+    queueRenderedTemporalHeaderLabelsPolicy();
   });
   datagridContentObserver.observe(shadowRoot, {
     subtree: true,
     childList: true,
   });
 
-  const regularTableElement = shadowRoot.querySelector('regular-table');
-  if (regularTableElement instanceof HTMLElement) {
-    datagridScrollElement = regularTableElement;
-    datagridScrollHandler = () => {
-      queueGrandTotalPolicyEnforcement();
-      queuePolicySync();
-    };
-    datagridScrollElement.addEventListener('scroll', datagridScrollHandler);
-  }
-
   return true;
 }
 
 async function applyGrandTotalsPolicy() {
+
+  // The virtual viewport listener is required whether or not this view hides
+  // grand totals.  Keep it alive when the totals option changes.
+  attachDatagridViewportObserver();
   if (!props.hideGrandTotals) {
     cleanupGrandTotalDomObserver();
     enforceRenderedGrandTotalPolicy();
@@ -1515,11 +1605,14 @@ onMounted(async () => {
   if (viewerRoot) {
     viewerShadowObserver?.disconnect();
     viewerShadowObserver = new MutationObserver(() => {
+      // The viewer shell changes only while the plugin is mounted or its slot
+      // is reattached. Do not observe its full subtree: virtual rows are
+      // replaced on every scroll and a broad policy sync at that point races
+      // Regular Table's own viewport draw.
       queuePolicySync();
     });
     viewerShadowObserver.observe(viewerRoot, {
       childList: true,
-      subtree: true,
     });
 
       viewerSlotElement = viewerRoot.querySelector('slot');
@@ -1583,6 +1676,10 @@ onBeforeUnmount(async () => {
     window.cancelAnimationFrame(queuedPolicyFrame);
     queuedPolicyFrame = 0;
   }
+  if (queuedTemporalHeaderLabelsFrame) {
+    window.cancelAnimationFrame(queuedTemporalHeaderLabelsFrame);
+    queuedTemporalHeaderLabelsFrame = 0;
+  }
   if (policyBurstFrame) {
     window.cancelAnimationFrame(policyBurstFrame);
     policyBurstFrame = 0;
@@ -1596,9 +1693,12 @@ onBeforeUnmount(async () => {
     layoutBurstFrame = 0;
   }
   cleanupGrandTotalDomObserver();
+  cleanupDatagridViewportObserver();
 
   currentTable = null;
   lastMeaningfulConfig = null;
+  lastMeasuredHostWidth = 0;
+  naturalColumnMeasurementPassesRemaining = 0;
 });
 </script>
 

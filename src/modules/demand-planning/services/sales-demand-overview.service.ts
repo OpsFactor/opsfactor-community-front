@@ -1,4 +1,5 @@
 import { requestJson } from '@/services/api/request';
+import type { MaterialLocationScope } from '@/features/material-location-scope/material-location-scope.types';
 
 export interface DemandPlanVersionOptionDto {
   id: number;
@@ -11,8 +12,9 @@ export interface DemandPlanVersionOptionDto {
   planEndDate?: string;
 }
 
-export interface DemandPlanSalesHistorySelectionPayload {
-  demandPlanId: string | number;
+export interface DemandPlanSalesHistorySelectionPayload extends MaterialLocationScope {
+  demandPlanId: string | number | null;
+  historicalSalesDocumentType: 'Sell-out' | null;
   unitOfMeasureId: string;
   historicalPeriods: number;
 }
@@ -25,6 +27,8 @@ export interface DemandPlanSalesHistoryDetailDto extends Record<string, unknown>
   cogs?: number;
   margin?: number;
   quantity?: number;
+  valuesByMaterialCharacteristicId?: Record<string, string>;
+  valuesByLocationCharacteristicId?: Record<string, string>;
 }
 
 export interface DemandPlanSalesHistoryResponse {
@@ -43,23 +47,56 @@ export async function fetchUomIds() {
 export async function fetchDemandPlanAndSalesHistory(payload: DemandPlanSalesHistorySelectionPayload) {
   const response = await requestJson<{
     periods: string[];
-    data: Array<{ locationId: string; materialId: string; referenceDate: string; historicalSales: number; unconstrainedPlan: number }>;
+    data: Array<{
+      locationId: string;
+      materialId: string;
+      valuesByMaterialCharacteristicId?: Record<string, string>;
+      valuesByLocationCharacteristicId?: Record<string, string>;
+      referenceDate: string;
+      historicalSales: number;
+      unconstrainedPlan: number;
+    }>;
   }>('/api/secured/planning/demand/overview', {
     method: 'POST',
     body: JSON.stringify({
-      demandPlanId: Number(payload.demandPlanId),
+      demandPlanId: payload.demandPlanId ? Number(payload.demandPlanId) : null,
+      historicalSalesDocumentType: payload.historicalSalesDocumentType,
       unitOfMeasureId: payload.unitOfMeasureId,
       historicalPeriods: payload.historicalPeriods,
-      materialIds: [],
-      locationIds: [],
+      materialIds: payload.materialIds,
+      locationIds: payload.locationIds,
+      valuesByMaterialCharacteristicId: payload.valuesByMaterialCharacteristicId,
+      valuesByLocationCharacteristicId: payload.valuesByLocationCharacteristicId,
     }),
   });
 
   return {
     periods: response.periods,
-    data: response.data.flatMap((period) => [
-      { series: 'Sales', date: period.referenceDate, quantity: period.historicalSales, locationId: period.locationId, materialId: period.materialId },
-      { series: 'Demand Plan', date: period.referenceDate, quantity: period.unconstrainedPlan, locationId: period.locationId, materialId: period.materialId },
-    ]),
+    data: response.data.flatMap((period) => {
+      const salesRow = {
+        series: 'Sales',
+        date: period.referenceDate,
+        quantity: period.historicalSales,
+        locationId: period.locationId,
+        materialId: period.materialId,
+        valuesByMaterialCharacteristicId: period.valuesByMaterialCharacteristicId ?? {},
+        valuesByLocationCharacteristicId: period.valuesByLocationCharacteristicId ?? {},
+      };
+
+      if (!payload.demandPlanId) return [salesRow];
+
+      return [
+        salesRow,
+        {
+          series: 'Demand Plan',
+          date: period.referenceDate,
+          quantity: period.unconstrainedPlan,
+          locationId: period.locationId,
+          materialId: period.materialId,
+          valuesByMaterialCharacteristicId: period.valuesByMaterialCharacteristicId ?? {},
+          valuesByLocationCharacteristicId: period.valuesByLocationCharacteristicId ?? {},
+        },
+      ];
+    }),
   } satisfies DemandPlanSalesHistoryResponse;
 }

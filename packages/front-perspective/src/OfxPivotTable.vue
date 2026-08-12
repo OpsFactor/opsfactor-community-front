@@ -1,6 +1,8 @@
 <script setup lang="ts">
 // Keeps the host-facing pivot surface neutral across Community and Enterprise.
+import { computed } from 'vue';
 import PerspectivePivotAdapter from './PerspectivePivotAdapter.vue';
+import { buildPivotSeriesRows, type PivotSeriesAggregation } from './pivot-series-aggregation';
 
 type PerspectiveAggregateName = 'sum' | 'avg' | 'count' | 'distinct count' | 'last' | 'first' | 'max' | 'min' | 'weighted mean';
 type PerspectiveAggregate = PerspectiveAggregateName | [PerspectiveAggregateName, string[]];
@@ -45,6 +47,7 @@ const props = withDefaults(
     hideGrandTotals?: boolean;
     hideSingleMeasureHeader?: boolean;
     temporalBucketSize?: string | null;
+    seriesAggregation?: PivotSeriesAggregation | null;
   }>(),
   {
     columns: () => [],
@@ -74,8 +77,19 @@ const props = withDefaults(
     hideGrandTotals: false,
     hideSingleMeasureHeader: true,
     temporalBucketSize: null,
+    seriesAggregation: null,
   },
 );
+
+/**
+ * Keeps Perspective as a renderer. When a semantic aggregation contract is
+ * supplied, it receives only the already calculated leaf values.
+ */
+const effectiveData = computed(() => (
+  props.seriesAggregation
+    ? buildPivotSeriesRows(props.data, props.rows, props.seriesAggregation)
+    : props.data
+));
 
 const emit = defineEmits<{
   'config-update': [payload: { groupBy: string[]; splitBy: string[]; columns: string[] }];
@@ -85,7 +99,7 @@ const emit = defineEmits<{
 <template>
   <div class="overflow-hidden rounded-[10px] border border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface)] shadow-sm">
     <PerspectivePivotAdapter
-      :data="props.data"
+      :data="effectiveData"
       :rows="props.rows"
       :columns="props.columns"
       :measures="props.measures"

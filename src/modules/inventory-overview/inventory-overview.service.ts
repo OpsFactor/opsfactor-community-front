@@ -1,13 +1,14 @@
 import { ApiRequestError } from '@opsfactor/front-core';
 import { httpClient } from '../../services/community-authentication.service';
+import { loadCommunityMaterialLocationFilterCatalog } from '@/services/community-option-catalog.service';
 import type {
   InventoryOverview,
   InventoryOverviewSelection,
-  LocationOption,
-  MaterialOption,
+  InventoryOverviewCharacteristic,
   SupplyPlanOption,
 } from './inventory-overview.types';
 import { buildInventoryOverviewRequest } from './inventory-overview.types';
+import type { MaterialLocationScopeCatalog } from '@/features/material-location-scope/material-location-scope.types';
 
 /** Turns the standard HTTP boundary error into an actionable UI message. */
 function toBackendError(error: unknown, fallback: string): Error {
@@ -27,24 +28,32 @@ function toBackendError(error: unknown, fallback: string): Error {
 export async function getInventoryOverviewSelectors(): Promise<{
   supplyPlans: SupplyPlanOption[];
   unitOfMeasureIds: string[];
-  materials: MaterialOption[];
-  locations: LocationOption[];
+  materials: MaterialLocationScopeCatalog['materials'];
+  locations: MaterialLocationScopeCatalog['locations'];
+  materialCharacteristics: InventoryOverviewCharacteristic[];
+  locationCharacteristics: InventoryOverviewCharacteristic[];
 }> {
   try {
-    const [supplyPlans, unitOfMeasureIds, materials, locations] = await Promise.all([
+    const [supplyPlans, unitOfMeasureIds, materialLocationCatalog] = await Promise.all([
       httpClient.request<SupplyPlanOption[]>('/api/secured/planning/supply'),
       httpClient.request<string[]>('/api/secured/unitofmeasure/findids'),
-      httpClient.request<MaterialOption[]>('/api/secured/material'),
-      httpClient.request<LocationOption[]>('/api/secured/location'),
+      loadCommunityMaterialLocationFilterCatalog(),
     ]);
 
-    return { supplyPlans, unitOfMeasureIds, materials, locations };
+    return {
+      supplyPlans,
+      unitOfMeasureIds,
+      materials: materialLocationCatalog.materials,
+      locations: materialLocationCatalog.locations,
+      materialCharacteristics: materialLocationCatalog.materialCharacteristics,
+      locationCharacteristics: materialLocationCatalog.locationCharacteristics,
+    };
   } catch (error) {
     throw toBackendError(error, 'Unable to load Inventory Overview selectors.');
   }
 }
 
-/** Requests only the Community physical inventory contract. */
+/** Requests one detailed Community physical snapshot used by the local analysis. */
 export async function getInventoryOverview(selection: InventoryOverviewSelection): Promise<InventoryOverview> {
   try {
     return await httpClient.request<InventoryOverview>('/api/secured/bi/supply/inventory-overview', {
