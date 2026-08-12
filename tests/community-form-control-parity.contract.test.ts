@@ -59,13 +59,15 @@ test('Community keeps the Planning Front semantic control type for enumerations 
   assert.match(supplyProfiles, /<OfxSelectField[^>]*v-model="current\.targetStockModel"/);
   assert.match(supplyProfiles, /<OfxSelectField[\s\S]*?v-if="current\.consolidateClientDemand"[\s\S]*?v-model="current\.demandConsolidationMode"/);
   assert.match(supplyProfiles, /<OfxEntityMultiSelect[^>]*v-model="current\.inventoryPolicyIdSet"/);
-  assert.match(inventoryPolicies, /<select v-model="rule\.modeloReabastecimento"/);
-  assert.match(inventoryPolicies, /<select v-model="rule\.modeloOperacional"/);
-  assert.match(inventoryPolicies, /<select v-model="rule\.calculoSafetyStock"/);
-  assert.match(inventoryOverview, /<OfxEntityMultiSelect v-model="materialIds"/);
-  assert.match(inventoryOverview, /<OfxEntityMultiSelect v-model="locationIds"/);
-  assert.match(operationalParameters, /Lifecycle stage<select[\s\S]*?v-model="materialLocationDraft\.lifecycleStage"/);
-  assert.match(operationalParameters, /Default UOM<select[\s\S]*?v-model="materialLocationDraft\.defaultUomId"/);
+  assert.match(inventoryPolicies, /<OfxSelectField v-model="rule\.modeloReabastecimento"/);
+  assert.match(inventoryPolicies, /<OfxSelectField v-model="rule\.modeloOperacional"/);
+  assert.match(inventoryPolicies, /<OfxSelectField v-model="rule\.calculoSafetyStock"/);
+  assert.match(inventoryOverview, /<MaterialLocationScopeFilters/);
+  assert.match(inventoryOverview, /v-model="initialScope"/);
+  assert.match(inventoryOverview, /<OfxEntityMultiSelect v-model="analysisMaterialIds"/);
+  assert.match(inventoryOverview, /<OfxEntityMultiSelect v-model="analysisLocationIds"/);
+  assert.match(operationalParameters, /<OfxSelectField v-model="materialLocationDraft\.lifecycleStage"/);
+  assert.match(operationalParameters, /<OfxSelectField v-model="materialLocationDraft\.defaultUomId"/);
 
 });
 

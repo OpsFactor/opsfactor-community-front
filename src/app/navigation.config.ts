@@ -1,6 +1,5 @@
 import {
   createLegacyNavigation,
-  OpsFactorApiDocumentationRedirect,
   OpsFactorModuleWorkspaceRoute,
 } from '@opsfactor/front-shell';
 import { APPLICATION_EDITION } from '@/app/edition';
@@ -36,7 +35,6 @@ const pageComponents = {
   'process-execution': () => import('@/modules/processes/pages/ProcessExecutionPage.vue'),
   'process-status': () => import('@/modules/processes/pages/ProcessStatusPage.vue'),
   'data-download-upload': () => import('@/modules/data/CommunityDataUploadPage.vue'),
-  'data-api-documentation': OpsFactorApiDocumentationRedirect,
   'configuration-global-parameters': () => import('@/modules/configuration/GlobalParametersCommunityPage.vue'),
   'configuration-clustering': () => import('@/modules/cluster-scope/ClusterScopeInspectorPage.vue'),
   'admin-users': () => import('@/modules/user-administration/CommunityUserAdministrationPage.vue'),

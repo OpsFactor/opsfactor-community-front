@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import { ApiRequestError } from '@opsfactor/front-core';
 import { useSessionStore } from '@/stores/app/session.store';
 import { buildAppAssetPath } from '@/app/runtime/public-path';
 import { beginOpsFactorLogin, fetchIdentityOptions, loginWithPassword } from '@/services/auth/auth.service';
@@ -71,9 +72,13 @@ async function handleLoginSubmit(event: Event) {
     const redirectPath = typeof route.value.query.redirect === 'string' ? route.value.query.redirect : '/';
     await router.replace(redirectPath);
   } catch (error) {
-    errorMessage.value = error instanceof Error
-      ? error.message
-      : 'The backend rejected the provided credentials. Verify the values and try again.';
+    // A falha de login e esperada para credenciais invalidas; nao expomos o
+    // status tecnico da API nem sugerimos que houve uma indisponibilidade.
+    errorMessage.value = error instanceof ApiRequestError && error.status === 401
+      ? 'Invalid username or password.'
+      : error instanceof Error
+        ? error.message
+        : 'The backend rejected the provided credentials. Verify the values and try again.';
   } finally {
     isSubmitting.value = false;
   }

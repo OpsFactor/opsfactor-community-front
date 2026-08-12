@@ -59,7 +59,7 @@ const icon = computed(() => icons[props.name] ?? icons.configuration);
 </script>
 
 <template>
-  <svg :width="props.size" :height="props.size" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" :stroke-width="props.strokeWidth" aria-hidden="true">
+  <svg class="ofx-navigation-icon" :width="props.size" :height="props.size" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" :stroke-width="props.strokeWidth" aria-hidden="true">
     <circle v-for="(circle, index) in icon.circles ?? []" :key="`circle-${index}`" :cx="circle.cx" :cy="circle.cy" :r="circle.r" />
     <line v-for="(line, index) in icon.lines ?? []" :key="`line-${index}`" :x1="line.x1" :y1="line.y1" :x2="line.x2" :y2="line.y2" />
     <rect v-for="(rect, index) in icon.rects ?? []" :key="`rect-${index}`" :x="rect.x" :y="rect.y" :width="rect.width" :height="rect.height" :rx="rect.rx ?? 0" />
@@ -67,3 +67,11 @@ const icon = computed(() => icons[props.name] ?? icons.configuration);
     <path v-for="(path, index) in icon.paths ?? []" :key="`path-${index}`" :d="path" />
   </svg>
 </template>
+
+<style scoped>
+/* Icons own a fixed visual box, so every navigation surface can center them identically. */
+.ofx-navigation-icon {
+  display: block;
+  flex: none;
+}
+</style>

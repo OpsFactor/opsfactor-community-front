@@ -183,13 +183,13 @@ onBeforeUnmount(clearCloseTimer);
             <RouterLink v-for="module in planningModules" :key="module.key" :to="module.path" :data-module-key="module.key" class="sidebar-module-link relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition-all duration-150" :style="moduleLinkStyle(module)" :class="[moduleLinkClass(module.path), isUnavailable(module) ? 'cursor-not-allowed' : '']" :title="module.label" :aria-disabled="isUnavailable(module)" @mouseenter="openFlyout(module.key)" @focus="openFlyout(module.key)" @click="handleNavigation($event, module)">
               <span class="absolute inset-0 rounded-2xl" :style="isSelected(module.path) ? { background: `color-mix(in srgb, ${module.accent} 22%, transparent)` } : undefined"></span>
               <span class="absolute left-[-12px] h-6 w-1 rounded-full transition-opacity" :style="{ backgroundColor: module.accent, opacity: isSelected(module.path) ? 1 : 0 }"></span>
-              <span class="relative"><OpsFactorNavigationIcon :name="getModuleIconName(module.key)" :size="18" /></span>
+              <span class="relative flex h-[18px] w-[18px] items-center justify-center leading-none"><OpsFactorNavigationIcon :name="getModuleIconName(module.key)" :size="18" /></span>
             </RouterLink>
             <div class="my-1.5 h-px w-7 shrink-0" :class="isLightTheme ? 'bg-[color:var(--ofx-border)]' : 'bg-white/10'"></div>
             <RouterLink v-for="module in platformModules" :key="module.key" :to="module.path" :data-module-key="module.key" class="sidebar-module-link relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition-all duration-150" :style="moduleLinkStyle(module)" :class="[moduleLinkClass(module.path), isUnavailable(module) ? 'cursor-not-allowed' : '']" :title="module.label" :aria-disabled="isUnavailable(module)" @mouseenter="openFlyout(module.key)" @focus="openFlyout(module.key)" @click="handleNavigation($event, module)">
               <span class="absolute inset-0 rounded-2xl" :style="isSelected(module.path) ? { background: `color-mix(in srgb, ${module.accent} 22%, transparent)` } : undefined"></span>
               <span class="absolute left-[-12px] h-6 w-1 rounded-full transition-opacity" :style="{ backgroundColor: module.accent, opacity: isSelected(module.path) ? 1 : 0 }"></span>
-              <span class="relative"><OpsFactorNavigationIcon :name="getModuleIconName(module.key)" :size="18" /></span>
+              <span class="relative flex h-[18px] w-[18px] items-center justify-center leading-none"><OpsFactorNavigationIcon :name="getModuleIconName(module.key)" :size="18" /></span>
             </RouterLink>
           </nav>
           <div class="sidebar-rail__footer flex w-full shrink-0 flex-col items-center border-t pt-3" :class="isLightTheme ? 'border-[color:var(--ofx-border)]' : 'border-white/8'">

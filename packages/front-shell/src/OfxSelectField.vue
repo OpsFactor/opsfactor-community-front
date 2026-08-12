@@ -3,7 +3,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import OfxEditionAvailabilityMark from './OfxEditionAvailabilityMark.vue';
 import OfxLockedControlIcon from './OfxLockedControlIcon.vue';
 
-type SelectValue = string | number;
+/** Preserves the option's domain value instead of coercing booleans and IDs to strings. */
+type SelectValue = string | number | boolean | null;
 
 const props = withDefaults(
   defineProps<{
@@ -19,6 +20,8 @@ const props = withDefaults(
     loading?: boolean;
     loadingLabel?: string;
     maxRenderedOptions?: number;
+    overflowTooltipDelayMs?: number;
+    compact?: boolean;
     themeMode?: 'light' | 'dark';
     requiredEdition?: 'Enterprise' | 'Pro / Enterprise';
   }>(),
@@ -32,25 +35,35 @@ const props = withDefaults(
     loading: false,
     loadingLabel: 'Loading values...',
     maxRenderedOptions: 120,
+    overflowTooltipDelayMs: 550,
+    compact: false,
     themeMode: 'light',
   },
 );
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string];
+  /**
+   * Consumers include both typed flags and legacy string callbacks. The
+   * component preserves the supplied option value at runtime; the public emit
+   * remains broad until all pre-existing callers can adopt a generic API.
+   */
+  'update:modelValue': [value: any];
 }>();
 
 const rootRef = ref<HTMLElement | null>(null);
 const triggerRef = ref<HTMLElement | null>(null);
 const displayLabelRef = ref<HTMLElement | null>(null);
 const dropdownRef = ref<HTMLElement | null>(null);
+const tooltipRef = ref<HTMLElement | null>(null);
 const searchRef = ref<HTMLElement | null>(null);
 const listRef = ref<HTMLElement | null>(null);
 const open = ref(false);
 const query = ref('');
 const dropdownStyle = ref<Record<string, string>>({});
+const tooltipStyle = ref<Record<string, string>>({});
 const selectedLabelOverflows = ref(false);
 const selectedLabelTooltipVisible = ref(false);
+let tooltipDelayTimer: number | undefined;
 const isLightTheme = computed(() => props.themeMode === 'light');
 const lockedEdition = computed<'Enterprise' | 'Pro / Enterprise' | null>(() => {
 
@@ -231,7 +244,7 @@ function close() {
 
 function selectOption(value: SelectValue) {
   if (isNonInteractive.value) return;
-  emit('update:modelValue', String(value));
+  emit('update:modelValue', value);
   close();
 }
 
@@ -244,13 +257,73 @@ function measureSelectedLabelOverflow() {
   selectedLabelOverflows.value = Boolean(displayLabelElement && displayLabelElement.scrollWidth > displayLabelElement.clientWidth + 1);
 }
 
-async function showSelectedLabelTooltip() {
-  await nextTick();
-  measureSelectedLabelOverflow();
-  selectedLabelTooltipVisible.value = selectedLabelOverflows.value;
+/** Cancels a pending tooltip before the pointer or keyboard focus leaves the control. */
+function cancelSelectedLabelTooltipDelay() {
+
+  if (tooltipDelayTimer === undefined) return;
+  window.clearTimeout(tooltipDelayTimer);
+  tooltipDelayTimer = undefined;
+
+}
+
+/** Anchors the teleported tooltip to the trigger and keeps it inside the viewport. */
+function syncSelectedLabelTooltipPosition() {
+
+  const triggerElement = triggerRef.value;
+  const tooltipElement = tooltipRef.value;
+  if (!triggerElement || !tooltipElement) return;
+
+  const triggerRect = triggerElement.getBoundingClientRect();
+  const viewportPadding = 12;
+  const gap = 6;
+  const tooltipWidth = tooltipElement.offsetWidth;
+  const tooltipHeight = tooltipElement.offsetHeight;
+  const left = Math.min(
+    Math.max(viewportPadding, triggerRect.left),
+    Math.max(viewportPadding, window.innerWidth - viewportPadding - tooltipWidth),
+  );
+  const topBelowTrigger = triggerRect.bottom + gap;
+  const top = topBelowTrigger + tooltipHeight <= window.innerHeight - viewportPadding
+    ? topBelowTrigger
+    : Math.max(viewportPadding, triggerRect.top - gap - tooltipHeight);
+
+  tooltipStyle.value = {
+    left: `${left}px`,
+    top: `${top}px`,
+    visibility: 'visible',
+  };
+
+}
+
+/**
+ * Reveals overflow help only after deliberate hover/focus. This avoids a new
+ * visual surface appearing while the user merely crosses a selector.
+ */
+function showSelectedLabelTooltip() {
+
+  cancelSelectedLabelTooltipDelay();
+  if (!hasValue.value) return;
+
+  tooltipDelayTimer = window.setTimeout(async () => {
+
+    tooltipDelayTimer = undefined;
+    await nextTick();
+    measureSelectedLabelOverflow();
+    if (!hasValue.value || !selectedLabelOverflows.value) return;
+
+    // Render hidden first so it can be measured before its first visible frame.
+    tooltipStyle.value = { visibility: 'hidden' };
+    selectedLabelTooltipVisible.value = true;
+    await nextTick();
+    syncSelectedLabelTooltipPosition();
+
+  }, props.overflowTooltipDelayMs);
+
 }
 
 function hideSelectedLabelTooltip() {
+
+  cancelSelectedLabelTooltipDelay();
   selectedLabelTooltipVisible.value = false;
 }
 
@@ -296,7 +369,9 @@ onMounted(() => {
   document.addEventListener('mousedown', handleDocumentClick);
   window.addEventListener('resize', syncDropdownPosition);
   window.addEventListener('resize', measureSelectedLabelOverflow);
+  window.addEventListener('resize', syncSelectedLabelTooltipPosition);
   window.addEventListener('scroll', syncDropdownPosition, true);
+  window.addEventListener('scroll', syncSelectedLabelTooltipPosition, true);
   measureSelectedLabelOverflow();
 });
 
@@ -304,7 +379,10 @@ onBeforeUnmount(() => {
   document.removeEventListener('mousedown', handleDocumentClick);
   window.removeEventListener('resize', syncDropdownPosition);
   window.removeEventListener('resize', measureSelectedLabelOverflow);
+  window.removeEventListener('resize', syncSelectedLabelTooltipPosition);
   window.removeEventListener('scroll', syncDropdownPosition, true);
+  window.removeEventListener('scroll', syncSelectedLabelTooltipPosition, true);
+  cancelSelectedLabelTooltipDelay();
 });
 
 watch(open, async (isOpen) => {
@@ -342,8 +420,8 @@ watch(
 </script>
 
 <template>
-  <div ref="rootRef" class="relative flex min-w-0 flex-col gap-2">
-    <div class="flex min-w-0 items-center justify-between gap-3">
+  <div ref="rootRef" class="relative flex min-w-0 flex-col" :class="props.compact ? 'gap-0' : 'gap-2'">
+    <div v-if="!props.compact" class="flex min-w-0 items-center justify-between gap-3">
       <span class="inline-flex min-w-0 items-center gap-1.5 text-[13px] font-medium" :class="labelClass">
         <span class="truncate">{{ props.label }}</span>
         <OfxEditionAvailabilityMark v-if="props.requiredEdition" :edition-label="props.requiredEdition" :theme-mode="props.themeMode" :size="12" />
@@ -397,14 +475,18 @@ watch(
         </span>
       </div>
 
-      <div
-        v-if="selectedLabelTooltipVisible"
-        class="pointer-events-none absolute left-0 top-[calc(100%+6px)] z-[10000] max-w-[min(520px,calc(100vw-2rem))] rounded-[8px] border px-3 py-2 text-xs font-medium leading-5 shadow-[var(--ofx-shadow-lg)]"
-        :class="tooltipClass"
-        role="tooltip"
-      >
-        {{ displayLabel }}
-      </div>
+      <Teleport to="body">
+        <div
+          v-if="selectedLabelTooltipVisible"
+          ref="tooltipRef"
+          class="pointer-events-none fixed z-[10000] max-w-[min(520px,calc(100vw-2rem))] rounded-[8px] border px-3 py-2 text-xs font-medium leading-5 shadow-[var(--ofx-shadow-lg)]"
+          :class="tooltipClass"
+          :style="tooltipStyle"
+          role="tooltip"
+        >
+          {{ displayLabel }}
+        </div>
+      </Teleport>
 
       <Teleport to="body">
         <div

@@ -12,6 +12,11 @@ interface StoredCommunityBasicSession {
   password: string;
 }
 
+/** Keeps the active in-memory credential through a Vite hot-module replacement. */
+interface CommunityAuthenticationHotData {
+  activeCredentials?: BasicCredentials | null;
+}
+
 const basicAuthenticationStrategy = new InMemoryBasicAuthenticationStrategy();
 let activeCredentials: BasicCredentials | null = null;
 const sessionChannel = typeof BroadcastChannel === 'undefined'
@@ -75,7 +80,18 @@ function clearBasicSession(): void {
 
 }
 
-restoreBasicSession();
+const hotData = import.meta.hot?.data as CommunityAuthenticationHotData | undefined;
+if (hotData?.activeCredentials !== null && hotData?.activeCredentials !== undefined) {
+  // HMR preserves the rendered shell. Reuse its credential before a mounted
+  // secured page can issue a request with a freshly reset strategy.
+  applyBasicSession(hotData.activeCredentials);
+} else {
+  restoreBasicSession();
+}
+
+import.meta.hot?.dispose((nextHotData: CommunityAuthenticationHotData) => {
+  nextHotData.activeCredentials = activeCredentials === null ? null : { ...activeCredentials };
+});
 
 sessionChannel?.addEventListener('message', (event: MessageEvent<CommunitySessionMessage>) => {
   const message = event.data;
