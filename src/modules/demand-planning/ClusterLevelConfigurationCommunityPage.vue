@@ -304,16 +304,50 @@ const previewMetricCards = computed(() => [
 ]);
 const previewChartOption = computed(() => ({
   animation: false,
-  tooltip: { trigger: 'axis' },
-  legend: { top: 0, textStyle: { color: '#64748b' }, itemWidth: 12, itemHeight: 12 },
-  grid: { left: 56, right: 24, top: 64, bottom: 44 },
+  tooltip: {
+    trigger: 'axis',
+    axisPointer: {
+      type: 'line',
+      snap: true,
+      lineStyle: { color: 'rgba(233,238,251,0.28)', width: 1 },
+    },
+    backgroundColor: 'rgba(10,16,29,0.96)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    textStyle: { color: '#e9eefb' },
+    valueFormatter: (value: unknown) => formatTooltipQuantity(value),
+  },
+  legend: {
+    type: 'scroll',
+    top: 0,
+    left: 'center',
+    right: 16,
+    textStyle: { color: 'rgba(233,238,251,0.72)' },
+    pageTextStyle: { color: 'rgba(233,238,251,0.72)' },
+    pageIconColor: '#0d8ecf',
+    pageIconInactiveColor: 'rgba(201,213,241,0.54)',
+    itemWidth: 14,
+    itemHeight: 8,
+    itemGap: 16,
+  },
+  grid: { left: 54, right: 22, top: 54, bottom: 38 },
   xAxis: {
     type: 'category',
     data: simulation.value?.periodos ?? [],
     boundaryGap: false,
-    axisLabel: { color: '#64748b', hideOverlap: true },
+    axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+    axisTick: { show: false },
+    axisLabel: { color: 'rgba(201,213,241,0.54)', hideOverlap: true, margin: 12 },
   },
-  yAxis: { type: 'value', axisLabel: { color: '#64748b' }, splitLine: { lineStyle: { color: '#dbe3ef' } } },
+  yAxis: {
+    type: 'value',
+    scale: true,
+    splitNumber: 5,
+    axisLabel: {
+      color: 'rgba(201,213,241,0.54)',
+      formatter: (value: unknown) => formatQuantity(Number(value ?? 0)),
+    },
+    splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+  },
   series: buildPreviewLineSeries(),
 }));
 const seasonalityChartOption = computed(() => buildSeasonalityChartOption());
@@ -492,20 +526,40 @@ function showHistoricalStlOnly(values: number[]): Array<number | null> {
 
 }
 
-function createLineSeries(name: string, values: Array<number | null>, color: string, options: { dashed?: boolean } = {}) {
+function hasMeaningfulDifference(values: Array<number | null>, baseline: Array<number | null>): boolean {
+
+  return values.some((value, index) => value != null && Math.abs(value - (baseline[index] ?? 0)) > 0.0001);
+
+}
+
+function createLineSeries(
+  name: string,
+  values: Array<number | null>,
+  color: string,
+  options: { dashed?: boolean; opacity?: number; width?: number; z?: number } = {},
+) {
 
   return {
     name,
     type: 'line',
+    smooth: false,
+    symbol: 'circle',
+    symbolSize: 5,
     showSymbol: false,
     connectNulls: false,
     data: values,
     lineStyle: {
-      width: 2,
+      width: options.width ?? 2,
       color,
       type: options.dashed ? 'dashed' : 'solid',
+      opacity: options.opacity ?? 1,
     },
     itemStyle: { color },
+    emphasis: {
+      focus: 'series',
+      lineStyle: { width: (options.width ?? 2) + 1 },
+    },
+    z: options.z ?? 2,
   };
 
 }
@@ -515,16 +569,27 @@ function buildPreviewLineSeries() {
   const historicalSales = hideSalesAfterHistory(aggregatedHistoricalSales.value);
   const baselineForecast = showForecastOnly(aggregatedBaselineForecast.value);
   const rows: SimulationPreviewSeriesRow[] = filteredSimulationRows.value;
+  const smoothedHistoricalSales = hideSalesAfterHistory(aggregateSeries(rows, 'cleansedHistoricalSales'));
   const trend = aggregateSeries(rows, 'trend');
   const seasonal = aggregateSeries(rows, 'seasonal');
   const historicalStlTrend = showHistoricalStlOnly(aggregateSeries(rows, 'stlTrend'));
 
   return [
-    createLineSeries('Historical Sales', historicalSales, '#2563eb'),
-    createLineSeries('Baseline Forecast', baselineForecast, '#ff5f87'),
-    ...(hasVisibleValues(trend) ? [createLineSeries('Forecast Model Trend', trend, '#64748b')] : []),
-    ...(hasVisibleValues(seasonal) ? [createLineSeries('Seasonality', seasonal, '#94a3b8')] : []),
-    ...(hasVisibleValues(historicalStlTrend) ? [createLineSeries('Historical STL Trend', historicalStlTrend, '#14b8a6')] : []),
+    createLineSeries('Historical Sales', historicalSales, '#0d8ecf', { width: 2.6, z: 6 }),
+    ...(hasVisibleValues(smoothedHistoricalSales)
+      && hasMeaningfulDifference(smoothedHistoricalSales, historicalSales)
+      ? [createLineSeries('Smoothed Historical Sales', smoothedHistoricalSales, '#5b6cff', { width: 2.2, z: 5 })]
+      : []),
+    createLineSeries('Baseline Forecast', baselineForecast, '#ff6f61', { width: 2.8, z: 7 }),
+    ...(hasVisibleValues(historicalStlTrend)
+      ? [createLineSeries('Historical STL Trend', historicalStlTrend, '#24bfa9', { width: 2.2, z: 4 })]
+      : []),
+    ...(hasVisibleValues(trend)
+      ? [createLineSeries('Forecast Model Trend', trend, '#6f7f99', { dashed: true, width: 1.8, z: 3 })]
+      : []),
+    ...(hasVisibleValues(seasonal)
+      ? [createLineSeries('Seasonality', seasonal, '#a9b6ca', { dashed: true, opacity: 0.9, width: 1.6, z: 2 })]
+      : []),
   ];
 
 }
@@ -587,11 +652,44 @@ function buildSeasonalityChartOption() {
 
   return {
     animation: false,
-    tooltip: { trigger: 'axis' },
-    legend: { top: 0, textStyle: { color: '#64748b' } },
-    grid: { left: 56, right: 24, top: 52, bottom: 40 },
-    xAxis: { type: 'category', data: seasonalGroups.map(String), axisLabel: { color: '#64748b' } },
-    yAxis: { type: 'value', axisLabel: { color: '#64748b' }, splitLine: { lineStyle: { color: '#dbe3ef' } } },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(148,163,184,0.10)' } },
+      backgroundColor: 'rgba(10,16,29,0.96)',
+      borderColor: 'rgba(255,255,255,0.08)',
+      textStyle: { color: '#e9eefb' },
+      formatter: (params: unknown) => formatSeasonalityTooltip(params),
+    },
+    legend: {
+      type: 'scroll',
+      top: 0,
+      left: 'center',
+      right: 16,
+      textStyle: { color: 'rgba(233,238,251,0.72)' },
+      pageTextStyle: { color: 'rgba(233,238,251,0.72)' },
+      pageIconColor: '#0d8ecf',
+      pageIconInactiveColor: 'rgba(201,213,241,0.54)',
+      itemWidth: 12,
+      itemHeight: 10,
+      itemGap: 14,
+    },
+    grid: { left: 54, right: 22, top: 54, bottom: 38 },
+    xAxis: {
+      type: 'category',
+      data: seasonalGroups.map(String),
+      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+      axisTick: { show: false },
+      axisLabel: { color: 'rgba(201,213,241,0.54)', margin: 12 },
+    },
+    yAxis: {
+      type: 'value',
+      splitNumber: 5,
+      axisLabel: {
+        color: 'rgba(201,213,241,0.54)',
+        formatter: (value: unknown) => formatQuantity(Number(value ?? 0)),
+      },
+      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+    },
     series,
   };
 
@@ -616,7 +714,50 @@ function aggregateSeries(
 }
 
 function formatQuantity(value: number): string {
-  return value.toLocaleString('en-US', { maximumFractionDigits: 1 });
+  return Number.isFinite(value)
+    ? value.toLocaleString('en-US', { maximumFractionDigits: 1 })
+    : '0';
+}
+
+/** Keeps an absent point distinct from a real zero in the shared axis tooltip. */
+function formatTooltipQuantity(value: unknown): string {
+
+  if (value == null || value === '' || value === '-') return '—';
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? formatQuantity(numericValue) : '—';
+
+}
+
+/** Removes empty seasonal placeholders and keeps operational quantities human-readable. */
+function formatSeasonalityTooltip(params: unknown): string {
+
+  if (!Array.isArray(params)) return '';
+
+  const visibleEntries = params
+    .filter((entry): entry is {
+      seriesName?: string;
+      value?: number;
+      marker?: string;
+      axisValueLabel?: string;
+    } => Boolean(entry))
+    .map((entry) => ({
+      label: entry.seriesName ?? '',
+      marker: entry.marker ?? '',
+      value: Number(entry.value),
+      axisValueLabel: entry.axisValueLabel ?? '',
+    }))
+    .filter((entry) => Number.isFinite(entry.value) && Math.abs(entry.value) > 0.0001);
+
+  const axisValueLabel = params[0] && typeof params[0] === 'object' && 'axisValueLabel' in params[0]
+    ? String(params[0].axisValueLabel ?? '')
+    : '';
+  if (!visibleEntries.length) return axisValueLabel;
+
+  return [
+    axisValueLabel,
+    ...visibleEntries.map((entry) => `${entry.marker}${entry.label} <strong>${formatQuantity(entry.value)}</strong>`),
+  ].join('<br/>');
+
 }
 
 function formatPercent(value: number | null): string {
@@ -844,13 +985,15 @@ onMounted(() => {
 
         <OfxSectionCard
           title="DFU Split"
-          description="Community uses the historical-sales split and lets the planner define its reference window."
+          description="Historical Sales is fixed in Community. Only the number of days used by the split is configurable."
         >
           <div class="grid gap-4 md:grid-cols-2">
             <OfxSelectField
               v-model="configuration.demandPlanningForecastParameters.splitModel"
               label="Split Model"
               :options="splitModelOptions"
+              locked
+              locked-label="Pro"
             />
             <OfxTextField
               v-model="configuration.demandPlanningForecastParameters.daysTopDownSplit"
@@ -1047,10 +1190,10 @@ onMounted(() => {
 
         <div class="grid gap-5 xl:grid-cols-2">
           <OfxSectionCard title="Forecast Preview">
-            <EChartAdapter :option="previewChartOption" :height="380" />
+            <EChartAdapter :option="previewChartOption" :height="360" />
           </OfxSectionCard>
           <OfxSectionCard title="Seasonality Comparison">
-            <EChartAdapter :option="seasonalityChartOption" :height="380" />
+            <EChartAdapter :option="seasonalityChartOption" :height="360" />
           </OfxSectionCard>
         </div>
 

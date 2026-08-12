@@ -124,6 +124,19 @@ test('Community preview keeps observed and forecast series in their valid time r
   assert.doesNotMatch(pageSource, /aggregatedDataAtMapeLevel/);
 });
 
+test('Community charts prioritize readable quantities and keep decomposition from flattening the preview', () => {
+  assert.doesNotMatch(pageSource, /selected: \{ Seasonality: false \}/);
+  assert.match(pageSource, /scale: true/);
+  assert.match(pageSource, /valueFormatter: \(value: unknown\) => formatTooltipQuantity/);
+  assert.match(pageSource, /value == null \|\| value === '' \|\| value === '-'/);
+  assert.match(pageSource, /formatter: \(params: unknown\) => formatSeasonalityTooltip\(params\)/);
+  assert.match(pageSource, /Smoothed Historical Sales/);
+  assert.match(pageSource, /hasVisibleValues\(smoothedHistoricalSales\)/);
+  assert.match(pageSource, /hasMeaningfulDifference\(smoothedHistoricalSales, historicalSales\)/);
+  assert.match(pageSource, /emphasis: \{[\s\S]*?focus: 'series'/);
+  assert.equal((pageSource.match(/:height="360"/g) ?? []).length, 2);
+});
+
 test('Community mirrors the canonical lag metrics and never invents a table-level lag selector', () => {
   for (const label of [
     'Forecast Lag (# periods) for Error Calculation',
@@ -152,6 +165,21 @@ test('Community keeps Pro general settings visible, locked, and fixed to their e
   assert.match(pageSource, /locationAggregationType: 'Top-Down'/);
   assert.match(pageSource, /roundToSalesUnit: false/);
   assert.doesNotMatch(pageSource, /value: 'Bottom-Up'/);
+});
+
+test('Community fixes the DFU split model as Pro while keeping only its day window editable', () => {
+  assert.match(
+    pageSource,
+    /label="Split Model"[^>]*:options="splitModelOptions"[^>]*locked[^>]*locked-label="Pro"/,
+  );
+  assert.match(
+    pageSource,
+    /label="Days for Top-Down Split"[^>]*type="number"/,
+  );
+  assert.doesNotMatch(
+    pageSource,
+    /label="Days for Top-Down Split"[^>]*locked/,
+  );
 });
 
 test('Community preserves the selected statistical model while generating a preview', () => {
