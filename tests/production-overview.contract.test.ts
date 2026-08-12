@@ -63,7 +63,17 @@ test('Production Overview Community retains the canonical Planning Front dashboa
   assert.match(page, /No unconstrained resource rows/);
   assert.match(page, /Production resource detail unavailable/);
   assert.match(page, /No allocation details/);
+  assert.match(page, /resourceDetailSummaryCards/);
+  assert.match(page, /Production line/);
+  assert.match(page, /Available hours/);
+  assert.match(page, /detail-summary-cards/);
+  assert.match(page, /<OfxTableToolbar v-if="resourceDetailRows\.length"/);
+  assert.doesNotMatch(page, /Read-only physical lines|class="secondary-button"/);
   assert.match(page, /OfxPivotTable/);
+  assert.match(page, /:rows="\['planVersion', 'series'\]"/);
+  assert.match(page, /:temporal-bucket-size="selectedSupplyPlanMeta\?\.bucketSize"/);
+  assert.match(page, /period: row\.periodEnd/);
+  assert.match(page, /Gap vs Unconstrained/);
   assert.match(page, /OfxDataTable/);
   assert.match(page, /OfxTableToolbar/);
   assert.match(page, /getCapacityUtilizationCellStyle/);
@@ -99,4 +109,27 @@ test('Production Overview follows the legacy optional-filter contract', () => {
   assert.match(page, /Avg Constrained Production/);
   assert.match(page, /Avg Unconstrained Met Demand/);
   assert.match(page, /Avg Unconstrained Production/);
+  assert.match(page, /summarizeBucket\(period, selectedSupplyPlanMeta\.value\?\.bucketSize\)/);
+});
+
+test('Production Overview keeps the resource-detail workspace stable while a new cell loads', () => {
+  const page = readFileSync(new URL('../src/modules/production-overview/ProductionOverviewPage.vue', import.meta.url), 'utf8');
+
+  assert.match(page, /const resourceDetailSelection = ref<ResourceDetailSelection \| null>\(null\)/);
+  assert.match(page, /periodLabel: periodLabels\.value\[row\.periodIndex\][\s\S]*?summarizeBucket\(row\.periodEnd, selectedSupplyPlanMeta\.value\?\.bucketSize\)/);
+  assert.match(page, /value: selection\.periodLabel/);
+  assert.match(page, /<OfxSectionCard v-if="resourceDetailSelection" title="Production Resource Detail">/);
+  assert.match(page, /const requestId = \+\+resourceDetailRequestId/);
+  assert.doesNotMatch(page, /resourceDetail\.value = null;\s*\n\s*try \{/);
+  assert.match(page, /Loading selected production resource detail/);
+});
+
+test('Shared select delays overflow help for a chosen value and keeps it out of card clipping', () => {
+  const selectField = readFileSync(new URL('../packages/front-shell/src/OfxSelectField.vue', import.meta.url), 'utf8');
+
+  assert.match(selectField, /overflowTooltipDelayMs: 550/);
+  assert.match(selectField, /if \(!hasValue\.value\) return/);
+  assert.match(selectField, /window\.setTimeout\([\s\S]*?props\.overflowTooltipDelayMs/);
+  assert.match(selectField, /<Teleport to="body">[\s\S]*?ref="tooltipRef"/);
+  assert.match(selectField, /syncSelectedLabelTooltipPosition/);
 });

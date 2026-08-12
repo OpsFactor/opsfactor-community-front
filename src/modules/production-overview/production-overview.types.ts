@@ -135,6 +135,7 @@ export interface ProductionOverviewResourceDetailRow {
 export interface SupplyPlanOption {
   supplyPlanId: number;
   description: string | null;
+  bucketSize: string | null;
 }
 
 export interface NamedOption {
