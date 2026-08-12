@@ -658,7 +658,7 @@ onMounted(() => {
             <div class="characteristic-fields">
               <OfxSelectField
                 model-value="Do Not Show Characteristic"
-                label="Characteristic presentation"
+                label="Presentation"
                 :options="lockedAggregationOptions"
                 :show-placeholder-option="false"
                 locked
@@ -701,7 +701,7 @@ onMounted(() => {
             <div class="characteristic-fields">
               <OfxSelectField
                 model-value="Do Not Show Characteristic"
-                label="Characteristic presentation"
+                label="Presentation"
                 :options="lockedAggregationOptions"
                 :show-placeholder-option="false"
                 locked
@@ -791,7 +791,7 @@ onMounted(() => {
 .characteristic-heading strong, .characteristic-heading span { display: block; }
 .characteristic-heading span { color: var(--ofx-text-muted); font-size: .7rem; letter-spacing: .12em; margin-top: .25rem; text-transform: uppercase; }
 .characteristic-heading .filter-count { border: 1px solid var(--ofx-border); border-radius: 999px; margin: 0; padding: .3rem .65rem; }
-.characteristic-fields { display: grid; gap: 1rem; grid-template-columns: minmax(0,.95fr) minmax(0,1.2fr) 11.25rem; }
+.characteristic-fields { display: grid; gap: 1rem; grid-template-columns: minmax(15rem,.9fr) minmax(22rem,1.4fr) minmax(15rem,.75fr); }
 .header-actions { align-items: center; display: grid; gap: .55rem; grid-template-columns: repeat(4, minmax(7.5rem, 1fr)); }
 .header-actions :deep(.ofx-button) { width: 100%; }
 .summary-grid { display: grid; gap: .75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }

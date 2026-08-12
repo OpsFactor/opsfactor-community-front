@@ -49,6 +49,11 @@ const props = withDefaults(
     pendingEdits?: PlanningBookSelectedCellDto[];
     detailsEnabled?: boolean;
     themeMode?: 'light' | 'dark';
+    /**
+     * Lets an edition narrow the backend edit mode without forking the grid.
+     * The canonical structural guards are always evaluated first.
+     */
+    isCellEditable?: (row: PlanningBookRow, field: string, column: PlanningBookColumnDefDto) => boolean;
   }>(),
   {
     mode: 'generic',
@@ -291,10 +296,12 @@ function isEditableCell(row: PlanningBookRow, field: string, column: PlanningBoo
   const isFrozen = additionalClasses.includes('crosshatch');
   const mode = String(row.editMode ?? 'noEdit');
 
-  if (lockedReason || isFrozen) return false;
+  if (props.isSaving || lockedReason || isFrozen) return false;
   if (column.enableCellEdit === false) return false;
 
-  return mode === 'cellEdit' || mode === 'detailOrCellEdit';
+  if (mode !== 'cellEdit' && mode !== 'detailOrCellEdit') return false;
+
+  return props.isCellEditable?.(row, field, column) ?? true;
 }
 
 function getCellStyle(row: PlanningBookRow, field: string, column: PlanningBookColumnDefDto) {

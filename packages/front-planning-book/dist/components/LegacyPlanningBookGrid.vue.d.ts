@@ -1,4 +1,4 @@
-import type { PlanningBookDto, PlanningBookRow, PlanningBookSelectedCellDto } from '../planning-book.dto.js';
+import type { PlanningBookColumnDefDto, PlanningBookDto, PlanningBookRow, PlanningBookSelectedCellDto } from '../planning-book.dto.js';
 type __VLS_Props = {
     planningBook: PlanningBookDto;
     height?: number | string;
@@ -10,6 +10,11 @@ type __VLS_Props = {
     pendingEdits?: PlanningBookSelectedCellDto[];
     detailsEnabled?: boolean;
     themeMode?: 'light' | 'dark';
+    /**
+     * Lets an edition narrow the backend edit mode without forking the grid.
+     * The canonical structural guards are always evaluated first.
+     */
+    isCellEditable?: (row: PlanningBookRow, field: string, column: PlanningBookColumnDefDto) => boolean;
 };
 declare var __VLS_1: {}, __VLS_3: {};
 type __VLS_Slots = {} & {

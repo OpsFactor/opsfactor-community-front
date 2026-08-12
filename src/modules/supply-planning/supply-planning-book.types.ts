@@ -101,6 +101,10 @@ export interface SupplyPlanningBookDetailSelection {
   materialDescriptionCols: Record<string, string>;
   keyFigure: string;
   period: string;
+  /** The detail read reuses the canonical selected-cell validation contract. */
+  uom: string;
+  oldValue: number;
+  newValue: number;
 }
 
 export interface SupplyPlanningBookDetailColumn {

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRuntimeInfoStore } from '@opsfactor/front-core';
-import { PlanningBookVirtualGrid, type PlanningBookVirtualGridColumn } from '@opsfactor/front-planning-book';
+import { LegacyPlanningBookGrid, type PlanningBookRow as CanonicalPlanningBookRow } from '@opsfactor/front-planning-book';
 import { OfxPageHeader, OfxSectionCard } from '@opsfactor/front-shell';
+import OfxSelectField from '../../components/ofx/forms/OfxSelectField.vue';
 import DashboardPageLayout from '@/layouts/page/DashboardPageLayout.vue';
-import { buildCommunityPlanningBookRichRows } from '../planning-books/community-planning-book-grid-rich.utils';
+import { useNavigationStore } from '@/stores/app/navigation.store';
 import {
   getSupplyPlanningBookCatalog,
   loadSupplyPlanningBook,
@@ -13,8 +14,6 @@ import {
   saveSupplyPlanningBookCellDetails,
 } from './supply-planning-book.service';
 import {
-  flattenSupplyPlanningBook,
-  getSupplyPlanningBookPeriodColumns,
   isSupplyPlanningBookCellEditMode,
   isSupplyPlanningBookDetailQuantityEditable,
   resolveSupplyPlanningBookPeriod,
@@ -27,7 +26,6 @@ import type {
   SupplyPlanningBookCellDetails,
   SupplyPlanningBookDetailSelection,
   SupplyPlanningBookLocation,
-  SupplyPlanningBookRow,
   SupplyPlanningBookView,
 } from './supply-planning-book.types';
 
@@ -38,6 +36,7 @@ const COMMUNITY_EDITABLE_KEY_FIGURES = new Set([
 ]);
 
 const runtimeInfoStore = useRuntimeInfoStore();
+const navigationStore = useNavigationStore();
 const supplyPlans = ref<SupplyPlanOption[]>([]);
 const planningBookViews = ref<SupplyPlanningBookView[]>([]);
 const locations = ref<SupplyPlanningBookLocation[]>([]);
@@ -53,71 +52,75 @@ const isSavingDetails = ref(false);
 const errorMessage = ref<string | null>(null);
 const cellDetails = ref<SupplyPlanningBookCellDetails | null>(null);
 const detailSelection = ref<SupplyPlanningBookDetailSelection | null>(null);
+const pendingCells = ref(new Map<string, SupplyPlanningBookCellUpdate>());
 
 const backendEditableKeyFigures = computed(() => new Set(runtimeInfoStore.runtimeInfo?.editableSupplyPlanningBookKeyFigures ?? []));
-const rows = computed(() => planningBook.value === null ? [] : buildCommunityPlanningBookRichRows(flattenSupplyPlanningBook(planningBook.value)));
-const periodColumns = computed(() => planningBook.value === null ? [] : getSupplyPlanningBookPeriodColumns(planningBook.value));
-const descriptorColumns = computed(() => planningBook.value?.columnDefs.filter((column) => !column.dataColumn && column.field !== 'keyFigure') ?? []);
-const planningBookGridColumns = computed<PlanningBookVirtualGridColumn<(typeof rows.value)[number]>[]>(() => [
-  ...descriptorColumns.value.map((column) => ({
-    id: `descriptor:${column.field}`,
-    label: column.name,
-    cellClass: 'supply-planning-book__descriptor-cell',
-    getValue: (row: SupplyPlanningBookRow) => column.field === 'uom'
-      ? planningBook.value?.uom ?? '—'
-      : row.locationDescriptionCols[column.field]
-        || row.materialDescriptionCols[column.field]
-        || '—',
-  })),
-  {
-    id: 'key-figure',
-    label: 'Key figure',
-    width: '15rem',
-    hierarchy: true,
-    cellClass: 'supply-planning-book__key-figure-cell',
-    getValue: (row: SupplyPlanningBookRow) => row.keyFigure,
-  },
-  ...periodColumns.value.map((column) => ({
-    id: `period:${column.field}`,
-    label: column.name,
-    cellClass: 'supply-planning-book__period-cell',
-    getValue: (row: SupplyPlanningBookRow) => row.values[column.field],
-  })),
-]);
 const canOpenPlanningBook = computed(() => selectedPlanId.value !== '' && selectedViewName.value !== '' && selectedLocationId.value !== '' && runtimeInfoStore.runtimeInfo !== null);
+const supplyPlanOptions = computed(() => [
+  { label: 'Select a supply plan', value: '' },
+  ...supplyPlans.value.map((plan) => ({ label: `${plan.supplyPlanId} — ${plan.description || 'Unnamed supply plan'}`, value: String(plan.supplyPlanId) })),
+]);
+const locationOptions = computed(() => [
+  { label: 'Select a planning location', value: '' },
+  ...locations.value.map((location) => ({ label: `${location.id} — ${location.description || 'Unnamed location'}`, value: location.id })),
+]);
+const planningBookViewOptions = computed(() => [
+  { label: 'Select a view', value: '' },
+  ...planningBookViews.value.map((view) => ({ label: view.viewName, value: view.viewName })),
+]);
 const canSaveDetails = computed(() => detailSelection.value !== null
   && cellDetails.value !== null
   && cellDetails.value.detailLines.some((detailLine) =>
     isSupplyPlanningBookDetailQuantityEditable(detailSelection.value!.keyFigure, detailLine),
   ));
+const pendingCellList = computed(() => Array.from(pendingCells.value.values()));
 
 function errorText(error: unknown, fallback: string): string {
 
   return error instanceof Error ? error.message : fallback;
 }
 
-function isEditable(row: SupplyPlanningBookRow, field: string): boolean {
+/** Narrows the canonical grid edit policy to the public Community key figures. */
+function isCommunityCellEditable(row: CanonicalPlanningBookRow, field: string): boolean {
 
-  const periodColumn = periodColumns.value.find((column) => column.field === field);
+  const periodColumn = planningBook.value?.columnDefs.find((column) => column.dataColumn && column.field === field);
 
   return COMMUNITY_EDITABLE_KEY_FIGURES.has(row.keyFigure)
     && backendEditableKeyFigures.value.has(row.keyFigure)
     && isSupplyPlanningBookCellEditMode(row.editMode)
     && periodColumn?.enableCellEdit !== false
-    && row.unavailableReasons[field] === undefined
-    && !row.additionalClasses[field]?.includes('crosshatch');
+    && row.unavailableReasons?.[field] === undefined
+    && !row.additionalClasses?.[field]?.includes('crosshatch');
 }
 
-/** Identifies the product-owned period cells rendered through the rich Community grid. */
-function isPeriodGridColumn(column: PlanningBookVirtualGridColumn<(typeof rows.value)[number]>): boolean {
+/** Rebuilds the API descriptor maps from the canonical flattened grid row. */
+function descriptorValues(
+  row: CanonicalPlanningBookRow,
+  dimension: 'location' | 'material',
+): Record<string, string> {
 
-  return column.id.startsWith('period:');
+  if (planningBook.value === null) return {};
+
+  return Object.fromEntries(planningBook.value.columnDefs
+    .filter((column) => !column.dataColumn && column.dimension === dimension)
+    .map((column) => [column.field, String(row[column.field] ?? '')]));
 }
 
-/** Extracts the unmodified backend field name from a presentation-only column id. */
-function planningBookGridField(column: PlanningBookVirtualGridColumn<(typeof rows.value)[number]>): string {
+/** Retains a user edit locally until the explicit Community batch action. */
+function queuePendingCell(cell: SupplyPlanningBookCellUpdate): void {
 
-  return column.id.slice('period:'.length);
+  const cellKey = `${cell.locationId}::${cell.materialDescriptionCols.materialId}::${cell.keyFigure}::${cell.period}`;
+  const previousCell = pendingCells.value.get(cellKey);
+  const nextCells = new Map(pendingCells.value);
+  const nextCell = { ...cell, oldValue: previousCell?.oldValue ?? cell.oldValue };
+
+  if (nextCell.oldValue === nextCell.newValue) {
+    nextCells.delete(cellKey);
+  } else {
+    nextCells.set(cellKey, nextCell);
+  }
+
+  pendingCells.value = nextCells;
 }
 
 async function loadOptions(): Promise<void> {
@@ -152,6 +155,7 @@ async function openPlanningBook(): Promise<void> {
     });
     cellDetails.value = null;
     detailSelection.value = null;
+    pendingCells.value = new Map();
   } catch (error) {
     planningBook.value = null;
     errorMessage.value = errorText(error, 'Unable to load the Supply Planning Book.');
@@ -166,21 +170,32 @@ function leavePlanningBook(): void {
   planningBook.value = null;
   cellDetails.value = null;
   detailSelection.value = null;
+  pendingCells.value = new Map();
 }
 
 /** Opens one backend-derived detail snapshot only after an explicit cell click. */
-async function openCellDetails(row: SupplyPlanningBookRow, field: string): Promise<void> {
+async function openCellDetails(payload: { row: CanonicalPlanningBookRow; field: string }): Promise<void> {
 
+  const { row, field } = payload;
   if (planningBook.value === null || isLoadingDetails.value || isSaving.value || !supportsSupplyPlanningBookDetails(row.keyFigure)) return;
+
+  const selectedValue = typeof row[field] === 'number' ? row[field] : Number(row[field]);
+  if (!Number.isFinite(selectedValue)) {
+    errorMessage.value = 'The selected Planning Book cell does not contain a valid numeric quantity.';
+    return;
+  }
 
   const selection: SupplyPlanningBookDetailSelection = {
     planId: selectedPlanId.value,
     viewName: planningBook.value.viewName,
     locationId: selectedLocationId.value,
-    locationDescriptionCols: row.locationDescriptionCols,
-    materialDescriptionCols: row.materialDescriptionCols,
+    locationDescriptionCols: descriptorValues(row, 'location'),
+    materialDescriptionCols: descriptorValues(row, 'material'),
     keyFigure: row.keyFigure,
     period: resolveSupplyPlanningBookPeriod(planningBook.value, field),
+    uom: planningBook.value.uom,
+    oldValue: selectedValue,
+    newValue: selectedValue,
   };
 
   isLoadingDetails.value = true;
@@ -258,21 +273,25 @@ async function reloadPlanningBookAfterFailure(): Promise<void> {
   }
 }
 
-async function submitCellUpdate(row: SupplyPlanningBookRow, field: string, rawValue: string): Promise<void> {
+function submitCellUpdate(payload: {
+  row: CanonicalPlanningBookRow;
+  field: string;
+  oldValue: number;
+  newValue: number;
+}): void {
 
   if (planningBook.value === null || isSaving.value) return;
 
-  const oldValue = row.values[field];
-  const newValue = Number(rawValue);
-  if (!Number.isFinite(newValue) || oldValue === null || oldValue === undefined || newValue === oldValue) return;
+  const { row, field, oldValue, newValue } = payload;
+  if (!Number.isFinite(newValue) || !Number.isFinite(oldValue) || newValue === oldValue) return;
 
   const cell: SupplyPlanningBookCellUpdate = {
     planId: selectedPlanId.value,
     viewType: planningBook.value.viewType,
     viewName: planningBook.value.viewName,
     locationId: selectedLocationId.value,
-    locationDescriptionCols: row.locationDescriptionCols,
-    materialDescriptionCols: row.materialDescriptionCols,
+    locationDescriptionCols: descriptorValues(row, 'location'),
+    materialDescriptionCols: descriptorValues(row, 'material'),
     keyFigure: row.keyFigure,
     period: resolveSupplyPlanningBookPeriod(planningBook.value, field),
     uom: planningBook.value.uom,
@@ -280,12 +299,28 @@ async function submitCellUpdate(row: SupplyPlanningBookRow, field: string, rawVa
     newValue,
   };
 
+  queuePendingCell(cell);
+
+  if (planningBook.value.autoSubmitChanges) {
+    void savePendingCells([cell]);
+  }
+}
+
+/** Sends each Community cell as its required homogeneous update, then refreshes the authoritative book. */
+async function savePendingCells(cells = pendingCellList.value): Promise<void> {
+
+  if (planningBook.value === null || cells.length === 0 || isSaving.value) return;
+
   isSaving.value = true;
   errorMessage.value = null;
 
   try {
-    /* The returned DTO replaces the full grid: no stale optimistic cell state. */
-    planningBook.value = await saveSupplyPlanningBookCell(cell);
+    let refreshedBook = planningBook.value;
+    for (const cell of cells) {
+      refreshedBook = await saveSupplyPlanningBookCell(cell);
+    }
+    planningBook.value = refreshedBook;
+    pendingCells.value = new Map();
   } catch (error) {
     const failureMessage = errorText(error, 'Unable to save the Supply Planning Book change.');
     await reloadPlanningBookAfterFailure();
@@ -296,6 +331,20 @@ async function submitCellUpdate(row: SupplyPlanningBookRow, field: string, rawVa
 }
 
 onMounted(loadOptions);
+
+onBeforeUnmount(() => {
+
+  navigationStore.setImmersiveWorkspace(false);
+});
+
+watch(
+  () => Boolean(planningBook.value),
+  (opened) => {
+
+    navigationStore.setImmersiveWorkspace(opened);
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -307,7 +356,7 @@ onMounted(loadOptions);
     <p v-if="errorMessage" class="message message-error" role="alert">{{ errorMessage }}</p>
 
     <OfxSectionCard v-if="!planningBook" title="Workbook Selection" description="Select the Working Plan, planning location and configured view.">
-      <div class="selection-grid"><label class="field-label">Supply Plan<select v-model="selectedPlanId" :disabled="isLoadingOptions || isSaving"><option value="">Select a supply plan</option><option v-for="plan in supplyPlans" :key="plan.supplyPlanId" :value="String(plan.supplyPlanId)">{{ plan.supplyPlanId }} — {{ plan.description || 'Unnamed supply plan' }}</option></select></label><label class="field-label">Planning location<select v-model="selectedLocationId" :disabled="isLoadingOptions || isSaving"><option value="">Select a planning location</option><option v-for="location in locations" :key="location.id" :value="location.id">{{ location.id }} — {{ location.description || 'Unnamed location' }}</option></select></label><label class="field-label">User view<select v-model="selectedViewName" :disabled="isLoadingOptions || isSaving"><option value="">Select a view</option><option v-for="view in planningBookViews" :key="view.viewName" :value="view.viewName">{{ view.viewName }}</option></select></label><div class="selection-open"><button class="primary-button" :disabled="!canOpenPlanningBook || isLoadingBook || isSaving" @click="openPlanningBook">{{ isLoadingBook ? 'Opening…' : 'Open Planning Book' }}</button></div></div>
+      <div class="selection-grid"><OfxSelectField v-model="selectedPlanId" label="Supply Plan" :options="supplyPlanOptions" :disabled="isLoadingOptions || isSaving" /><OfxSelectField v-model="selectedLocationId" label="Planning location" :options="locationOptions" :disabled="isLoadingOptions || isSaving" /><OfxSelectField v-model="selectedViewName" label="User view" :options="planningBookViewOptions" :disabled="isLoadingOptions || isSaving" /><div class="selection-open"><button class="primary-button" :disabled="!canOpenPlanningBook || isLoadingBook || isSaving" @click="openPlanningBook">{{ isLoadingBook ? 'Opening…' : 'Open Planning Book' }}</button></div></div>
     </OfxSectionCard>
 
     <p v-if="!planningBook && !isLoadingOptions && !planningBookViews.length" class="muted">No Supply Planning Book view is assigned to this account. Ask an administrator to configure one before opening the workbook.</p>
@@ -317,21 +366,33 @@ onMounted(loadOptions);
       <button class="secondary-button" type="button" :disabled="isSaving || isLoadingDetails || isSavingDetails" @click="leavePlanningBook">Reopen selection</button>
     </section>
 
-    <OfxSectionCard v-if="planningBook" class="mt-5" :title="planningBook.viewName" description="Each editable cell is submitted immediately as one homogeneous update.">
-      <p v-for="message in planningBook.errorMessage" :key="message" class="muted">{{ message }}</p>
-      <PlanningBookVirtualGrid :rows="rows" :columns="planningBookGridColumns" :busy="isSaving || isLoadingDetails || isSavingDetails">
-        <template #cell="{ row, column, value }">
-          <strong v-if="column.id === 'key-figure'">{{ value }}</strong>
-          <div v-else-if="isPeriodGridColumn(column)" class="cell-readonly" :title="row.unavailableReasons[planningBookGridField(column)]">
-            <input v-if="isEditable(row, planningBookGridField(column))" :value="row.values[planningBookGridField(column)]" type="number" step="any" :disabled="isSaving" @change="submitCellUpdate(row, planningBookGridField(column), ($event.target as HTMLInputElement).value)" />
-            <span v-else>{{ row.unavailableReasons[planningBookGridField(column)] ? 'N/A' : (row.values[planningBookGridField(column)] ?? 0) }}</span>
-            <button v-if="supportsSupplyPlanningBookDetails(row.keyFigure)" class="detail-button" :disabled="isLoadingDetails || isSaving || isSavingDetails" @click="openCellDetails(row, planningBookGridField(column))">{{ isLoadingDetails ? 'Loading…' : 'Details' }}</button>
-          </div>
-          <span v-else>{{ value }}</span>
+    <div v-if="planningBook" class="planning-book-workspace-body">
+      <LegacyPlanningBookGrid
+        :planning-book="planningBook"
+        height="100%"
+        mode="supply"
+        theme-mode="light"
+        details-enabled
+        :pending-edit-count="pendingCells.size"
+        :pending-edits="pendingCellList"
+        :is-saving="isSaving || isLoadingDetails || isSavingDetails"
+        :is-cell-editable="isCommunityCellEditable"
+        @edit="submitCellUpdate"
+        @request-details="openCellDetails"
+      >
+        <template #header-actions>
+          <button class="secondary-button" :disabled="isLoadingBook || isSaving || isLoadingDetails || isSavingDetails" @click="openPlanningBook">Reload</button>
+          <button
+            v-if="!planningBook.autoSubmitChanges"
+            class="primary-button"
+            :disabled="pendingCells.size === 0 || isSaving || isLoadingDetails || isSavingDetails"
+            @click="savePendingCells()"
+          >
+            {{ isSaving ? 'Saving…' : `Save in batch${pendingCells.size ? ` (${pendingCells.size})` : ''}` }}
+          </button>
         </template>
-      </PlanningBookVirtualGrid>
-      <template #actions><button class="secondary-button" :disabled="isLoadingBook || isSaving" @click="openPlanningBook">Reload</button></template>
-    </OfxSectionCard>
+      </LegacyPlanningBookGrid>
+    </div>
 
     <div v-if="cellDetails && detailSelection" class="drawer-backdrop" @click.self="closeCellDetails">
       <aside class="detail-drawer" aria-label="Supply Planning Book cell details">
@@ -346,5 +407,5 @@ onMounted(loadOptions);
 </template>
 
 <style scoped>
-.selection-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }.selection-open { align-self: end; display: flex; min-height: 2.5rem; }.selection-open .primary-button { width: 100%; justify-content: center; }.field-label { display: grid; gap: .5rem; color: var(--ofx-text); font-size: 13px; font-weight: 500; }.field-label select, input { border: 1px solid var(--ofx-border); border-radius: 12px; background: var(--ofx-surface); padding: .55rem .75rem; color: var(--ofx-text); }.primary-button, .secondary-button, .detail-button { display: inline-flex; min-height: 2.5rem; align-items: center; border: 1px solid var(--ofx-border); border-radius: 12px; background: var(--ofx-surface); padding: .45rem .9rem; color: var(--ofx-text); font-size: .875rem; font-weight: 600; }.primary-button { border-color: var(--ofx-primary); background: var(--ofx-primary); color: var(--ofx-primary-foreground); }.primary-button:disabled, .secondary-button:disabled, .detail-button:disabled { cursor: not-allowed; opacity: .5; }.section-header { display: flex; align-items: start; gap: 1rem; justify-content: space-between; }.table-scroll { overflow: auto; }:deep(.supply-planning-book__period-cell input) { min-width: 7rem; width: 7rem; }.cell-readonly { display: flex; align-items: center; gap: .5rem; }.detail-button { min-height: auto; padding: .25rem .5rem; font-size: .75rem; }.drawer-backdrop { position: fixed; inset: 0; z-index: 20; display: flex; justify-content: end; background: rgb(15 23 42 / .3); }.detail-drawer { width: min(52rem, 94vw); height: 100%; overflow: auto; background: var(--ofx-surface); box-shadow: -12px 0 32px rgb(15 23 42 / .2); padding: 1.5rem; color: var(--ofx-text); }.drawer-actions { display: flex; justify-content: end; margin-top: 1rem; }.planning-book-workspace-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1.25rem 0; border: 1px solid var(--ofx-border); border-radius: 14px; background: var(--ofx-surface-elevated); padding: 1rem 1.25rem; }.planning-book-workspace-eyebrow { color: var(--ofx-text-muted); font-size: .6875rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }.planning-book-workspace-meta { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .35rem; color: var(--ofx-text); font-size: .8125rem; font-weight: 600; }.planning-book-workspace-meta span { color: var(--ofx-text-muted); }.muted { color: var(--ofx-text-muted); }.message { margin-top: 1.25rem; border-radius: 14px; padding: .85rem 1rem; font-size: .875rem; }.message-error { border: 1px solid #f0b7b2; background: #fff8f7; color: #b42318; }
+.selection-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }.selection-open { align-self: end; display: flex; min-height: 2.5rem; }.selection-open .primary-button { width: 100%; justify-content: center; }.field-label { display: grid; gap: .5rem; color: var(--ofx-text); font-size: 13px; font-weight: 500; }.field-label select, input { border: 1px solid var(--ofx-border); border-radius: 12px; background: var(--ofx-surface); padding: .55rem .75rem; color: var(--ofx-text); }.primary-button, .secondary-button { display: inline-flex; min-height: 2.5rem; align-items: center; border: 1px solid var(--ofx-border); border-radius: 12px; background: var(--ofx-surface); padding: .45rem .9rem; color: var(--ofx-text); font-size: .875rem; font-weight: 600; }.primary-button { border-color: var(--ofx-primary); background: var(--ofx-primary); color: var(--ofx-primary-foreground); }.primary-button:disabled, .secondary-button:disabled { cursor: not-allowed; opacity: .5; }.section-header { display: flex; align-items: start; gap: 1rem; justify-content: space-between; }.table-scroll { overflow: auto; }.drawer-backdrop { position: fixed; inset: 0; z-index: 20; display: flex; justify-content: end; background: rgb(15 23 42 / .3); }.detail-drawer { width: min(52rem, 94vw); height: 100%; overflow: auto; background: var(--ofx-surface); box-shadow: -12px 0 32px rgb(15 23 42 / .2); padding: 1.5rem; color: var(--ofx-text); }.drawer-actions { display: flex; justify-content: end; margin-top: 1rem; }.planning-book-workspace-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1.25rem 0; border: 1px solid var(--ofx-border); border-radius: 14px; background: var(--ofx-surface-elevated); padding: 1rem 1.25rem; }.planning-book-workspace-eyebrow { color: var(--ofx-text-muted); font-size: .6875rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }.planning-book-workspace-meta { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .35rem; color: var(--ofx-text); font-size: .8125rem; font-weight: 600; }.planning-book-workspace-meta span { color: var(--ofx-text-muted); }.planning-book-workspace-body { height: calc(100vh - 13.5rem); min-height: 32rem; overflow: hidden; }.muted { color: var(--ofx-text-muted); }.message { margin-top: 1.25rem; border-radius: 14px; padding: .85rem 1rem; font-size: .875rem; }.message-error { border: 1px solid #f0b7b2; background: #fff8f7; color: #b42318; }
 </style>

@@ -258,13 +258,15 @@ test('Supply Planning Book restricts detail editing to planned Working Plan quan
   assert.equal(isSupplyPlanningBookDetailQuantityEditable('Planned Production-Constrained Plan', { 'Production Version Id': 'PV-01' }), false);
 });
 
-test('Supply Planning Book uses the neutral rich grid while preserving on-demand detail gates', () => {
+test('Supply Planning Book uses the canonical AG Grid while preserving Community detail and edit gates', () => {
   const communityPage = readFileSync(new URL('../src/modules/supply-planning/SupplyPlanningBookCommunityPage.vue', import.meta.url), 'utf8');
 
-  assert.match(communityPage, /PlanningBookVirtualGrid/);
-  assert.match(communityPage, /buildCommunityPlanningBookRichRows/);
+  assert.match(communityPage, /LegacyPlanningBookGrid/);
+  assert.doesNotMatch(communityPage, /PlanningBookVirtualGrid|buildCommunityPlanningBookRichRows/);
   assert.match(communityPage, /getSupplyPlanningBookCatalog/);
   assert.match(communityPage, /saveSupplyPlanningBookCell\(/);
+  assert.match(communityPage, /savePendingCells/);
+  assert.match(communityPage, /Save in batch/);
   assert.match(communityPage, /saveSupplyPlanningBookCellDetails\(/);
   assert.match(communityPage, /openCellDetails\(/);
   assert.match(communityPage, /COMMUNITY_EDITABLE_KEY_FIGURES/);
@@ -275,8 +277,11 @@ test('Supply Planning Book uses the neutral rich grid while preserving on-demand
   assert.match(communityPage, /Reopen selection/);
   assert.match(communityPage, /function leavePlanningBook/);
   assert.match(communityPage, /v-if="!planningBook"/);
-  assert.match(communityPage, /!row\.additionalClasses\[field\]\?\.includes\('crosshatch'\)/);
-  assert.match(communityPage, /column\.field === 'uom'/);
+  assert.match(communityPage, /isCommunityCellEditable/);
+  assert.match(communityPage, /descriptorValues/);
+  assert.match(communityPage, /:is-cell-editable="isCommunityCellEditable"/);
+  assert.match(communityPage, /uom: planningBook\.value\.uom/);
+  assert.match(communityPage, /setImmersiveWorkspace\(opened\)/);
   assert.doesNotMatch(communityPage, /read-only in Community|<span>•<\/span> Community/);
   assert.doesNotMatch(communityPage, /referencePlanId|xlsx\/import|change log|\/data\//i);
 });
@@ -301,4 +306,18 @@ test('Production Planning Book preserves the legacy production workbook selectio
   assert.match(communityPage, /Reopen selection/);
   assert.match(communityPage, /function leavePlanningBook/);
   assert.match(communityPage, /v-if="!planningBook"/);
+});
+
+test('User Views keeps characteristic controls readable without squeezing Position', () => {
+  const userViewsPage = readFileSync(
+    new URL('../src/modules/planning-books/UserViewsCommunityPage.vue', import.meta.url),
+    'utf8',
+  );
+
+  assert.doesNotMatch(userViewsPage, /label="Characteristic presentation"/);
+  assert.match(userViewsPage, /label="Presentation"/);
+  assert.match(
+    userViewsPage,
+    /grid-template-columns: minmax\(15rem,\.9fr\) minmax\(22rem,1\.4fr\) minmax\(15rem,\.75fr\)/,
+  );
 });

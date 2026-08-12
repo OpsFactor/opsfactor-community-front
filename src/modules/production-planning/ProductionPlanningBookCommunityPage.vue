@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { PlanningBookVirtualGrid, type PlanningBookVirtualGridColumn } from '@opsfactor/front-planning-book';
 import { OfxPageHeader, OfxSectionCard } from '@opsfactor/front-shell';
+import OfxSelectField from '../../components/ofx/forms/OfxSelectField.vue';
 import DashboardPageLayout from '@/layouts/page/DashboardPageLayout.vue';
 import {
   getProductionPlanningBook,
@@ -31,6 +32,14 @@ const errorMessage = ref<string | null>(null);
 
 const canOpenPlanningBook = computed(() => selectedSupplyPlanId.value !== null && selectedLocationId.value.length > 0);
 const richRows = computed(() => planningBook.value === null ? [] : buildProductionPlanningBookRichRows(planningBook.value));
+const supplyPlanOptions = computed(() => [
+  { label: 'Select a Supply Plan', value: '' },
+  ...supplyPlans.value.map((supplyPlan) => ({ label: supplyPlanLabel(supplyPlan), value: supplyPlan.supplyPlanId })),
+]);
+const locationOptions = computed(() => [
+  { label: 'Select a production location', value: '' },
+  ...locations.value.map((location) => ({ label: locationLabel(location), value: location.id })),
+]);
 const richColumns = computed<PlanningBookVirtualGridColumn<ProductionPlanningBookRichRow>[]>(() => [
   {
     id: 'production-row', label: 'Resource / material', width: '22rem', hierarchy: true,
@@ -178,18 +187,8 @@ onMounted(loadSelectors);
 
     <OfxSectionCard v-if="!planningBook" title="Workbook Selection" description="Select the Supply Plan and the enabled production location.">
       <div class="selection-grid">
-      <label class="field-label">Supply Plan
-        <select v-model.number="selectedSupplyPlanId" :disabled="isLoadingSelectors || isSaving">
-          <option :value="null">Select a Supply Plan</option>
-          <option v-for="supplyPlan in supplyPlans" :key="supplyPlan.supplyPlanId" :value="supplyPlan.supplyPlanId">{{ supplyPlanLabel(supplyPlan) }}</option>
-        </select>
-      </label>
-      <label class="field-label">Production location
-        <select v-model="selectedLocationId" :disabled="isLoadingSelectors || isSaving">
-          <option value="">Select a production location</option>
-          <option v-for="location in locations" :key="location.id" :value="location.id">{{ locationLabel(location) }}</option>
-        </select>
-      </label>
+      <OfxSelectField v-model.number="selectedSupplyPlanId" label="Supply Plan" :options="supplyPlanOptions" :disabled="isLoadingSelectors || isSaving" />
+      <OfxSelectField v-model="selectedLocationId" label="Production location" :options="locationOptions" :disabled="isLoadingSelectors || isSaving" />
       <div class="selection-open"><button class="primary-button" :disabled="!canOpenPlanningBook || isLoadingBook || isSaving" @click="openPlanningBook">{{ isLoadingBook ? 'Loading…' : 'Open Planning Book' }}</button></div>
       </div>
     </OfxSectionCard>
