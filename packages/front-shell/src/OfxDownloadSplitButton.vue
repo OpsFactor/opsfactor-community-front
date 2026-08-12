@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 export interface OfxDownloadOption {
   label: string;
@@ -36,6 +36,9 @@ const emit = defineEmits<{
 
 const menuOpen = ref(false);
 const rootRef = ref<HTMLElement | null>(null);
+const selectorRef = ref<HTMLElement | null>(null);
+const menuRef = ref<HTMLElement | null>(null);
+const menuStyle = ref<Record<string, string>>({});
 
 const selectedOption = computed(
   () => props.options.find((option) => option.value === props.modelValue) ?? props.options[0] ?? null,
@@ -102,12 +105,53 @@ function selectOption(value: string) {
   menuOpen.value = false;
 }
 
+/** Positions the format menu outside overflow-clipped cards and inside the viewport. */
+function syncMenuPosition() {
+
+  if (!menuOpen.value || !selectorRef.value || !menuRef.value) return;
+
+  const triggerRect = selectorRef.value.getBoundingClientRect();
+  const menuWidth = menuRef.value.offsetWidth;
+  const menuHeight = menuRef.value.offsetHeight;
+  const gap = 6;
+  const viewportPadding = 12;
+  const spaceBelow = window.innerHeight - triggerRect.bottom - viewportPadding - gap;
+  const spaceAbove = triggerRect.top - viewportPadding - gap;
+  const openUpwards = spaceBelow < menuHeight && spaceAbove > spaceBelow;
+  const availableHeight = Math.max(80, Math.min(menuHeight, openUpwards ? spaceAbove : spaceBelow));
+  const left = Math.max(
+    viewportPadding,
+    Math.min(triggerRect.right - menuWidth, window.innerWidth - viewportPadding - menuWidth),
+  );
+
+  menuStyle.value = {
+    top: openUpwards
+      ? `${Math.max(viewportPadding, triggerRect.top - gap - availableHeight)}px`
+      : `${triggerRect.bottom + gap}px`,
+    left: `${left}px`,
+    maxHeight: `${availableHeight}px`,
+  };
+
+}
+
 onMounted(() => {
   document.addEventListener('mousedown', handleDocumentClick);
+  window.addEventListener('resize', syncMenuPosition);
+  window.addEventListener('scroll', syncMenuPosition, true);
 });
 
 onBeforeUnmount(() => {
   document.removeEventListener('mousedown', handleDocumentClick);
+  window.removeEventListener('resize', syncMenuPosition);
+  window.removeEventListener('scroll', syncMenuPosition, true);
+});
+
+watch(menuOpen, async (isOpen) => {
+
+  if (!isOpen) return;
+  await nextTick();
+  syncMenuPosition();
+
 });
 </script>
 
@@ -126,6 +170,7 @@ onBeforeUnmount(() => {
 
     <button
       v-if="props.selectorVisible"
+      ref="selectorRef"
       :class="selectorButtonClass"
       :disabled="props.disabled || props.options.length <= 1"
       @click="menuOpen = !menuOpen"
@@ -136,20 +181,24 @@ onBeforeUnmount(() => {
       </span>
     </button>
 
-    <div
-      v-if="props.selectorVisible && menuOpen"
-      :class="['absolute right-0 top-[calc(100%+0.35rem)] z-[calc(var(--ofx-z-dropdown)+8)] min-w-[120px] rounded-[10px] border p-1 shadow-[var(--ofx-shadow-lg)] backdrop-blur-xl', menuClass]"
-    >
-      <button
-        v-for="option in props.options"
-        :key="option.value"
-        :class="optionClass"
-        :disabled="option.disabled"
-        @click="selectOption(option.value)"
+    <Teleport to="body">
+      <div
+        v-if="props.selectorVisible && menuOpen"
+        ref="menuRef"
+        :class="['fixed z-[9999] min-w-[120px] overflow-y-auto rounded-[10px] border p-1 shadow-[var(--ofx-shadow-lg)] backdrop-blur-xl', menuClass]"
+        :style="menuStyle"
       >
-        <span>{{ option.label }}</span>
-        <span v-if="props.modelValue === option.value">✓</span>
-      </button>
-    </div>
+        <button
+          v-for="option in props.options"
+          :key="option.value"
+          :class="optionClass"
+          :disabled="option.disabled"
+          @click="selectOption(option.value)"
+        >
+          <span>{{ option.label }}</span>
+          <span v-if="props.modelValue === option.value">✓</span>
+        </button>
+      </div>
+    </Teleport>
   </div>
 </template>

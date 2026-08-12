@@ -3,6 +3,8 @@ import { computed, onMounted, ref, watch } from 'vue';
 import {
   OfxDataTopicWorkspace,
   OfxEditionAvailabilityMark,
+  OfxConfirmDialog,
+  OfxDateField,
   OfxPageHeader,
   OfxSectionCard,
   TaskPageLayout,
@@ -10,6 +12,7 @@ import {
   type OfxOperationPanelOption,
 } from '@opsfactor/front-shell';
 import { httpClient } from '../../services/community-authentication.service';
+import OfxSelectField from '../../components/ofx/forms/OfxSelectField.vue';
 import {
   communityPlanOptionLabel,
   loadCommunityDemandPlans,
@@ -40,21 +43,48 @@ const selectedThemeId = ref<DataCatalogThemeId>('master-data');
 const selectedGroupId = ref<DataCatalogGroup['id']>('supply-network');
 const selectedSectionId = ref<DataCatalogSection['id']>('transportation-network');
 const selectedTopicId = ref<DataCatalogTopic['id']>('supply-network-version');
-type DataWorkspaceOperation = 'download' | 'import';
+type DataWorkspaceOperation = 'download' | 'import' | 'delete';
+type PlanPeriodScope = 'period' | 'full';
+
+interface CommunityPlanPeriodOption {
+  label: string;
+  referenceDate: string;
+}
+
+interface DownloadSelectionChip {
+  key: 'plan' | 'period';
+  label: string;
+}
 
 const selectedOperation = ref<DataWorkspaceOperation>('download');
 const selectedVariantSubPath = ref('');
-const selectedFile = ref<File | null>(null);
+const fileInputRef = ref<HTMLInputElement | null>(null);
+const deleteConfirmationOpen = ref(false);
 const initialDate = ref('');
 const finalDate = ref('');
 const demandPlanId = ref('');
 const supplyPlanId = ref('');
-const unitOfMeasureId = ref('');
 const supplyPlans = ref<CommunityPlanOption[]>([]);
 const demandPlans = ref<CommunityPlanOption[]>([]);
-const unitOfMeasureIds = ref<string[]>([]);
+const planPeriodScope = ref<PlanPeriodScope>('period');
+const planPeriodOptions = ref<CommunityPlanPeriodOption[]>([]);
+const selectedPlanPeriodReferenceDate = ref('');
+const loadingPlanPeriods = ref(false);
+const planPeriodError = ref<string | null>(null);
+let planPeriodRequestSequence = 0;
+const selectedVariantOptions = computed(() => selectedFamily.value.variants?.map((variant) => ({
+  label: variant.label,
+  value: variant.subPath,
+})) ?? []);
+const demandPlanOptions = computed(() => [
+  { label: 'Select a Demand Plan', value: '' },
+  ...demandPlans.value.map((plan) => ({ label: communityPlanOptionLabel(plan), value: String(plan.demandPlanId) })),
+]);
+const supplyPlanOptions = computed(() => [
+  { label: 'Select a Supply Plan', value: '' },
+  ...supplyPlans.value.map((plan) => ({ label: communityPlanOptionLabel(plan), value: String(plan.supplyPlanId) })),
+]);
 const loadingOptions = ref(false);
-const pendingMutation = ref<CommunityDataTarget | null>(null);
 const busy = ref(false);
 const resultMessage = ref<string | null>(null);
 const errorMessage = ref<string | null>(null);
@@ -80,6 +110,39 @@ const catalogSelectionIsExecutable = computed(() => selectedFamily.value.theme =
   && selectedFamily.value.catalogTopicId === selectedTopicId.value);
 const currentOperation = computed<CommunityDataOperation>(() => selectedFamily.value.operations.find((operation) => operation.kind === physicalOperationKind(selectedOperation.value))
   ?? selectedFamily.value.operations[0]);
+const supportsPlanPeriodScope = computed(() => Boolean(currentOperation.value.supportsPlanPeriodScope));
+const selectedPlanId = computed(() => currentOperation.value.requiresDemandPlanId ? demandPlanId.value : supplyPlanId.value);
+const showPlanPeriodSelector = computed(() => (
+  supportsPlanPeriodScope.value
+  && planPeriodScope.value === 'period'
+  && Boolean(selectedPlanId.value.trim())
+));
+const planPeriodSelectOptions = computed(() => [
+  { label: 'Choose a plan period', value: '' },
+  ...planPeriodOptions.value.map((period) => ({ label: period.label, value: period.referenceDate })),
+]);
+const selectedPlanOption = computed(() => {
+
+  const options = currentOperation.value.requiresDemandPlanId ? demandPlans.value : supplyPlans.value;
+  const id = selectedPlanId.value.trim();
+  return options.find((option) => String(currentOperation.value.requiresDemandPlanId ? option.demandPlanId : option.supplyPlanId) === id);
+
+});
+const selectedPlanPeriodOption = computed(() => (
+  planPeriodOptions.value.find((option) => option.referenceDate === selectedPlanPeriodReferenceDate.value)
+));
+const downloadSelectionChips = computed<DownloadSelectionChip[]>(() => {
+
+  const chips: DownloadSelectionChip[] = [];
+  if (selectedPlanOption.value) {
+    chips.push({ key: 'plan', label: `${currentOperation.value.requiresDemandPlanId ? 'Demand Plan' : 'Supply Plan'}: ${communityPlanOptionLabel(selectedPlanOption.value)}` });
+  }
+  if (showPlanPeriodSelector.value && selectedPlanPeriodOption.value) {
+    chips.push({ key: 'period', label: `Plan period: ${selectedPlanPeriodOption.value.label}` });
+  }
+  return chips;
+
+});
 const operationOptions = computed<OfxOperationPanelOption[]>(() => {
 
   const operations: OfxOperationPanelOption[] = [];
@@ -89,29 +152,48 @@ const operationOptions = computed<OfxOperationPanelOption[]>(() => {
   if (selectedFamily.value.operations.some((operation) => operation.kind === 'upload-file')) {
     operations.push({ value: 'import', label: 'Import', description: 'Upload a file using the published topic format.' });
   }
+  if (selectedFamily.value.operations.some((operation) => operation.kind === 'delete-json')) {
+    operations.push({ value: 'delete', label: 'Delete', description: 'Permanently remove the selected topic data.' });
+  }
   return operations;
 });
 const currentEndpoint = computed(() => displayEndpoint(currentTarget()));
-const operationDisabled = computed(() => busy.value || loadingOptions.value || hasMissingRequiredInputs());
+const operationRequiresPlanOptions = computed(() => currentOperation.value.requiresDemandPlanId || currentOperation.value.requiresSupplyPlanId);
+const operationDisabled = computed(() => busy.value
+  || (Boolean(operationRequiresPlanOptions.value) && loadingOptions.value)
+  || hasMissingRequiredInputs());
 const downloadVisible = computed(() => selectedOperation.value === 'download');
 const importVisible = computed(() => selectedOperation.value === 'import');
+const deleteVisible = computed(() => selectedOperation.value === 'delete');
+const importActionLabel = computed(() => busy.value ? 'Importing…' : `Import ${selectedFamily.value.label}`);
+const deleteActionLabel = computed(() => busy.value ? 'Deleting…' : 'Delete permanently');
+const deleteWarningText = computed(() => `This operation permanently removes the published ${selectedFamily.value.label} dataset and cannot be undone.`);
+const deleteConfirmationTitle = computed(() => `Delete ${selectedFamily.value.label}`);
+const deleteConfirmationDescription = computed(() => `This permanently removes the selected ${selectedFamily.value.label} dataset. Review the warning above before confirming.`);
 
 /** Resets operation-specific inputs and restores the canonical JSON starter when the operation changes. */
 watch([selectedFamily, selectedOperation], () => {
 
-  selectedFile.value = null;
-  pendingMutation.value = null;
   selectedVariantSubPath.value = selectedFamily.value.variants?.[0]?.subPath ?? '';
+  deleteConfirmationOpen.value = false;
+  planPeriodScope.value = currentOperation.value.supportsPlanPeriodScope ? 'period' : 'full';
+  planPeriodOptions.value = [];
+  selectedPlanPeriodReferenceDate.value = '';
+  planPeriodError.value = null;
+});
+
+watch([selectedPlanId, supportsPlanPeriodScope], () => {
+
+  void refreshPlanPeriods();
 });
 
 onMounted(async () => {
 
   loadingOptions.value = true;
   try {
-    [demandPlans.value, supplyPlans.value, unitOfMeasureIds.value] = await Promise.all([
+    [demandPlans.value, supplyPlans.value] = await Promise.all([
       loadCommunityDemandPlans(),
       loadCommunitySupplyPlans(),
-      httpClient.request<string[]>('/api/secured/unitofmeasure/findids'),
     ]);
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Unable to load Supply Plans.';
@@ -205,7 +287,80 @@ function selectCatalogFamily(family: CommunityDataFamily): void {
 
 function physicalOperationKind(operation: DataWorkspaceOperation): CommunityDataOperation['kind'] {
 
-  return operation === 'download' ? 'download-file' : 'upload-file';
+  if (operation === 'download') {
+    return 'download-file';
+  }
+  if (operation === 'import') {
+    return 'upload-file';
+  }
+  return 'delete-json';
+}
+
+/** Loads the bucket labels published by the selected Demand or Supply Plan. */
+async function refreshPlanPeriods(): Promise<void> {
+
+  const requestSequence = ++planPeriodRequestSequence;
+  planPeriodOptions.value = [];
+  selectedPlanPeriodReferenceDate.value = '';
+  planPeriodError.value = null;
+
+  if (!supportsPlanPeriodScope.value || !selectedPlanId.value.trim()) {
+    return;
+  }
+
+  loadingPlanPeriods.value = true;
+  try {
+    const planType = currentOperation.value.requiresDemandPlanId ? 'demand' : 'supply';
+    const periods = await httpClient.request<Array<{ label?: string | null; referenceDate?: string | null }>>(
+      `/api/secured/planning/${planType}/${encodeURIComponent(selectedPlanId.value)}/periods`,
+    );
+    if (requestSequence !== planPeriodRequestSequence) {
+      return;
+    }
+    planPeriodOptions.value = periods.flatMap((period) => {
+      const referenceDate = period.referenceDate?.slice(0, 10) ?? '';
+      return referenceDate.length > 0
+        ? [{ label: period.label?.trim() || referenceDate, referenceDate }]
+        : [];
+    });
+  } catch (error) {
+    if (requestSequence !== planPeriodRequestSequence) {
+      return;
+    }
+    planPeriodError.value = error instanceof Error ? error.message : 'Unable to load plan periods.';
+  } finally {
+    if (requestSequence === planPeriodRequestSequence) {
+      loadingPlanPeriods.value = false;
+    }
+  }
+
+}
+
+/** Clears a selected plan and its dependent period without leaving an invalid export scope behind. */
+function clearDownloadSelection(selection: DownloadSelectionChip['key']): void {
+
+  if (selection === 'plan') {
+    if (currentOperation.value.requiresDemandPlanId) {
+      demandPlanId.value = '';
+    } else {
+      supplyPlanId.value = '';
+    }
+  }
+  selectedPlanPeriodReferenceDate.value = '';
+
+}
+
+/** Removes the complete plan-bound scope so the operator can start the selection again. */
+function clearDownloadSelections(): void {
+
+  if (currentOperation.value.requiresDemandPlanId) {
+    demandPlanId.value = '';
+  }
+  if (currentOperation.value.requiresSupplyPlanId) {
+    supplyPlanId.value = '';
+  }
+  selectedPlanPeriodReferenceDate.value = '';
+
 }
 
 /** Builds one target only from the selected allowlisted family, operation and visible scope inputs. */
@@ -218,7 +373,9 @@ function currentTarget(): CommunityDataTarget {
     dateRange: currentOperation.value.requiresDateRange ? { initialDate: initialDate.value, finalDate: finalDate.value } : undefined,
     demandPlanId: currentOperation.value.requiresDemandPlanId ? demandPlanId.value : undefined,
     supplyPlanId: currentOperation.value.requiresSupplyPlanId ? supplyPlanId.value : undefined,
-    unitOfMeasureId: currentOperation.value.requiresUnitOfMeasureId ? unitOfMeasureId.value : undefined,
+    referenceDate: supportsPlanPeriodScope.value && planPeriodScope.value === 'period'
+      ? selectedPlanPeriodReferenceDate.value
+      : undefined,
   };
 }
 
@@ -228,7 +385,7 @@ function hasMissingRequiredInputs(): boolean {
     (currentOperation.value.requiresDateRange && (!initialDate.value || !finalDate.value))
     || (currentOperation.value.requiresDemandPlanId && !demandPlanId.value.trim())
     || (currentOperation.value.requiresSupplyPlanId && !supplyPlanId.value.trim())
-    || (currentOperation.value.requiresUnitOfMeasureId && !unitOfMeasureId.value.trim()),
+    || (supportsPlanPeriodScope.value && planPeriodScope.value === 'period' && !selectedPlanPeriodReferenceDate.value.trim()),
   );
 }
 
@@ -246,21 +403,14 @@ function displayEndpoint(target: CommunityDataTarget): string {
   }
   if (target.operation.requiresSupplyPlanId && !target.supplyPlanId?.trim()) {
     const suffix = target.operation.kind === 'download-file' || target.operation.kind === 'upload-file' ? 'file/' : '';
-    return target.operation.requiresUnitOfMeasureId
-      ? `/api/secured/data/${suffix}${subPath}/{supplyPlanId}/{unitOfMeasureId}`
-      : `/api/secured/data/${suffix}${subPath}/{supplyPlanId}`;
+    return `/api/secured/data/${suffix}${subPath}/{supplyPlanId}`;
   }
-  if (target.operation.requiresUnitOfMeasureId && !target.unitOfMeasureId?.trim()) {
+  if (target.operation.supportsPlanPeriodScope && planPeriodScope.value === 'period' && !target.referenceDate?.trim()) {
     const suffix = target.operation.kind === 'download-file' || target.operation.kind === 'upload-file' ? 'file/' : '';
-    return `/api/secured/data/${suffix}${subPath}/${encodeURIComponent(target.supplyPlanId ?? '')}/{unitOfMeasureId}`;
+    const planParameter = target.operation.requiresDemandPlanId ? '{demandPlanId}' : '{supplyPlanId}';
+    return `/api/secured/data/${suffix}${subPath}/${planParameter}/period/{referenceDate}`;
   }
   return buildCommunityDataEndpoint(target);
-}
-
-function onFileChanged(event: Event): void {
-
-  const target = event.target as HTMLInputElement;
-  selectedFile.value = target.files?.item(0) ?? null;
 }
 
 /** Downloads the selected tabular response in the format chosen in the standard workspace control. */
@@ -284,10 +434,22 @@ async function download(): Promise<void> {
   }
 }
 
-/** Validates the selected file before the user sees the standard upload confirmation. */
-function requestMutationConfirmation(): void {
+/** Opens the browser file chooser from the shared import action, as in the Planning Front. */
+function triggerImport(): void {
 
   if (operationDisabled.value) {
+    return;
+  }
+
+  fileInputRef.value?.click();
+}
+
+/** Uploads the selected file immediately and always resets the hidden chooser for retries. */
+async function runUpload(event: Event): Promise<void> {
+
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.item(0);
+  if (file === null || file === undefined || busy.value) {
     return;
   }
 
@@ -296,45 +458,54 @@ function requestMutationConfirmation(): void {
     if (target.operation.kind !== 'upload-file') {
       throw new Error('Only file uploads are available from this workspace.');
     }
-    if (selectedFile.value === null) {
-      throw new Error('Choose a file before confirming the upload.');
-    }
     buildCommunityDataEndpoint(target);
-    pendingMutation.value = target;
-    errorMessage.value = null;
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Review the selected data operation.';
-  }
-}
-
-/** Executes one already-confirmed file upload and renders the backend message. */
-async function confirmMutation(): Promise<void> {
-
-  const target = pendingMutation.value;
-  if (target === null || busy.value) {
-    return;
-  }
-
-  try {
     busy.value = true;
     errorMessage.value = null;
     resultMessage.value = null;
-    const message = await dataUploadService.uploadFile(target, requireSelectedFile());
+    const message = await dataUploadService.uploadFile(target, file);
     resultMessage.value = message;
-    pendingMutation.value = null;
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'The data operation failed.';
   } finally {
     busy.value = false;
+    input.value = '';
   }
 }
 
-function requireSelectedFile(): File {
+/** Opens a deliberate confirmation step before the only Community bulk-delete endpoint. */
+function requestDelete(): void {
 
-  if (selectedFile.value === null) {
-    throw new Error('The selected file is no longer available. Choose it again before confirming.');
+  if (operationDisabled.value) {
+    return;
   }
-  return selectedFile.value;
+  deleteConfirmationOpen.value = true;
+
+}
+
+/** Executes the server-published deletion only after the operator confirms the visible action. */
+async function runDelete(): Promise<void> {
+
+  if (operationDisabled.value) {
+    return;
+  }
+
+  try {
+    const target = currentTarget();
+    if (target.operation.kind !== 'delete-json') {
+      throw new Error('Only published deletion operations are available from this workspace.');
+    }
+    busy.value = true;
+    errorMessage.value = null;
+    resultMessage.value = null;
+    const message = await dataUploadService.deleteJson(target, '{}');
+    resultMessage.value = message;
+    deleteConfirmationOpen.value = false;
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Unable to delete the selected data.';
+  } finally {
+    busy.value = false;
+  }
+
 }
 
 </script>
@@ -342,6 +513,8 @@ function requireSelectedFile(): File {
 <template>
   <TaskPageLayout class="data-operations-page">
     <OfxPageHeader eyebrow="Data" title="Data Operations" description="Select a topic and run the required operation from a single workspace." />
+
+    <input ref="fileInputRef" type="file" class="hidden-file-input" accept=".csv,.xlsx,.xls" @change="runUpload">
 
     <OfxSectionCard title="Catalog" description="Choose a theme, group, section, and topic. Options unavailable in the current edition remain visible and locked.">
       <div class="catalog-grid">
@@ -382,7 +555,7 @@ function requireSelectedFile(): File {
     <p v-if="catalogSelectionIsExecutable && resultMessage" class="message message-success" role="status">{{ resultMessage }}</p>
     <p v-if="catalogSelectionIsExecutable && errorMessage" class="message message-error" role="alert">{{ errorMessage }}</p>
 
-    <OfxSectionCard v-if="catalogSelectionIsExecutable" :title="selectedFamily.label" :description="selectedFamily.description">
+    <OfxSectionCard v-if="catalogSelectionIsExecutable" class="data-operation-card" :title="selectedFamily.label" :description="selectedFamily.description">
       <div class="workspace-summary">
         <div>
           <div class="workspace-breadcrumb">{{ selectedTheme.title }} / {{ selectedGroup.title }} / {{ selectedSection.title }}</div>
@@ -401,50 +574,70 @@ function requireSelectedFile(): File {
         :download-format="downloadFormat"
         :download-options="downloadOptions"
         download-presentation="format-select"
+        download-action-variant="accent"
         :import-visible="importVisible"
         :import-disabled="operationDisabled"
-        import-label="Import file"
+        :import-label="importActionLabel"
+        :danger-visible="deleteVisible"
+        :danger-disabled="operationDisabled"
+        warning-tone="danger"
+        :warning-text="deleteWarningText"
+        :danger-label="deleteActionLabel"
+        :processing-label="deleteActionLabel"
         theme-mode="light"
         @update:download-format="downloadFormat = $event as CommunityDataDownloadFormat"
         @download="download"
-        @import="requestMutationConfirmation"
+        @import="triggerImport"
+        @danger="requestDelete"
       >
         <template #filters>
           <div v-if="selectedFamily.variants?.length" class="input-grid">
-            <label>Dataset<select v-model="selectedVariantSubPath" :disabled="busy"><option v-for="variant in selectedFamily.variants" :key="variant.id" :value="variant.subPath">{{ variant.label }}</option></select></label>
+            <OfxSelectField v-model="selectedVariantSubPath" label="Dataset" :options="selectedVariantOptions" :show-placeholder-option="false" :disabled="busy" />
           </div>
           <div v-if="currentOperation.requiresDateRange" class="input-grid">
-            <label>Initial date<input v-model="initialDate" :disabled="busy" type="date"></label>
-            <label>Final date<input v-model="finalDate" :disabled="busy" type="date"></label>
+            <OfxDateField v-model="initialDate" label="Initial date" :disabled="busy" />
+            <OfxDateField v-model="finalDate" label="Final date" :disabled="busy" />
           </div>
-          <div v-if="currentOperation.requiresDemandPlanId" class="input-grid">
-            <label>Demand Plan<select v-model="demandPlanId" :disabled="busy || loadingOptions"><option value="" disabled>{{ loadingOptions ? 'Loading Demand Plans…' : 'Select a Demand Plan' }}</option><option v-for="plan in demandPlans" :key="plan.demandPlanId" :value="String(plan.demandPlanId)">{{ communityPlanOptionLabel(plan) }}</option></select></label>
+          <div v-if="supportsPlanPeriodScope" class="download-scope">
+            <span class="download-scope__label">Export scope</span>
+            <div class="download-scope__choices" role="group" aria-label="Export scope">
+              <button type="button" class="scope-button" :class="{ selected: planPeriodScope === 'period' }" :disabled="busy" @click="planPeriodScope = 'period'">Plan period</button>
+              <button type="button" class="scope-button" :class="{ selected: planPeriodScope === 'full' }" :disabled="busy" @click="planPeriodScope = 'full'">Complete dataset</button>
+            </div>
           </div>
-          <div v-if="currentOperation.requiresSupplyPlanId" class="input-grid">
-            <label>Supply Plan<select v-model="supplyPlanId" :disabled="busy || loadingOptions"><option value="" disabled>{{ loadingOptions ? 'Loading Supply Plans…' : 'Select a Supply Plan' }}</option><option v-for="plan in supplyPlans" :key="plan.supplyPlanId" :value="String(plan.supplyPlanId)">{{ communityPlanOptionLabel(plan) }}</option></select></label>
-            <label v-if="currentOperation.requiresUnitOfMeasureId">Unit of Measure<select v-model="unitOfMeasureId" :disabled="busy || loadingOptions"><option value="" disabled>{{ loadingOptions ? 'Loading Units…' : 'Select a Unit of Measure' }}</option><option v-for="uomId in unitOfMeasureIds" :key="uomId" :value="uomId">{{ uomId }}</option></select></label>
+          <div v-if="currentOperation.requiresDemandPlanId || currentOperation.requiresSupplyPlanId" class="plan-download-fields">
+            <OfxSelectField v-if="currentOperation.requiresDemandPlanId" v-model="demandPlanId" label="Demand Plan" :options="demandPlanOptions" :disabled="busy" :loading="loadingOptions" loading-label="Loading Demand Plans…" />
+            <OfxSelectField v-if="currentOperation.requiresSupplyPlanId" v-model="supplyPlanId" label="Supply Plan" :options="supplyPlanOptions" :disabled="busy" :loading="loadingOptions" loading-label="Loading Supply Plans…" />
+            <OfxSelectField v-if="showPlanPeriodSelector" v-model="selectedPlanPeriodReferenceDate" label="Plan period" :options="planPeriodSelectOptions" :disabled="busy || Boolean(planPeriodError)" :loading="loadingPlanPeriods" loading-label="Loading plan periods…" />
+            <p v-if="planPeriodError" class="message message-error" role="alert">{{ planPeriodError }}</p>
           </div>
-          <label v-if="selectedOperation === 'import'" class="file-input">File<input :disabled="busy" type="file" accept=".csv,.xlsx,.xls" @change="onFileChanged"></label>
-          <p v-if="selectedOperation === 'import'" class="muted">Selected file: {{ selectedFile?.name ?? 'None' }}.</p>
+          <div v-if="downloadSelectionChips.length" class="download-selection-summary" aria-label="Selected download scope">
+            <button v-for="selection in downloadSelectionChips" :key="selection.key" type="button" class="selection-chip" :disabled="busy" @click="clearDownloadSelection(selection.key)">
+              {{ selection.label }} <span aria-hidden="true">×</span>
+            </button>
+            <button type="button" class="clear-selection-button" :disabled="busy" @click="clearDownloadSelections">Clear all</button>
+          </div>
         </template>
       </OfxDataTopicWorkspace>
     </OfxSectionCard>
 
-    <OfxSectionCard v-else :title="selectedCatalogTopic?.title ?? 'Unavailable topic'" :description="selectedCatalogTopic?.description">
+    <OfxConfirmDialog
+      :open="deleteConfirmationOpen"
+      :title="deleteConfirmationTitle"
+      :description="deleteConfirmationDescription"
+      confirm-label="Delete permanently"
+      confirm-tone="danger"
+      @cancel="deleteConfirmationOpen = false"
+      @confirm="runDelete"
+    />
+
+    <OfxSectionCard v-if="!catalogSelectionIsExecutable" :title="selectedCatalogTopic?.title ?? 'Unavailable topic'" :description="selectedCatalogTopic?.description">
       <div class="locked-workspace">
         <OfxEditionAvailabilityMark edition-label="Pro / Enterprise" theme-mode="light" :size="14" />
         <span>This topic is not available in the current edition.</span>
       </div>
     </OfxSectionCard>
 
-    <OfxSectionCard v-if="catalogSelectionIsExecutable && pendingMutation" class="mt-5 confirmation" title="Confirm upload?" description="Review the selected file before uploading it." role="dialog" aria-modal="true">
-      <p>The server will upload one file for <strong>{{ pendingMutation.family.label }}</strong>. Its response message will be shown when it returns.</p>
-      <p class="muted">{{ buildCommunityDataEndpoint(pendingMutation) }}</p>
-      <template #actions><div class="actions">
-        <button class="secondary-button" type="button" :disabled="busy" @click="pendingMutation = null">Keep editing</button>
-        <button class="primary-button" type="button" :disabled="busy" @click="confirmMutation">{{ busy ? 'Uploading…' : 'Confirm upload' }}</button>
-      </div></template>
-    </OfxSectionCard>
   </TaskPageLayout>
 </template>
 
@@ -456,6 +649,13 @@ function requireSelectedFile(): File {
 .catalog-card:hover { border-color: var(--ofx-border-strong); }
 .catalog-card.selected { border-color: var(--ofx-border-selected); background: color-mix(in srgb, var(--ofx-primary) 7%, var(--ofx-surface)); }
 .catalog-card--locked { border-style: dashed; background: var(--ofx-muted); }
+.data-operation-card { width: min(100%, 72rem); margin-inline: auto; }
+.download-scope { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; border: 1px solid color-mix(in srgb, var(--ofx-primary) 18%, var(--ofx-border)); border-radius: 14px; background: color-mix(in srgb, var(--ofx-primary) 4%, var(--ofx-surface)); padding: .9rem 1rem; }
+.download-scope__label { color: var(--ofx-text-subtle); font-size: .75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.download-scope__choices { display: flex; flex-wrap: wrap; gap: .5rem; }
+.scope-button { border: 1px solid var(--ofx-border); border-radius: 8px; background: var(--ofx-surface); color: var(--ofx-text); font-weight: 650; padding: .55rem .8rem; }
+.scope-button.selected { border-color: var(--ofx-primary); background: color-mix(in srgb, var(--ofx-primary) 10%, var(--ofx-surface)); color: var(--ofx-primary-strong); }
+.scope-button:disabled { cursor: not-allowed; opacity: .55; }
 .catalog-card--locked:hover { border-color: var(--ofx-border); }
 .catalog-card:disabled { cursor: not-allowed; opacity: .78; }
 .catalog-title { align-items: center; color: var(--ofx-text); display: inline-flex; font-size: .875rem; font-weight: 700; gap: .4rem; }
@@ -466,14 +666,16 @@ function requireSelectedFile(): File {
 .message-success { border: 1px solid #9ad5b2; background: #f0fbf4; color: #146c43; }
 .message-error { border: 1px solid #f0b7b2; background: #fff8f7; color: #b42318; }
 .input-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
-.input-grid label, .file-input { display: grid; gap: .4rem; color: var(--ofx-text); font-size: .875rem; font-weight: 600; }
-.input-grid input, .input-grid select, .file-input input { border: 1px solid var(--ofx-border); border-radius: 12px; background: var(--ofx-surface); min-height: 2.5rem; padding: .55rem .75rem; color: var(--ofx-text); }
-.confirmation p { margin: 0; }
-.confirmation .muted { overflow-wrap: anywhere; }
-.actions { display: flex; flex-wrap: wrap; gap: .55rem; }
-.primary-button, .secondary-button { display: inline-flex; height: 2.5rem; align-items: center; border: 1px solid var(--ofx-border); border-radius: 12px; background: var(--ofx-surface); padding: 0 1rem; color: var(--ofx-text); font-size: .875rem; font-weight: 600; }
-.primary-button { border-color: var(--ofx-primary); background: var(--ofx-primary); color: var(--ofx-primary-foreground); }
-.primary-button:disabled, .secondary-button:disabled { cursor: not-allowed; opacity: .55; }
+.plan-download-fields { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
+.plan-download-fields .message { grid-column: 1 / -1; margin-top: 0; }
+.download-selection-summary { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.selection-chip, .clear-selection-button { border: 1px solid var(--ofx-border); border-radius: 999px; background: var(--ofx-surface); color: var(--ofx-text); font-size: .8125rem; font-weight: 600; line-height: 1.25; padding: .42rem .7rem; }
+.selection-chip { border-color: var(--ofx-primary); color: var(--ofx-primary-strong); }
+.selection-chip span { margin-left: .3rem; }
+.clear-selection-button { color: var(--ofx-primary-strong); }
+.selection-chip:disabled, .clear-selection-button:disabled { cursor: not-allowed; opacity: .55; }
+.input-grid label { display: grid; gap: .4rem; color: var(--ofx-text); font-size: .875rem; font-weight: 600; }
+.hidden-file-input { display: none; }
 .locked-workspace { display: flex; align-items: center; gap: .65rem; border: 1px dashed var(--ofx-border-strong); border-radius: 12px; background: var(--ofx-muted); padding: .9rem 1rem; color: var(--ofx-text-muted); font-size: .8125rem; line-height: 1.45; }
 @media (max-width: 1120px) { .catalog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 680px) { .catalog-grid { grid-template-columns: 1fr; } }

@@ -209,7 +209,7 @@ export class CommunityDataUploadService {
   public async uploadFile(target: CommunityDataTarget, file: File): Promise<string> {
 
     if (file.size === 0) {
-      throw new Error('Choose a non-empty file before confirming the upload.');
+      throw new Error('Choose a non-empty file to import.');
     }
 
     const formData = new FormData();

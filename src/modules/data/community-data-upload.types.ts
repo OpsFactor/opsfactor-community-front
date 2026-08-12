@@ -18,6 +18,7 @@ export interface CommunityDataOperation {
   requiresDemandPlanId?: boolean;
   requiresSupplyPlanId?: boolean;
   requiresUnitOfMeasureId?: boolean;
+  supportsPlanPeriodScope?: boolean;
 }
 
 /** One Planning Front topic may expose related definition and assignment datasets. */
@@ -55,14 +56,14 @@ export interface CommunityDataTarget {
   demandPlanId?: string;
   supplyPlanId?: string;
   unitOfMeasureId?: string;
+  referenceDate?: string;
 }
 
-const STANDARD_MUTABLE_OPERATIONS: readonly CommunityDataOperation[] = [
+const FILE_AND_JSON_MUTABLE_OPERATIONS: readonly CommunityDataOperation[] = [
   { kind: 'download-file' },
   { kind: 'download-json' },
   { kind: 'upload-file' },
   { kind: 'upload-json' },
-  { kind: 'delete-json' },
 ];
 
 const FILE_AND_JSON_OPERATIONS: readonly CommunityDataOperation[] = [
@@ -88,27 +89,27 @@ export const COMMUNITY_DATA_FAMILIES: readonly CommunityDataFamily[] = [
   {
     id: 'unit-conversion', catalogTopicId: 'uom-conversion', theme: 'master-data', group: 'units-and-conversions', section: 'conversions', label: 'Unit Conversion',
     description: 'Global conversions between compatible quantitative dimensions.',
-    subPath: 'unitconversion', jsonPayload: 'integration-envelope', operations: STANDARD_MUTABLE_OPERATIONS,
+    subPath: 'unitconversion', jsonPayload: 'integration-envelope', operations: FILE_AND_JSON_MUTABLE_OPERATIONS,
   },
   {
     id: 'material-unit-conversion', catalogTopicId: 'uom-conversion-by-material', theme: 'master-data', group: 'units-and-conversions', section: 'conversions', label: 'Material Unit Conversion',
     description: 'Material-specific quantitative conversions.',
-    subPath: 'unitconversionmaterial', jsonPayload: 'integration-envelope', operations: STANDARD_MUTABLE_OPERATIONS,
+    subPath: 'unitconversionmaterial', jsonPayload: 'integration-envelope', operations: FILE_AND_JSON_MUTABLE_OPERATIONS,
   },
   {
     id: 'locations', catalogTopicId: 'locations', theme: 'master-data', group: 'materials-locations', section: 'locations', label: 'Locations',
     description: 'Location master data without geographic or economic extensions.',
-    subPath: 'location', jsonPayload: 'integration-envelope', operations: STANDARD_MUTABLE_OPERATIONS,
+    subPath: 'location', jsonPayload: 'integration-envelope', operations: FILE_AND_JSON_MUTABLE_OPERATIONS,
   },
   {
     id: 'materials', catalogTopicId: 'material-master', theme: 'master-data', group: 'materials-locations', section: 'materials', label: 'Materials',
     description: 'Material master data and planning status.',
-    subPath: 'material', jsonPayload: 'integration-envelope', operations: STANDARD_MUTABLE_OPERATIONS,
+    subPath: 'material', jsonPayload: 'integration-envelope', operations: FILE_AND_JSON_MUTABLE_OPERATIONS,
   },
   {
     id: 'material-characteristics', catalogTopicId: 'material-characteristics', theme: 'master-data', group: 'materials-locations', section: 'materials', label: 'Material Characteristics',
     description: 'Public material-characteristic definitions used by Planning Book filters and User Views.',
-    subPath: 'characteristic/material', jsonPayload: 'integration-envelope', operations: STANDARD_MUTABLE_OPERATIONS,
+    subPath: 'characteristic/material', jsonPayload: 'integration-envelope', operations: FILE_AND_JSON_MUTABLE_OPERATIONS,
     variants: [
       { id: 'definitions', label: 'Characteristic definitions', subPath: 'characteristic/material' },
       { id: 'values', label: 'Values by material', subPath: 'characteristic/material/value' },
@@ -117,7 +118,7 @@ export const COMMUNITY_DATA_FAMILIES: readonly CommunityDataFamily[] = [
   {
     id: 'location-characteristics', catalogTopicId: 'location-characteristics', theme: 'master-data', group: 'materials-locations', section: 'locations', label: 'Location Characteristics',
     description: 'Public location-characteristic definitions used by Planning Book filters and User Views.',
-    subPath: 'characteristic/location', jsonPayload: 'integration-envelope', operations: STANDARD_MUTABLE_OPERATIONS,
+    subPath: 'characteristic/location', jsonPayload: 'integration-envelope', operations: FILE_AND_JSON_MUTABLE_OPERATIONS,
     variants: [
       { id: 'definitions', label: 'Characteristic definitions', subPath: 'characteristic/location' },
       { id: 'values', label: 'Values by location', subPath: 'characteristic/location/value' },
@@ -126,57 +127,60 @@ export const COMMUNITY_DATA_FAMILIES: readonly CommunityDataFamily[] = [
   {
     id: 'material-location-parameters', catalogTopicId: 'product-location-parameters', theme: 'configuration', group: 'material-location', section: 'material-location-attributes', label: 'Material-Location Parameters',
     description: 'Operational parameters for existing material and location combinations.',
-    subPath: 'materiallocationparameters', jsonPayload: 'integration-envelope', operations: STANDARD_MUTABLE_OPERATIONS,
+    subPath: 'materiallocationparameters', jsonPayload: 'integration-envelope', operations: [
+      ...FILE_AND_JSON_MUTABLE_OPERATIONS,
+      { kind: 'delete-json' },
+    ],
   },
   {
     id: 'inventory-policy', catalogTopicId: 'inventory-policy', theme: 'configuration', group: 'supply-planning', section: 'inventory-policy-setup', label: 'Inventory Policy',
     description: 'Operational inventory-policy headers.',
-    subPath: 'inventorypolicy', jsonPayload: 'integration-envelope', operations: STANDARD_MUTABLE_OPERATIONS,
+    subPath: 'inventorypolicy', jsonPayload: 'integration-envelope', operations: FILE_AND_JSON_MUTABLE_OPERATIONS,
   },
   {
     id: 'inventory-policy-detail', catalogTopicId: 'inventory-policy-details', theme: 'configuration', group: 'supply-planning', section: 'inventory-policy-setup', label: 'Inventory Policy Detail',
     description: 'Material-location rules belonging to operational inventory policies.',
-    subPath: 'inventorypolicydetail', jsonPayload: 'integration-envelope', operations: STANDARD_MUTABLE_OPERATIONS,
+    subPath: 'inventorypolicydetail', jsonPayload: 'integration-envelope', operations: FILE_AND_JSON_MUTABLE_OPERATIONS,
   },
   {
     id: 'supply-network-version', catalogTopicId: 'supply-network-version', theme: 'master-data', group: 'supply-network', section: 'transportation-network', label: 'Supply Network Version',
     description: 'Network-version headers used by supply planning.',
-    subPath: 'supplynetworkversion', jsonPayload: 'integration-envelope', operations: STANDARD_MUTABLE_OPERATIONS,
+    subPath: 'supplynetworkversion', jsonPayload: 'integration-envelope', operations: FILE_AND_JSON_MUTABLE_OPERATIONS,
   },
   {
     id: 'transportation-lane', catalogTopicId: 'transportation-lane', theme: 'master-data', group: 'supply-network', section: 'transportation-network', label: 'Transportation Lane',
     description: 'Base origin-to-destination lanes.',
-    subPath: 'transportationlane', jsonPayload: 'integration-envelope', operations: STANDARD_MUTABLE_OPERATIONS,
+    subPath: 'transportationlane', jsonPayload: 'integration-envelope', operations: FILE_AND_JSON_MUTABLE_OPERATIONS,
   },
   {
     id: 'transportation-lane-material', catalogTopicId: 'transportation-lane-material', theme: 'master-data', group: 'supply-network', section: 'transportation-network', label: 'Transportation Lane Material',
     description: 'Material-specific lane eligibility and operational parameters.',
-    subPath: 'transportationlanematerial', jsonPayload: 'integration-envelope', operations: STANDARD_MUTABLE_OPERATIONS,
+    subPath: 'transportationlanematerial', jsonPayload: 'integration-envelope', operations: FILE_AND_JSON_MUTABLE_OPERATIONS,
   },
   {
     id: 'production-resource-availability', catalogTopicId: 'production-resource-availability', theme: 'master-data', group: 'production', section: 'production-resources', label: 'Production Resource Availability',
     description: 'Basic daily resource availability in hours.',
-    subPath: 'productionresourceavailability', jsonPayload: 'integration-envelope', operations: STANDARD_MUTABLE_OPERATIONS,
+    subPath: 'productionresourceavailability', jsonPayload: 'integration-envelope', operations: FILE_AND_JSON_MUTABLE_OPERATIONS,
   },
   {
     id: 'bill-of-materials', catalogTopicId: 'bill-of-materials', theme: 'master-data', group: 'production', section: 'bill-of-materials', label: 'Bill of Materials',
     description: 'Basic bill-of-materials headers.',
-    subPath: 'bom', jsonPayload: 'integration-envelope', operations: STANDARD_MUTABLE_OPERATIONS,
+    subPath: 'bom', jsonPayload: 'integration-envelope', operations: FILE_AND_JSON_MUTABLE_OPERATIONS,
   },
   {
     id: 'bill-of-materials-components', catalogTopicId: 'bill-of-materials-components', theme: 'master-data', group: 'production', section: 'bill-of-materials', label: 'Bill of Materials Components',
     description: 'Components of basic bills of materials.',
-    subPath: 'bomcomponents', jsonPayload: 'integration-envelope', operations: STANDARD_MUTABLE_OPERATIONS,
+    subPath: 'bomcomponents', jsonPayload: 'integration-envelope', operations: FILE_AND_JSON_MUTABLE_OPERATIONS,
   },
   {
     id: 'production-resource', catalogTopicId: 'production-resources', theme: 'master-data', group: 'production', section: 'production-resources', label: 'Production Resource',
     description: 'Basic productive resources.',
-    subPath: 'productionresource', jsonPayload: 'integration-envelope', operations: STANDARD_MUTABLE_OPERATIONS,
+    subPath: 'productionresource', jsonPayload: 'integration-envelope', operations: FILE_AND_JSON_MUTABLE_OPERATIONS,
   },
   {
     id: 'production-routing', catalogTopicId: 'production-routing', theme: 'master-data', group: 'production', section: 'production-routing', label: 'Production Routing',
     description: 'Basic production routings used by supply planning.',
-    subPath: 'productionrouting', jsonPayload: 'integration-envelope', operations: STANDARD_MUTABLE_OPERATIONS,
+    subPath: 'productionrouting', jsonPayload: 'integration-envelope', operations: FILE_AND_JSON_MUTABLE_OPERATIONS,
   },
   {
     id: 'routing-operation', catalogTopicId: 'production-routing-operations', theme: 'master-data', group: 'production', section: 'production-routing', label: 'Routing Operation',
@@ -187,7 +191,7 @@ export const COMMUNITY_DATA_FAMILIES: readonly CommunityDataFamily[] = [
   {
     id: 'simple-production-version', catalogTopicId: 'single-routing-production-version', theme: 'master-data', group: 'production', section: 'production-version', label: 'Simple Production Version',
     description: 'Production versions with a single routing.',
-    subPath: 'simpleproductionversion', jsonPayload: 'integration-envelope', operations: STANDARD_MUTABLE_OPERATIONS,
+    subPath: 'simpleproductionversion', jsonPayload: 'integration-envelope', operations: FILE_AND_JSON_MUTABLE_OPERATIONS,
   },
   {
     id: 'stock', catalogTopicId: 'stock', theme: 'transactional-data', group: 'inventory', section: 'inventory-snapshots', label: 'Stock Position',
@@ -216,15 +220,15 @@ export const COMMUNITY_DATA_FAMILIES: readonly CommunityDataFamily[] = [
     description: 'Read-only physical demand fulfillment for one Supply Plan: unconstrained, fulfilled, unmet, and fulfillment rate.',
     subPath: 'fulfilleddemand', jsonPayload: 'integration-envelope',
     operations: [
-      { kind: 'download-file', requiresSupplyPlanId: true, requiresUnitOfMeasureId: true },
-      { kind: 'download-json', requiresSupplyPlanId: true, requiresUnitOfMeasureId: true },
+      { kind: 'download-file', requiresSupplyPlanId: true, supportsPlanPeriodScope: true },
+      { kind: 'download-json', requiresSupplyPlanId: true, supportsPlanPeriodScope: true },
     ],
   },
   {
     id: 'demand-plan-detailed-export', catalogTopicId: 'demand-plan', theme: 'planning-data', group: 'demand-planning', section: 'detailed-extraction', label: 'Demand Planning - Full Download',
     description: 'Read-only detailed extraction of all standard key figures for one Demand Plan.',
     subPath: 'demandplan', jsonPayload: 'integration-envelope',
-    operations: [{ kind: 'download-file', requiresDemandPlanId: true }],
+    operations: [{ kind: 'download-file', requiresDemandPlanId: true, supportsPlanPeriodScope: true }],
   },
   {
     id: 'distribution-plan-export', catalogTopicId: 'distribution-plan', theme: 'planning-data', group: 'supply-planning', section: 'purchase-distribution-plan', label: 'Purchase/Distribution Plan',
@@ -299,7 +303,7 @@ export function buildCommunityDataEndpoint(target: CommunityDataTarget): string 
     if (demandPlanId.length === 0) {
       throw new Error('A Demand Plan ID is required for this export.');
     }
-    return `${root}/${encodeURIComponent(demandPlanId)}`;
+    return appendPlanPeriodScope(root, demandPlanId, target.referenceDate, operation.supportsPlanPeriodScope);
   }
 
   if (operation.requiresSupplyPlanId) {
@@ -314,7 +318,7 @@ export function buildCommunityDataEndpoint(target: CommunityDataTarget): string 
       }
       return `${root}/${encodeURIComponent(supplyPlanId)}/${encodeURIComponent(unitOfMeasureId)}`;
     }
-    return `${root}/${encodeURIComponent(supplyPlanId)}`;
+    return appendPlanPeriodScope(root, supplyPlanId, target.referenceDate, operation.supportsPlanPeriodScope);
   }
 
   if (operation.requiresDateRange) {
@@ -326,7 +330,27 @@ export function buildCommunityDataEndpoint(target: CommunityDataTarget): string 
     return `${root}/${encodeURIComponent(initialDate)}/${encodeURIComponent(finalDate)}`;
   }
 
-  return operation.kind === 'delete-json' ? `${root}/delete` : root;
+  if (operation.kind === 'delete-json') {
+    return family.id === 'material-location-parameters' ? root : `${root}/delete`;
+  }
+  return root;
+}
+
+/** Appends an optional plan bucket only for operations that explicitly support it. */
+function appendPlanPeriodScope(
+  root: string,
+  planId: string,
+  referenceDate: string | undefined,
+  supportsPlanPeriodScope: boolean | undefined,
+): string {
+
+  const encodedPlanId = encodeURIComponent(planId);
+  if (!supportsPlanPeriodScope || !referenceDate?.trim()) {
+    return `${root}/${encodedPlanId}`;
+  }
+
+  return `${root}/${encodedPlanId}/period/${encodeURIComponent(referenceDate.trim())}`;
+
 }
 
 export function createCommunityDataJsonTemplate(family: CommunityDataFamily): string {

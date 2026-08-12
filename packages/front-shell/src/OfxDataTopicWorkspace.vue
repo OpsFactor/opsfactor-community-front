@@ -16,6 +16,8 @@ const props = defineProps<{
   downloadFormat?: string;
   downloadOptions?: OfxDownloadOption[];
   downloadPresentation?: 'browser-file' | 'format-select' | 'server-file';
+  /** Lets a host make the primary download action visually explicit in a light workspace. */
+  downloadActionVariant?: 'default' | 'accent';
   importVisible?: boolean;
   importDisabled?: boolean;
   importLabel?: string;
@@ -39,6 +41,16 @@ const emit = defineEmits<{
 }>();
 
 const isLightTheme = computed(() => props.themeMode === 'light');
+
+/**
+ * A download is the terminal action of every Data workspace.  In the light
+ * product surface the neutral split button blends into the surrounding cards,
+ * so make it an accent action by default.  Dark hosts keep their established
+ * treatment unless they explicitly request the accent variant.
+ */
+const resolvedDownloadActionVariant = computed(() => (
+  props.downloadActionVariant ?? (isLightTheme.value ? 'accent' : 'default')
+));
 
 const actionTone = computed(() => {
   if (props.downloadVisible) return 'download';
@@ -189,6 +201,7 @@ function warningCardClass() {
               :disabled="props.downloadDisabled"
               :selector-visible="props.downloadPresentation !== 'server-file'"
               :action-label="props.downloadPresentation === 'server-file' ? 'Download' : 'Download as'"
+              :action-variant="resolvedDownloadActionVariant"
               @action="emit('download')"
               @update:model-value="emit('update:downloadFormat', $event)"
             />

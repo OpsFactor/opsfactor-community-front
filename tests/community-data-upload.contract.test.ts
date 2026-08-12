@@ -75,7 +75,8 @@ test('Community Data declares exceptions per family instead of offering a univer
     const deleteOperation = operation(familyId, 'delete-json');
     assert.equal(deleteOperation.requiresDateRange, true, `${familyId} delete must stay bounded by dates.`);
   }
-  assert.equal(family('materials').operations.some((candidate) => candidate.kind === 'delete-json'), true);
+  assert.equal(family('material-location-parameters').operations.some((candidate) => candidate.kind === 'delete-json'), true);
+  assert.equal(family('materials').operations.some((candidate) => candidate.kind === 'delete-json'), false);
   assert.equal(family('unit-of-measure').operations.some((candidate) => candidate.kind === 'delete-json'), false);
   assert.equal(family('inventory-plan-export').operations.some((candidate) => candidate.kind === 'delete-json'), false);
   assert.equal(family('fulfilled-demand-export').operations.some((candidate) => candidate.kind === 'delete-json'), false);
@@ -84,7 +85,7 @@ test('Community Data declares exceptions per family instead of offering a univer
 test('Community Data builds only canonical endpoint paths with required scoped identifiers', () => {
   assert.equal(buildCommunityDataEndpoint({ family: family('locations'), operation: operation('locations', 'download-json') }), '/api/secured/data/location');
   assert.equal(buildCommunityDataEndpoint({ family: family('locations'), operation: operation('locations', 'download-file') }), '/api/secured/data/file/location');
-  assert.equal(buildCommunityDataEndpoint({ family: family('materials'), operation: operation('materials', 'delete-json') }), '/api/secured/data/material/delete');
+  assert.equal(buildCommunityDataEndpoint({ family: family('material-location-parameters'), operation: operation('material-location-parameters', 'delete-json') }), '/api/secured/data/materiallocationparameters');
   assert.equal(
     buildCommunityDataEndpoint({
       family: family('stock'), operation: operation('stock', 'download-json'),
@@ -101,8 +102,16 @@ test('Community Data builds only canonical endpoint paths with required scoped i
     '/api/secured/data/file/demandplan/12',
   );
   assert.equal(
-    buildCommunityDataEndpoint({ family: family('fulfilled-demand-export'), operation: operation('fulfilled-demand-export', 'download-json'), supplyPlanId: '94', unitOfMeasureId: 'MT' }),
-    '/api/secured/data/fulfilleddemand/94/MT',
+    buildCommunityDataEndpoint({ family: family('fulfilled-demand-export'), operation: operation('fulfilled-demand-export', 'download-json'), supplyPlanId: '94' }),
+    '/api/secured/data/fulfilleddemand/94',
+  );
+  assert.equal(
+    buildCommunityDataEndpoint({ family: family('fulfilled-demand-export'), operation: operation('fulfilled-demand-export', 'download-file'), supplyPlanId: '94', referenceDate: '2027-02-01' }),
+    '/api/secured/data/file/fulfilleddemand/94/period/2027-02-01',
+  );
+  assert.equal(
+    buildCommunityDataEndpoint({ family: family('demand-plan-detailed-export'), operation: operation('demand-plan-detailed-export', 'download-file'), demandPlanId: '12', referenceDate: '2027-02-01' }),
+    '/api/secured/data/file/demandplan/12/period/2027-02-01',
   );
   assert.equal(
     buildCommunityDataEndpoint({ family: family('inventory-plan-export'), operation: operation('inventory-plan-export', 'download-file'), supplyPlanId: ' PLAN / 1 ' }),
@@ -111,10 +120,6 @@ test('Community Data builds only canonical endpoint paths with required scoped i
   assert.throws(
     () => buildCommunityDataEndpoint({ family: family('stock'), operation: operation('stock', 'delete-json') }),
     /initial and final dates/i,
-  );
-  assert.throws(
-    () => buildCommunityDataEndpoint({ family: family('fulfilled-demand-export'), operation: operation('fulfilled-demand-export', 'download-json'), supplyPlanId: '94' }),
-    /unit of measure/i,
   );
   assert.throws(
     () => buildCommunityDataEndpoint({ family: family('inventory-plan-export'), operation: operation('inventory-plan-export', 'download-json') }),
@@ -180,9 +185,18 @@ test('Community Data overlays availability on the Planning Front hierarchy witho
   assert.match(page, /:operations="operationOptions"/);
   assert.match(page, /:download-visible="downloadVisible"/);
   assert.match(page, /:import-visible="importVisible"/);
+  assert.match(page, /ref="fileInputRef" type="file" class="hidden-file-input"/);
+  assert.match(page, /@change="runUpload"/);
+  assert.match(page, /@import="triggerImport"/);
+  assert.match(page, /:import-label="importActionLabel"/);
+  assert.match(page, /busy\.value \? 'Importing…'/);
+  assert.match(page, /operationRequiresPlanOptions/);
+  assert.doesNotMatch(page, /Selected file:/);
+  assert.doesNotMatch(page, /Confirm upload\?/);
   assert.match(page, /:download-format="downloadFormat"/);
   assert.match(page, /:download-options="downloadOptions"/);
   assert.match(page, /download-presentation="format-select"/);
+  assert.match(page, /download-action-variant="accent"/);
   assert.match(page, /label: 'XLSX'/);
   assert.doesNotMatch(page, /Download FILE rows/);
   assert.doesNotMatch(page, /Download JSON/);
@@ -202,6 +216,25 @@ test('Community Data overlays availability on the Planning Front hierarchy witho
   assert.deepEqual(salesGroup.subgroups[0]?.topics.map((topic) => topic.title), ['Sales / Sell-out', 'Sales / Sell-in']);
   assert.ok(transactionalTheme.groups.some((group) => group.title === 'Orders'));
   assert.ok(transactionalTheme.groups.some((group) => group.title === 'Campaign / Event Data'));
+});
+
+test('plan-based Community exports use the same complete-or-period scope as the Planning Front', () => {
+
+  const page = readFileSync(new URL('../src/modules/data/CommunityDataUploadPage.vue', import.meta.url), 'utf8');
+  const catalog = readFileSync(new URL('../src/modules/data/community-data-upload.types.ts', import.meta.url), 'utf8');
+  const dataWorkspace = readFileSync(new URL('../packages/front-shell/src/OfxDataTopicWorkspace.vue', import.meta.url), 'utf8');
+
+  assert.match(catalog, /fulfilled-demand-export[\s\S]*?supportsPlanPeriodScope: true/);
+  assert.match(catalog, /demand-plan-detailed-export[\s\S]*?supportsPlanPeriodScope: true/);
+  assert.match(page, /Plan period/);
+  assert.match(page, /Complete dataset/);
+  assert.match(page, /showPlanPeriodSelector/);
+  assert.match(page, /Boolean\(selectedPlanId\.value\.trim\(\)\)/);
+  assert.match(page, /downloadSelectionChips/);
+  assert.match(page, /\/api\/secured\/planning\/\$\{planType\}\//);
+  assert.doesNotMatch(page, /Unit of Measure/);
+  assert.match(dataWorkspace, /resolvedDownloadActionVariant/);
+  assert.match(dataWorkspace, /isLightTheme\.value \? 'accent' : 'default'/);
 });
 
 test('Community Data makes the Supply and Demand baseline inputs discoverable in the transactional hierarchy', () => {

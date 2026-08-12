@@ -27,10 +27,10 @@ const props = withDefaults(
   },
 );
 
+const isLightTheme = computed(() => props.themeMode === 'light');
 const selectedOperation = computed(
   () => props.operations.find((option) => option.value === model.value) ?? props.operations[0] ?? null,
 );
-const isLightTheme = computed(() => props.themeMode === 'light');
 
 function selectedOperationClasses(value: string) {
 
