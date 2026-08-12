@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
+import OfxSelectField from '../../components/ofx/forms/OfxSelectField.vue';
 import { httpClient } from '../../services/community-authentication.service';
 import {
   communityNamedOptionLabel,
@@ -26,6 +27,18 @@ const canInspect = computed(() => !loading.value
   && materialId.value.length > 0
   && originUomId.value.length > 0
   && targetUomId.value.length > 0);
+const materialOptions = computed(() => [
+  { label: 'Select a material', value: '' },
+  ...materials.value.map((material) => ({ label: communityNamedOptionLabel(material), value: material.id })),
+]);
+const originUomOptions = computed(() => [
+  { label: 'Select the origin UOM', value: '' },
+  ...unitOfMeasureIds.value.map((unitOfMeasure) => ({ label: unitOfMeasure, value: unitOfMeasure })),
+]);
+const targetUomOptions = computed(() => [
+  { label: 'Select the target UOM', value: '' },
+  ...unitOfMeasureIds.value.map((unitOfMeasure) => ({ label: unitOfMeasure, value: unitOfMeasure })),
+]);
 
 function rawValue(value: string | number | null | undefined): string {
 
@@ -91,9 +104,9 @@ onMounted(async () => {
 
     <OfxSectionCard class="inspection-card" title="Explicit conversion path" description="Canonical material-specific request.">
       <div class="input-grid">
-        <label>Material<select v-model="materialId" :disabled="loading || loadingOptions" required><option value="" disabled>Select a material</option><option v-for="material in materials" :key="material.id" :value="material.id">{{ communityNamedOptionLabel(material) }}</option></select></label>
-        <label>Origin UOM<select v-model="originUomId" :disabled="loading || loadingOptions" required><option value="" disabled>Select the origin UOM</option><option v-for="unitOfMeasureId in unitOfMeasureIds" :key="unitOfMeasureId" :value="unitOfMeasureId">{{ unitOfMeasureId }}</option></select></label>
-        <label>Target UOM<select v-model="targetUomId" :disabled="loading || loadingOptions" required><option value="" disabled>Select the target UOM</option><option v-for="unitOfMeasureId in unitOfMeasureIds" :key="unitOfMeasureId" :value="unitOfMeasureId">{{ unitOfMeasureId }}</option></select></label>
+        <OfxSelectField v-model="materialId" label="Material" :options="materialOptions" :disabled="loading || loadingOptions" />
+        <OfxSelectField v-model="originUomId" label="Origin UOM" :options="originUomOptions" :disabled="loading || loadingOptions" />
+        <OfxSelectField v-model="targetUomId" label="Target UOM" :options="targetUomOptions" :disabled="loading || loadingOptions" />
       </div>
       <div class="actions"><button class="primary-button" :disabled="!canInspect" type="button" @click="inspectConversion">{{ loading ? 'Inspecting conversion…' : 'Inspect conversion path' }}</button></div>
     </OfxSectionCard>
@@ -111,5 +124,5 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.boundary-card, .inspection-card, .result-card { display: grid; gap: 1rem; }.boundary-card p, .muted { color: var(--ofx-text-muted); }.input-grid, .detail-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }.input-grid label { display: grid; gap: .4rem; font-size: .875rem; font-weight: 700; }.input-grid select { border: 1px solid var(--ofx-border); border-radius: .5rem; background: var(--ofx-surface); color: var(--ofx-text); min-height: 2.5rem; padding: .55rem; }.actions { display: flex; flex-wrap: wrap; gap: 1rem; }.primary-button { border: 1px solid var(--ofx-accent); border-radius: .5rem; background: var(--ofx-accent); color: white; cursor: pointer; padding: .65rem .9rem; }.primary-button:disabled { cursor: not-allowed; opacity: .55; }.error { color: var(--ofx-text-danger); margin-bottom: 1rem; }.detail-grid dt { color: var(--ofx-text-muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; }.detail-grid dd { margin: .35rem 0 0; white-space: pre-wrap; }.detail-grid .full { grid-column: 1 / -1; }
+.boundary-card, .inspection-card, .result-card { display: grid; gap: 1rem; }.boundary-card p, .muted { color: var(--ofx-text-muted); }.input-grid, .detail-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }.actions { display: flex; flex-wrap: wrap; gap: 1rem; }.primary-button { border: 1px solid var(--ofx-accent); border-radius: .5rem; background: var(--ofx-accent); color: white; cursor: pointer; padding: .65rem .9rem; }.primary-button:disabled { cursor: not-allowed; opacity: .55; }.error { color: var(--ofx-text-danger); margin-bottom: 1rem; }.detail-grid dt { color: var(--ofx-text-muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; }.detail-grid dd { margin: .35rem 0 0; white-space: pre-wrap; }.detail-grid .full { grid-column: 1 / -1; }
 </style>

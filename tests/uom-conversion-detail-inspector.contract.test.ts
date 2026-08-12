@@ -31,9 +31,9 @@ test('Manual UOM Conversion Detail Inspector stays independent from UOM Gaps and
 
   assert.match(page, /independent verification/);
   assert.match(page, /Missing-path diagnosis remains in UOM Conversion Gaps/);
-  assert.match(page, /Material<select/);
-  assert.match(page, /Origin UOM<select/);
-  assert.match(page, /Target UOM<select/);
+  assert.match(page, /<OfxSelectField[\s\S]*?label="Material"/);
+  assert.match(page, /<OfxSelectField[\s\S]*?label="Origin UOM"/);
+  assert.match(page, /<OfxSelectField[\s\S]*?label="Target UOM"/);
   assert.match(service, /buildMaterialUomConversionDetailEndpoint/);
   for (const forbiddenFragment of [
     'unitofmeasure/conversiondetail/${encodeURIComponent(originUomId)}',

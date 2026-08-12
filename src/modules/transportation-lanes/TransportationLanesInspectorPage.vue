@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import {
   OfxPageHeader,
+  OfxSelectField,
   OfxSectionCard,
   TaskPageLayout,
 } from "@opsfactor/front-shell";
@@ -90,6 +91,32 @@ const isBusy = computed(
     saving.value ||
     deleting.value
 );
+const supplyNetworkVersionOptions = computed(() => [
+  { label: 'Select a Supply Network Version', value: null },
+  ...(supplyNetworkVersions.value ?? []).map((version) => ({ label: versionLabel(version), value: version.id })),
+]);
+const locationOptions = computed(() => [
+  { label: 'Not informed', value: '' },
+  ...locations.value.map((location) => ({ label: communityNamedOptionLabel(location), value: location.id })),
+]);
+const materialOptions = computed(() => [
+  { label: 'Select a material', value: '' },
+  ...materials.value.map((material) => ({ label: communityNamedOptionLabel(material), value: material.id })),
+]);
+const unitOfMeasureOptions = computed(() => [
+  { label: 'Not informed', value: '' },
+  ...unitOfMeasureIds.value.map((unitOfMeasureId) => ({ label: unitOfMeasureId, value: unitOfMeasureId })),
+]);
+const enabledStateOptions = [
+  { label: 'Not informed', value: null },
+  { label: 'Enabled', value: true },
+  { label: 'Disabled', value: false },
+];
+const lifecycleStateOptions = [
+  { label: 'Not informed', value: null },
+  { label: 'Active', value: true },
+  { label: 'Inactive', value: false },
+];
 
 function toErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
@@ -548,22 +575,13 @@ onMounted(async () => {
           </button>
         </div>
       </div>
-      <label class="field-label"
-        >Existing version<select
-          v-model="selectedSupplyNetworkVersionId"
-          :disabled="isBusy"
-          @change="selectVersion"
-        >
-          <option :value="null">Select a Supply Network Version</option>
-          <option
-            v-for="version in supplyNetworkVersions ?? []"
-            :key="version.id"
-            :value="version.id"
-          >
-            {{ versionLabel(version) }}
-          </option>
-        </select></label
-      >
+      <OfxSelectField
+        v-model="selectedSupplyNetworkVersionId"
+        label="Existing version"
+        :options="supplyNetworkVersionOptions"
+        :disabled="isBusy"
+        @update:model-value="selectVersion"
+      />
       <section v-if="versionDraft" class="editor-panel">
         <div class="editor-heading">
           <div>
@@ -600,21 +618,12 @@ onMounted(async () => {
               :disabled="saving"
               maxlength="255"
               type="text" /></label
-          ><label
-            >Default raw material origin Location<select
-              v-model="versionDraft.defaultRawMaterialOriginLocationId"
-              :disabled="saving || loadingEditorCatalogs"
-            >
-              <option value="">Not informed</option>
-              <option
-                v-for="location in locations"
-                :key="location.id"
-                :value="location.id"
-              >
-                {{ communityNamedOptionLabel(location) }}
-              </option>
-            </select></label
-          ><label
+          ><OfxSelectField
+            v-model="versionDraft.defaultRawMaterialOriginLocationId"
+            label="Default raw material origin Location"
+            :options="locationOptions"
+            :disabled="saving || loadingEditorCatalogs"
+          /><label
             >Default raw material origin lead time (days)<input
               v-model="versionDraft.defaultRawMaterialOriginLeadTimeDays"
               :disabled="saving"
@@ -779,35 +788,17 @@ onMounted(async () => {
                 :value="baseLaneDraft.primaryKey.supplyNetworkVersionId"
                 disabled
                 type="text" /></label
-            ><label
-              >Origin Location<select
-                v-model="baseLaneDraft.primaryKey.originLocationId"
-                :disabled="saving || loadingEditorCatalogs"
-              >
-                <option value="" disabled>Select an origin</option>
-                <option
-                  v-for="location in locations"
-                  :key="location.id"
-                  :value="location.id"
-                >
-                  {{ communityNamedOptionLabel(location) }}
-                </option>
-              </select></label
-            ><label
-              >Destination Location<select
-                v-model="baseLaneDraft.primaryKey.destinationLocationId"
-                :disabled="saving || loadingEditorCatalogs"
-              >
-                <option value="" disabled>Select a destination</option>
-                <option
-                  v-for="location in locations"
-                  :key="location.id"
-                  :value="location.id"
-                >
-                  {{ communityNamedOptionLabel(location) }}
-                </option>
-              </select></label
-            ><label
+            ><OfxSelectField
+              v-model="baseLaneDraft.primaryKey.originLocationId"
+              label="Origin Location"
+              :options="locationOptions"
+              :disabled="saving || loadingEditorCatalogs"
+            /><OfxSelectField
+              v-model="baseLaneDraft.primaryKey.destinationLocationId"
+              label="Destination Location"
+              :options="locationOptions"
+              :disabled="saving || loadingEditorCatalogs"
+            /><label
               >Priority<input
                 v-model="baseLaneDraft.priority"
                 :disabled="saving"
@@ -818,21 +809,12 @@ onMounted(async () => {
                 :disabled="saving"
                 step="any"
                 type="number" /></label
-            ><label
-              >Lot/multiple UOM<select
-                v-model="baseLaneDraft.multipleMinimumTransferLotSizeUomId"
-                :disabled="saving || loadingEditorCatalogs"
-              >
-                <option value="">Not informed</option>
-                <option
-                  v-for="unitOfMeasureId in unitOfMeasureIds"
-                  :key="unitOfMeasureId"
-                  :value="unitOfMeasureId"
-                >
-                  {{ unitOfMeasureId }}
-                </option>
-              </select></label
-            ><label
+            ><OfxSelectField
+              v-model="baseLaneDraft.multipleMinimumTransferLotSizeUomId"
+              label="Lot/multiple UOM"
+              :options="unitOfMeasureOptions"
+              :disabled="saving || loadingEditorCatalogs"
+            /><label
               >Minimum transfer lot<input
                 v-model="baseLaneDraft.minimumTransferLotSize"
                 :disabled="saving"
@@ -844,43 +826,10 @@ onMounted(async () => {
                 :disabled="saving"
                 step="any"
                 type="number" /></label
-            ><label
-              >Enable discontinued materials<select
-                v-model="baseLaneDraft.enableDiscontinuedMaterials"
-                :disabled="saving"
-              >
-                <option :value="null">Not informed</option>
-                <option :value="true">Enabled</option>
-                <option :value="false">Disabled</option>
-              </select></label
-            ><label
-              >Enable not-launched materials<select
-                v-model="baseLaneDraft.enablePresalesMaterials"
-                :disabled="saving"
-              >
-                <option :value="null">Not informed</option>
-                <option :value="true">Enabled</option>
-                <option :value="false">Disabled</option>
-              </select></label
-            ><label
-              >Enable all materials<select
-                v-model="baseLaneDraft.enableAllMaterials"
-                :disabled="saving"
-              >
-                <option :value="null">Not informed</option>
-                <option :value="true">Enabled</option>
-                <option :value="false">Disabled</option>
-              </select></label
-            ><label
-              >Lifecycle<select
-                v-model="baseLaneDraft.active"
-                :disabled="saving"
-              >
-                <option :value="null">Not informed</option>
-                <option :value="true">Active</option>
-                <option :value="false">Inactive</option>
-              </select></label
-            >
+            ><OfxSelectField v-model="baseLaneDraft.enableDiscontinuedMaterials" label="Enable discontinued materials" :options="enabledStateOptions" :disabled="saving" />
+            <OfxSelectField v-model="baseLaneDraft.enablePresalesMaterials" label="Enable not-launched materials" :options="enabledStateOptions" :disabled="saving" />
+            <OfxSelectField v-model="baseLaneDraft.enableAllMaterials" label="Enable all materials" :options="enabledStateOptions" :disabled="saving" />
+            <OfxSelectField v-model="baseLaneDraft.active" label="Lifecycle" :options="lifecycleStateOptions" :disabled="saving" />
           </div>
           <div class="editor-footer">
             <p>
@@ -1018,49 +967,22 @@ onMounted(async () => {
                 :value="materialOverrideDraft.primaryKey.supplyNetworkVersionId"
                 disabled
                 type="text" /></label
-            ><label
-              >Origin Location<select
-                v-model="materialOverrideDraft.primaryKey.originLocationId"
-                :disabled="saving || loadingEditorCatalogs"
-              >
-                <option value="" disabled>Select an origin</option>
-                <option
-                  v-for="location in locations"
-                  :key="location.id"
-                  :value="location.id"
-                >
-                  {{ communityNamedOptionLabel(location) }}
-                </option>
-              </select></label
-            ><label
-              >Destination Location<select
-                v-model="materialOverrideDraft.primaryKey.destinationLocationId"
-                :disabled="saving || loadingEditorCatalogs"
-              >
-                <option value="" disabled>Select a destination</option>
-                <option
-                  v-for="location in locations"
-                  :key="location.id"
-                  :value="location.id"
-                >
-                  {{ communityNamedOptionLabel(location) }}
-                </option>
-              </select></label
-            ><label
-              >Material<select
-                v-model="materialOverrideDraft.primaryKey.materialId"
-                :disabled="saving || loadingEditorCatalogs"
-              >
-                <option value="" disabled>Select a material</option>
-                <option
-                  v-for="material in materials"
-                  :key="material.id"
-                  :value="material.id"
-                >
-                  {{ communityNamedOptionLabel(material) }}
-                </option>
-              </select></label
-            ><label
+            ><OfxSelectField
+              v-model="materialOverrideDraft.primaryKey.originLocationId"
+              label="Origin Location"
+              :options="locationOptions"
+              :disabled="saving || loadingEditorCatalogs"
+            /><OfxSelectField
+              v-model="materialOverrideDraft.primaryKey.destinationLocationId"
+              label="Destination Location"
+              :options="locationOptions"
+              :disabled="saving || loadingEditorCatalogs"
+            /><OfxSelectField
+              v-model="materialOverrideDraft.primaryKey.materialId"
+              label="Material"
+              :options="materialOptions"
+              :disabled="saving || loadingEditorCatalogs"
+            /><label
               >Priority<input
                 v-model="materialOverrideDraft.priority"
                 :disabled="saving"
@@ -1070,23 +992,12 @@ onMounted(async () => {
                 v-model="materialOverrideDraft.leadTimeDays"
                 :disabled="saving"
                 type="number" /></label
-            ><label
-              >Lot/multiple UOM<select
-                v-model="
-                  materialOverrideDraft.multipleMinimumTransferLotSizeUomId
-                "
-                :disabled="saving || loadingEditorCatalogs"
-              >
-                <option value="">Not informed</option>
-                <option
-                  v-for="unitOfMeasureId in unitOfMeasureIds"
-                  :key="unitOfMeasureId"
-                  :value="unitOfMeasureId"
-                >
-                  {{ unitOfMeasureId }}
-                </option>
-              </select></label
-            ><label
+            ><OfxSelectField
+              v-model="materialOverrideDraft.multipleMinimumTransferLotSizeUomId"
+              label="Lot/multiple UOM"
+              :options="unitOfMeasureOptions"
+              :disabled="saving || loadingEditorCatalogs"
+            /><label
               >Minimum transfer lot<input
                 v-model="materialOverrideDraft.minimumTransferLotSize"
                 :disabled="saving"
@@ -1098,16 +1009,7 @@ onMounted(async () => {
                 :disabled="saving"
                 step="any"
                 type="number" /></label
-            ><label
-              >Lifecycle<select
-                v-model="materialOverrideDraft.active"
-                :disabled="saving"
-              >
-                <option :value="null">Not informed</option>
-                <option :value="true">Active</option>
-                <option :value="false">Inactive</option>
-              </select></label
-            >
+            ><OfxSelectField v-model="materialOverrideDraft.active" label="Lifecycle" :options="lifecycleStateOptions" :disabled="saving" />
           </div>
           <div class="editor-footer">
             <p>

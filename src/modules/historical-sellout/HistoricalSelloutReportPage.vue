@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { OfxEntityMultiSelect, OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
+import { OfxDateField, OfxEntityMultiSelect, OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
 import { httpClient } from '../../services/community-authentication.service';
 import {
   communityNamedOptionLabel,
@@ -93,8 +93,8 @@ onMounted(async () => {
 
     <OfxSectionCard class="filter-card" title="Interval and optional explicit scope" description="Canonical report request.">
       <div class="filter-grid">
-        <label>Initial date<input v-model="startDate" :disabled="loading" required type="date"></label>
-        <label>Final date<input v-model="endDate" :disabled="loading" required type="date"></label>
+        <OfxDateField v-model="startDate" label="Initial date" :disabled="loading" required />
+        <OfxDateField v-model="endDate" label="Final date" :disabled="loading" required />
         <OfxEntityMultiSelect v-model="materialIds" label="Materials" :options="materialOptions" :disabled="loading || loadingOptions" placeholder="All materials" />
         <OfxEntityMultiSelect v-model="locationIds" label="Locations" :options="locationOptions" :disabled="loading || loadingOptions" placeholder="All locations" />
       </div>

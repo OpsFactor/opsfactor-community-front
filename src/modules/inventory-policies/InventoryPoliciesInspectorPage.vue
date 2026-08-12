@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
+import { OfxPageHeader, OfxSectionCard, OfxSelectField, TaskPageLayout } from '@opsfactor/front-shell';
 import { httpClient } from '../../services/community-authentication.service';
 import {
   communityNamedOptionLabel,
@@ -38,6 +38,27 @@ const resultMessage = ref<string | null>(null);
 
 const hasSnapshot = computed(() => inventoryPolicy.value !== null);
 const isBusy = computed(() => loading.value || saving.value);
+const inventoryPolicyOptions = computed(() => inventoryPolicyIds.value.map((policyId) => ({ label: policyId, value: policyId })));
+const materialOptions = computed(() => [
+  { label: 'Select a material', value: '' },
+  ...materials.value.map((material) => ({ label: communityNamedOptionLabel(material), value: material.id })),
+]);
+const locationOptions = computed(() => [
+  { label: 'Select a location', value: '' },
+  ...locations.value.map((location) => ({ label: communityNamedOptionLabel(location), value: location.id })),
+]);
+const replenishmentModelOptions = [
+  { label: 'DRP', value: 'DRP' },
+  { label: 'KANBAN', value: 'KANBAN' },
+];
+const operationalModelOptions = [
+  { label: 'MTS', value: 'MTS' },
+  { label: 'MTO', value: 'MTO' },
+];
+const safetyStockCalculationOptions = [
+  { label: 'Days', value: 'DAYS' },
+  { label: 'Quantity', value: 'QUANTITY' },
+];
 
 function formatValue(value: string | number | null | undefined): string {
 
@@ -230,9 +251,14 @@ onMounted(async () => {
     <OfxSectionCard class="boundary-card" title="Single-policy lookup">
       <p>Select the policy shown by Supply Execution Profiles. This loads one complete policy snapshot.</p>
       <form class="lookup-form" @submit.prevent="loadInventoryPolicy">
-        <label for="inventory-policy-id">Inventory policy</label>
-        <div class="lookup-controls">
-          <select id="inventory-policy-id" v-model="inventoryPolicyId" :disabled="isBusy || editing || loadingOptions" required><option value="" disabled>Select an Inventory Policy</option><option v-for="policyId in inventoryPolicyIds" :key="policyId" :value="policyId">{{ policyId }}</option></select>
+          <div class="lookup-controls">
+            <OfxSelectField
+              v-model="inventoryPolicyId"
+              label="Inventory policy"
+              :options="inventoryPolicyOptions"
+              placeholder-label="Select an Inventory Policy"
+              :disabled="isBusy || editing || loadingOptions"
+            />
           <button class="primary-button" type="submit" :disabled="isBusy || editing || loadingOptions">
             {{ loading ? 'Loading policy…' : 'Load Inventory Policy' }}
           </button>
@@ -301,11 +327,11 @@ onMounted(async () => {
             <thead><tr><th>Material ID</th><th>Location ID</th><th>Replenishment model</th><th>Operational model</th><th>Safety-stock calculation</th><th>Safety stock / Kanban target</th><th>DRP maximum stock</th><th><span class="sr-only">Remove</span></th></tr></thead>
             <tbody>
               <tr v-for="(rule, index) in draft.materialLocationList" :key="index">
-                <td><select v-model="rule.materialId" :disabled="isBusy || saveConfirmationOpen || loadingOptions"><option value="" disabled>Select a material</option><option v-for="material in materials" :key="material.id" :value="material.id">{{ communityNamedOptionLabel(material) }}</option></select></td>
-                <td><select v-model="rule.locationId" :disabled="isBusy || saveConfirmationOpen || loadingOptions"><option value="" disabled>Select a location</option><option v-for="location in locations" :key="location.id" :value="location.id">{{ communityNamedOptionLabel(location) }}</option></select></td>
-                <td><select v-model="rule.modeloReabastecimento" :disabled="isBusy || saveConfirmationOpen"><option value="DRP">DRP</option><option value="KANBAN">KANBAN</option></select></td>
-                <td><select v-model="rule.modeloOperacional" :disabled="isBusy || saveConfirmationOpen"><option value="MTS">MTS</option><option value="MTO">MTO</option></select></td>
-                <td><select v-model="rule.calculoSafetyStock" :disabled="isBusy || saveConfirmationOpen"><option value="DAYS">Days</option><option value="QUANTITY">Quantity</option></select></td>
+                <td><OfxSelectField v-model="rule.materialId" label="Material" :options="materialOptions" :disabled="isBusy || saveConfirmationOpen || loadingOptions" compact /></td>
+                <td><OfxSelectField v-model="rule.locationId" label="Location" :options="locationOptions" :disabled="isBusy || saveConfirmationOpen || loadingOptions" compact /></td>
+                <td><OfxSelectField v-model="rule.modeloReabastecimento" label="Replenishment model" :options="replenishmentModelOptions" :disabled="isBusy || saveConfirmationOpen" :show-placeholder-option="false" compact /></td>
+                <td><OfxSelectField v-model="rule.modeloOperacional" label="Operational model" :options="operationalModelOptions" :disabled="isBusy || saveConfirmationOpen" :show-placeholder-option="false" compact /></td>
+                <td><OfxSelectField v-model="rule.calculoSafetyStock" label="Safety-stock calculation" :options="safetyStockCalculationOptions" :disabled="isBusy || saveConfirmationOpen" :show-placeholder-option="false" compact /></td>
                 <td><input v-model="rule.estoqueSegurancaDrpOuTargetKanban" :disabled="isBusy || saveConfirmationOpen" step="any" type="number"></td>
                 <td><input v-model="rule.estoqueMaximoDrp" :disabled="isBusy || saveConfirmationOpen" step="any" type="number"></td>
                 <td><button class="danger-button compact-button" type="button" :disabled="isBusy || saveConfirmationOpen" @click="removeRule(index)">Remove</button></td>

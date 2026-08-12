@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
+import OfxSelectField from '../../components/ofx/forms/OfxSelectField.vue';
 import {
   getDemandPlanningUomConversionGaps,
   getDeploymentUomConversionGaps,
@@ -79,6 +80,33 @@ const canDiagnose = computed(() => {
     case 'deployment': return canDiagnoseDeployment.value;
   }
 });
+const demandPlanningProfileOptions = computed(() => [
+  { label: 'Select a profile', value: '' },
+  ...demandPlanningProfiles.value.map((profile) => ({ label: optionLabel(profile, profile.id), value: profile.id })),
+]);
+const bucketSizeOptions = [
+  { label: 'Select a bucket', value: '' },
+  { label: 'Yearly', value: 'Yearly' },
+  { label: 'Monthly', value: 'Monthly' },
+  { label: 'Weekly', value: 'Weekly' },
+  { label: 'Daily', value: 'Daily' },
+];
+const supplyNetworkVersionOptions = computed(() => [
+  { label: 'Select a Supply Network Version', value: '' },
+  ...supplyNetworkVersions.value.map((version) => ({ label: optionLabel(version, version.id), value: version.id })),
+]);
+const supplyPlanningProfileOptions = computed(() => [
+  { label: 'Select a profile', value: '' },
+  ...supplyPlanningProfiles.value.map((profile) => ({ label: optionLabel(profile, profile.id), value: profile.id })),
+]);
+const demandPlanOptions = computed(() => [
+  { label: 'Select a Demand Plan', value: '' },
+  ...demandPlans.value.map((demandPlan) => ({ label: demandPlanLabel(demandPlan), value: String(demandPlan.demandPlanId) })),
+]);
+const supplyPlanOptions = computed(() => [
+  { label: 'Select a Supply Plan', value: '' },
+  ...supplyPlans.value.map((supplyPlan) => ({ label: supplyPlanLabel(supplyPlan), value: String(supplyPlan.supplyPlanId) })),
+]);
 
 /** Displays raw backend DTO fields without turning absent values into calculated values. */
 function formatRawValue(value: string | number | null | undefined): string {
@@ -234,13 +262,7 @@ onMounted(loadSelectors);
       </div>
 
       <div v-if="mode === 'demand-planning'" class="selector-grid">
-        <label>
-          Demand Planning profile
-          <select v-model="demandPlanningExecutionProfileId" :disabled="isLoadingSelectors">
-            <option value="" disabled>Select a profile</option>
-            <option v-for="profile in demandPlanningProfiles" :key="profile.id" :value="profile.id">{{ optionLabel(profile, profile.id) }}</option>
-          </select>
-        </label>
+        <OfxSelectField v-model="demandPlanningExecutionProfileId" label="Demand Planning profile" :options="demandPlanningProfileOptions" :disabled="isLoadingSelectors" />
         <label>
           Reference period <span v-if="demandPlanningReferenceFormat">({{ demandPlanningReferenceFormat }})</span>
           <input v-model="demandPlanningReferencePeriod" :disabled="!demandPlanningReferenceFormat" :placeholder="demandPlanningReferenceFormat ?? 'Unsupported profile bucket'">
@@ -248,51 +270,18 @@ onMounted(loadSelectors);
       </div>
 
       <div v-else-if="mode === 'supply-planning'" class="selector-grid">
-        <label>
-          Bucket
-          <select v-model="supplyPlanningBucketSize">
-            <option value="" disabled>Select a bucket</option>
-            <option value="Yearly">Yearly</option>
-            <option value="Monthly">Monthly</option>
-            <option value="Weekly">Weekly</option>
-            <option value="Daily">Daily</option>
-          </select>
-        </label>
+        <OfxSelectField v-model="supplyPlanningBucketSize" label="Bucket" :options="bucketSizeOptions" />
         <label>
           Reference period <span v-if="supplyPlanningReferenceFormat">({{ supplyPlanningReferenceFormat }})</span>
           <input v-model="supplyPlanningReferencePeriod" :disabled="!supplyPlanningReferenceFormat" :placeholder="supplyPlanningReferenceFormat ?? 'Select a bucket'">
         </label>
-        <label>
-          Supply Network Version
-          <select v-model="supplyNetworkVersionId" :disabled="isLoadingSelectors">
-            <option value="" disabled>Select a Supply Network Version</option>
-            <option v-for="version in supplyNetworkVersions" :key="version.id" :value="version.id">{{ optionLabel(version, version.id) }}</option>
-          </select>
-        </label>
-        <label>
-          Supply Planning profile
-          <select v-model="supplyPlanningExecutionProfileId" :disabled="isLoadingSelectors">
-            <option value="" disabled>Select a profile</option>
-            <option v-for="profile in supplyPlanningProfiles" :key="profile.id" :value="profile.id">{{ optionLabel(profile, profile.id) }}</option>
-          </select>
-        </label>
-        <label>
-          Demand Plan
-          <select v-model="demandPlanId" :disabled="isLoadingSelectors">
-            <option value="" disabled>Select a Demand Plan</option>
-            <option v-for="demandPlan in demandPlans" :key="demandPlan.demandPlanId" :value="String(demandPlan.demandPlanId)">{{ demandPlanLabel(demandPlan) }}</option>
-          </select>
-        </label>
+        <OfxSelectField v-model="supplyNetworkVersionId" label="Supply Network Version" :options="supplyNetworkVersionOptions" :disabled="isLoadingSelectors" />
+        <OfxSelectField v-model="supplyPlanningExecutionProfileId" label="Supply Planning profile" :options="supplyPlanningProfileOptions" :disabled="isLoadingSelectors" />
+        <OfxSelectField v-model="demandPlanId" label="Demand Plan" :options="demandPlanOptions" :disabled="isLoadingSelectors" />
       </div>
 
       <div v-else class="selector-grid">
-        <label>
-          Supply Plan
-          <select v-model="supplyPlanId" :disabled="isLoadingSelectors">
-            <option value="" disabled>Select a Supply Plan</option>
-            <option v-for="supplyPlan in supplyPlans" :key="supplyPlan.supplyPlanId" :value="String(supplyPlan.supplyPlanId)">{{ supplyPlanLabel(supplyPlan) }}</option>
-          </select>
-        </label>
+        <OfxSelectField v-model="supplyPlanId" label="Supply Plan" :options="supplyPlanOptions" :disabled="isLoadingSelectors" />
       </div>
 
       <p v-if="mode === 'supply-planning'" class="muted">SNP does not infer its bucket, network, profiles, or Demand Plan from another selection.</p>

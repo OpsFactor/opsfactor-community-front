@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import {
+  OfxSelectField,
   OfxPageHeader,
   OfxSectionCard,
   TaskPageLayout,
@@ -84,6 +85,39 @@ const isBusy = computed(
     loadingLocations.value ||
     loadingMaterialLocations.value
 );
+const triStateOptions = [
+  { label: "Not informed", value: null },
+  { label: "Enabled", value: true },
+  { label: "Disabled", value: false },
+];
+const activeStateOptions = [
+  { label: "Not informed", value: null },
+  { label: "Active", value: true },
+  { label: "Inactive", value: false },
+];
+const inactiveStateOptions = [
+  { label: "Not informed", value: null },
+  { label: "Inactive", value: true },
+  { label: "Active", value: false },
+];
+const lifecycleStageOptions = [
+  { label: "Not informed", value: "" },
+  { label: "Not Launched", value: "Not Launched" },
+  { label: "New", value: "New" },
+  { label: "Regular", value: "Regular" },
+  { label: "Discontinued", value: "Discontinued" },
+];
+const locationOptions = computed(() => [
+  { label: "Choose a Location", value: "" },
+  ...(locations.value ?? []).map((location) => ({
+    label: `${location.id ?? ""} — ${location.description ?? "Not informed"}`,
+    value: location.id ?? "",
+  })),
+]);
+const unitOfMeasureOptions = computed(() => [
+  { label: "No local override", value: "" },
+  ...unitOfMeasureIds.value.map((unitOfMeasureId) => ({ label: unitOfMeasureId, value: unitOfMeasureId })),
+]);
 
 function materialLocationKey(
   parameter: Pick<
@@ -527,16 +561,7 @@ async function confirmSave(): Promise<void> {
               :value="clusterDraft.clusterLocationsID"
               disabled
               type="text" /></label
-          ><label
-            >Plan Demand Planning<select
-              v-model="clusterDraft.planejaDP"
-              :disabled="saving"
-            >
-              <option :value="null">Not informed</option>
-              <option :value="true">Enabled</option>
-              <option :value="false">Disabled</option>
-            </select></label
-          >
+          ><OfxSelectField v-model="clusterDraft.planejaDP" label="Plan Demand Planning" :options="triStateOptions" :disabled="saving" />
         </div>
         <div class="editor-footer">
           <p>
@@ -641,13 +666,7 @@ async function confirmSave(): Promise<void> {
               :disabled="saving"
               maxlength="255"
               type="text" /></label
-          ><label
-            >Active<select v-model="materialDraft.ativo" :disabled="saving">
-              <option :value="null">Not informed</option>
-              <option :value="true">Active</option>
-              <option :value="false">Inactive</option>
-            </select></label
-          >
+          ><OfxSelectField v-model="materialDraft.ativo" label="Active" :options="activeStateOptions" :disabled="saving" />
         </div>
         <div class="editor-footer">
           <p>
@@ -692,23 +711,14 @@ async function confirmSave(): Promise<void> {
         </button>
       </header>
       <div v-if="locations" class="location-selection">
-        <label for="operational-parameter-location"
-          >Location<select
-            id="operational-parameter-location"
-            v-model="selectedLocationId"
-            :disabled="isBusy || editingMaterialLocationKey !== null"
-            @change="handleLocationSelectionChanged"
-          >
-            <option value="">Choose a Location</option>
-            <option
-              v-for="location in locations"
-              :key="location.id ?? ''"
-              :value="location.id ?? ''"
-            >
-              {{ location.id }} — {{ location.description ?? "Not informed" }}
-            </option>
-          </select></label
-        ><button
+        <OfxSelectField
+          v-model="selectedLocationId"
+          label="Location"
+          :options="locationOptions"
+          :disabled="isBusy || editingMaterialLocationKey !== null"
+          @update:model-value="handleLocationSelectionChanged"
+        />
+        <button
           class="secondary-button"
           type="button"
           :disabled="
@@ -814,27 +824,9 @@ async function confirmSave(): Promise<void> {
               :disabled="saving"
               step="any"
               type="number" /></label
-          ><label
-            >Inactive<select
-              v-model="materialLocationDraft.inativo"
-              :disabled="saving"
-            >
-              <option :value="null">Not informed</option>
-              <option :value="true">Inactive</option>
-              <option :value="false">Active</option>
-            </select></label
-          ><label
-            >Lifecycle stage<select
-              v-model="materialLocationDraft.lifecycleStage"
-              :disabled="saving"
-            >
-              <option value="">Not informed</option>
-              <option value="Not Launched">Not Launched</option>
-              <option value="New">New</option>
-              <option value="Regular">Regular</option>
-              <option value="Discontinued">Discontinued</option>
-            </select></label
-          ><label
+          ><OfxSelectField v-model="materialLocationDraft.inativo" label="Inactive" :options="inactiveStateOptions" :disabled="saving" />
+          <OfxSelectField v-model="materialLocationDraft.lifecycleStage" label="Lifecycle stage" :options="lifecycleStageOptions" :disabled="saving" />
+          <label
             >Introduction date<input
               v-model="materialLocationDraft.introductionDate"
               :disabled="saving"
@@ -851,35 +843,8 @@ async function confirmSave(): Promise<void> {
               min="0"
               step="1"
               type="number" /></label
-          ><label
-            >Default UOM<select
-              v-model="materialLocationDraft.defaultUomId"
-              :disabled="saving || loadingUnitOfMeasureIds"
-            >
-              <option value="">No local override</option>
-              <option
-                v-for="unitOfMeasureId in unitOfMeasureIds"
-                :key="unitOfMeasureId"
-                :value="unitOfMeasureId"
-              >
-                {{ unitOfMeasureId }}
-              </option>
-            </select></label
-          ><label
-            >Production minimum/multiple UOM<select
-              v-model="materialLocationDraft.productionMinimumMultipleUomId"
-              :disabled="saving || loadingUnitOfMeasureIds"
-            >
-              <option value="">No local override</option>
-              <option
-                v-for="unitOfMeasureId in unitOfMeasureIds"
-                :key="unitOfMeasureId"
-                :value="unitOfMeasureId"
-              >
-                {{ unitOfMeasureId }}
-              </option>
-            </select></label
-          >
+          ><OfxSelectField v-model="materialLocationDraft.defaultUomId" label="Default UOM" :options="unitOfMeasureOptions" :disabled="saving || loadingUnitOfMeasureIds" />
+          <OfxSelectField v-model="materialLocationDraft.productionMinimumMultipleUomId" label="Production minimum/multiple UOM" :options="unitOfMeasureOptions" :disabled="saving || loadingUnitOfMeasureIds" />
         </div>
         <div class="editor-footer">
           <p>Blank numerical, date or UOM values remove the local override.</p>
