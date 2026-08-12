@@ -1,6 +1,8 @@
 import { ApiRequestError, type HttpClient } from '@opsfactor/front-core';
 import type {
   CommunityClusterDeleteRequest,
+  CommunityMaterialCharacteristic,
+  CommunityMaterialClusterMember,
   CommunityLocationClusterMember,
   CommunityLocationClusterScope,
   CommunityMaterialClusterScope,
@@ -22,7 +24,7 @@ function toBackendError(error: unknown, fallback: string): Error {
 }
 
 /**
- * Transport owned by the Community Demand Planning cluster editor.
+ * Transport owned by the Community clustering workspace.
  *
  * It handles only bounded definition snapshots. Active members remain a
  * separate on-demand read for one explicitly selected Location Cluster; DFU
@@ -54,15 +56,37 @@ export class ClusterScopeInspectorService {
     }
   }
 
-  /** Reads one authoritative Material DP snapshot before it is edited. */
+  /** Reads the published material-characteristic catalog used by characteristic allocation rules. */
+  public async getMaterialCharacteristics(): Promise<CommunityMaterialCharacteristic[]> {
+
+    try {
+      return await this.httpClient.request<CommunityMaterialCharacteristic[]>('/api/secured/material/characteristics');
+    } catch (error) {
+      throw toBackendError(error, 'Unable to load material characteristics.');
+    }
+  }
+
+  /** Reads one authoritative Material Cluster snapshot before it is edited. */
   public async getMaterialCluster(clusterId: number): Promise<CommunityMaterialClusterScope> {
 
     try {
       return await this.httpClient.request<CommunityMaterialClusterScope>(
-        `/api/secured/materialclustering/${encodeURIComponent(String(clusterId))}/DP`,
+        `/api/secured/materialclustering/${encodeURIComponent(String(clusterId))}`,
       );
     } catch (error) {
       throw toBackendError(error, 'Unable to load the material cluster definition.');
+    }
+  }
+
+  /** Reads the materials currently resolved by one selected cluster definition. */
+  public async getMaterialClusterMembers(clusterId: number): Promise<CommunityMaterialClusterMember[]> {
+
+    try {
+      return await this.httpClient.request<CommunityMaterialClusterMember[]>(
+        `/api/secured/material/cluster/${encodeURIComponent(String(clusterId))}/materials`,
+      );
+    } catch (error) {
+      throw toBackendError(error, 'Unable to load active material-cluster members.');
     }
   }
 
@@ -78,7 +102,7 @@ export class ClusterScopeInspectorService {
     }
   }
 
-  /** Sends the complete Material DP rule snapshot; omitted persisted rules are removals. */
+  /** Sends the complete Material Cluster rule snapshot; omitted persisted rules are removals. */
   public async saveMaterialCluster(cluster: CommunityMaterialClusterScope): Promise<void> {
 
     await this.requestMutation('/api/secured/materialclustering/save', cluster, 'Unable to save the material cluster definition.');
@@ -90,7 +114,7 @@ export class ClusterScopeInspectorService {
     await this.requestMutation('/api/secured/locationclustering/save', cluster, 'Unable to save the location cluster definition.');
   }
 
-  /** Deletes only the selected persisted Material DP cluster; the backend owns integrity checks. */
+  /** Deletes only the selected persisted Material Cluster; the backend owns integrity checks. */
   public async deleteMaterialCluster(request: CommunityClusterDeleteRequest): Promise<void> {
 
     await this.requestMutation(

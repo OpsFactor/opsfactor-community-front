@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ClusterScopeInspectorService } from '../src/modules/cluster-scope/cluster-scope.service.ts';
 
-test('Demand Planning Cluster editor uses only bounded Community definition snapshots', async () => {
+test('Clustering workspace uses only bounded Community definition snapshots', async () => {
   const calls: Array<{ path: string; options?: RequestInit }> = [];
   const httpClient = {
     request(path: string, options?: RequestInit) {
@@ -21,13 +21,30 @@ test('Demand Planning Cluster editor uses only bounded Community definition snap
   assert.deepEqual(calls, [
     { path: '/api/secured/materialclustering', options: undefined },
     { path: '/api/secured/locationclustering', options: undefined },
-    { path: '/api/secured/materialclustering/42/DP', options: undefined },
+    { path: '/api/secured/materialclustering/42', options: undefined },
     { path: '/api/secured/locationclustering/81', options: undefined },
     { path: '/api/secured/location/cluster/81/locations', options: undefined },
   ]);
 });
 
-test('Demand Planning Cluster editor writes full snapshots and sends only the confirmed cluster delete', async () => {
+test('Clustering workspace loads the public material-characteristic catalog', async () => {
+  const calls: Array<{ path: string; options?: RequestInit }> = [];
+  const httpClient = {
+    request(path: string, options?: RequestInit) {
+      calls.push({ path, options });
+      return Promise.resolve([]);
+    },
+  };
+  const service = new ClusterScopeInspectorService(httpClient as never);
+
+  await service.getMaterialCharacteristics();
+
+  assert.deepEqual(calls, [
+    { path: '/api/secured/material/characteristics', options: undefined },
+  ]);
+});
+
+test('Clustering workspace writes full snapshots without a process discriminator', async () => {
   const calls: Array<{ path: string; options?: RequestInit }> = [];
   const httpClient = {
     request(path: string, options?: RequestInit) {
@@ -41,7 +58,6 @@ test('Demand Planning Cluster editor writes full snapshots and sends only the co
     id: 42,
     description: 'Material scope',
     priority: 2,
-    process: 'DP',
     regraAlocacaoClusterDTOList: [{ id: 101, criterio: 'Status', caracteristicaDTO: { description: 'REGULAR' } }],
   });
   await service.saveLocationCluster({
@@ -50,7 +66,7 @@ test('Demand Planning Cluster editor writes full snapshots and sends only the co
     priority: 3,
     regraAlocacaoClusterDTOList: [{ id: 102, criterio: 'Country / State', pais: 'Country', estado: 'State' }],
   });
-  await service.deleteMaterialCluster({ id: 42, process: 'DP' });
+  await service.deleteMaterialCluster({ id: 42 });
   await service.deleteLocationCluster({ id: 81 });
 
   assert.equal(calls[0].path, '/api/secured/materialclustering/save');
@@ -59,20 +75,19 @@ test('Demand Planning Cluster editor writes full snapshots and sends only the co
     id: 42,
     description: 'Material scope',
     priority: 2,
-    process: 'DP',
     regraAlocacaoClusterDTOList: [{ id: 101, criterio: 'Status', caracteristicaDTO: { description: 'REGULAR' } }],
   });
   assert.equal(calls[1].path, '/api/secured/locationclustering/save');
   assert.equal(calls[1].options?.method, 'POST');
   assert.equal(calls[2].path, '/api/secured/materialclustering/delete');
   assert.equal(calls[2].options?.method, 'DELETE');
-  assert.deepEqual(JSON.parse(String(calls[2].options?.body)), { id: 42, process: 'DP' });
+  assert.deepEqual(JSON.parse(String(calls[2].options?.body)), { id: 42 });
   assert.equal(calls[3].path, '/api/secured/locationclustering/delete');
   assert.equal(calls[3].options?.method, 'DELETE');
   assert.deepEqual(JSON.parse(String(calls[3].options?.body)), { id: 81 });
 });
 
-test('Demand Planning Cluster editor keeps allocation and DFU endpoints outside its transport', async () => {
+test('Clustering workspace keeps allocation and DFU endpoints outside its transport while reading selected members', async () => {
   const source = await import('node:fs/promises').then((fs) => fs.readFile(
     new URL('../src/modules/cluster-scope/cluster-scope.service.ts', import.meta.url),
     'utf8',
@@ -81,15 +96,15 @@ test('Demand Planning Cluster editor keeps allocation and DFU endpoints outside 
   for (const forbiddenFragment of [
     '/allocation',
     '/DFU',
-    '/material/cluster/',
     '/clustering/material/criteria',
     '/clustering/location/criteria',
   ]) {
     assert.equal(source.includes(forbiddenFragment), false, `Cluster editor must not use ${forbiddenFragment}`);
   }
+  assert.match(source, /\/api\/secured\/material\/cluster\/\$\{encodeURIComponent\(String\(clusterId\)\)\}\/materials/);
 });
 
-test('Clustering page preserves the Planning Front composition while retaining only Community controls', async () => {
+test('Clustering page exposes one scheme with material and location dimensions', async () => {
   const source = await import('node:fs/promises').then((fs) => fs.readFile(
     new URL('../src/modules/cluster-scope/ClusterScopeInspectorPage.vue', import.meta.url),
     'utf8',
@@ -97,24 +112,41 @@ test('Clustering page preserves the Planning Front composition while retaining o
 
   assert.match(source, /DashboardPageLayout/);
   assert.match(source, /eyebrow="Configuration" title="Clustering"/);
-  assert.match(source, /Edit \/ Create Cluster/);
-  assert.match(source, /List of Clusters/);
-  assert.match(source, /cluster-mode-switch/);
-  assert.match(source, /Material<\/button>/);
-  assert.match(source, /Location<\/button>/);
-  assert.match(source, /Cluster Description/);
-  assert.match(source, /Cluster Priority/);
-  assert.match(source, /: 'Submit'/);
-  assert.match(source, />Delete<\/button>/);
-  assert.match(source, /process: 'DP'/);
+  assert.match(source, /one planning clustering scheme/);
+  assert.match(source, /clustering-workbench/);
+  assert.match(source, /cluster-library/);
+  assert.match(source, /Material clusters/);
+  assert.match(source, /Location clusters/);
+  assert.match(source, /OfxSelectField/);
+  assert.match(source, /OfxEntityMultiSelect/);
+  assert.match(source, /library-selectors/);
+  assert.match(source, /#\$\{cluster\.id\}/);
+  assert.match(source, /New \{\{ activeDimension \}\} cluster/);
+  assert.match(source, /OfxTextField v-model="materialDraft\.description" label="Description"/);
+  assert.match(source, /OfxTextField v-model="materialDraft\.priority" label="Priority"/);
+  assert.match(source, /: 'Save cluster'/);
+  assert.match(source, />Delete cluster<\/button>/);
+  assert.doesNotMatch(source, /process:\s*'DP'/);
+  assert.doesNotMatch(source, /Demand Planning/);
+  assert.doesNotMatch(source, /Pricing cluster/);
   assert.match(source, /'NOT RELEASED', 'REGULAR', 'DISCONTINUED'/);
+  assert.match(source, /Add characteristic/);
+  assert.match(source, /getMaterialCharacteristics/);
+  assert.match(source, /initialMaterialClusterId/);
+  assert.match(source, /rule-summary/);
+  assert.match(source, /materialRuleSubject/);
+  assert.match(source, /materialRuleValues/);
   assert.equal(source.includes("'NEW'"), false);
-  assert.match(source, /remove it and add a new rule/i);
-  assert.match(source, /Delete .* cluster\?/);
-  assert.match(source, /@click="void loadSelectedLocationClusterMembers\(\)"/);
-  assert.match(source, /never used to infer a delete cascade/i);
+  assert.match(source, /Delete this cluster\?/);
+  assert.match(source, /loadSelectedMaterialClusterMembers/);
+  assert.match(source, /Materials in this cluster/);
+  assert.match(source, /OfxDataTable/);
+  assert.doesNotMatch(source, /Refresh library/);
+  assert.doesNotMatch(source, /shared scheme\./);
   assert.doesNotMatch(source, /clustering\/material\/allocation/);
   assert.doesNotMatch(source, /clustering\/location\/allocation/);
   assert.doesNotMatch(source, /product\/characteristics/);
   assert.doesNotMatch(source, /location\/characteristics/);
+  assert.doesNotMatch(source, /<select/);
+  assert.doesNotMatch(source, /<input/);
 });

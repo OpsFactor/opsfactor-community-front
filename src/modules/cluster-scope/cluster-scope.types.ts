@@ -1,9 +1,8 @@
 /**
  * One persisted Community material-cluster rule.
  *
- * The backend reuses a characteristic-shaped object to carry the fixed
- * material-status value. The editor deliberately retains that wire shape;
- * it must not invent a general characteristic capability.
+ * The backend reuses a characteristic-shaped object for material status and
+ * for one public material characteristic with selected values.
  */
 export interface CommunityMaterialClusterRule {
   id: number | null;
@@ -12,16 +11,32 @@ export interface CommunityMaterialClusterRule {
     caracteristicaId?: string | null;
     description?: string | null;
     descricao?: string | null;
+    listaAtributos?: string[] | null;
+    atributo?: string | null;
   } | null;
 }
 
-/** Complete Community material-cluster snapshot used by the DP editor. */
+/** One public material characteristic and its current selectable values. */
+export interface CommunityMaterialCharacteristic {
+  caracteristicaId: string;
+  descricao: string;
+  listaAtributos: string[];
+}
+
+/** Complete Community material-cluster snapshot used by the shared clustering scheme. */
 export interface CommunityMaterialClusterScope {
   id: number | null;
   description: string | null;
   priority: number | null;
-  process: string | null;
   regraAlocacaoClusterDTOList: CommunityMaterialClusterRule[];
+}
+
+/** Minimal material identity returned when resolving one selected cluster. */
+export interface CommunityMaterialClusterMember {
+  id: string;
+  description: string | null;
+  active: boolean | null;
+  materialStatus: string | null;
 }
 
 /**
@@ -45,10 +60,9 @@ export interface CommunityLocationClusterScope {
   regraAlocacaoClusterDTOList: CommunityLocationClusterRule[];
 }
 
-/** Minimal historical delete envelope accepted by both cluster endpoints. */
+/** Minimal delete envelope accepted by both cluster endpoints. */
 export interface CommunityClusterDeleteRequest {
   id: number;
-  process?: 'DP';
 }
 
 /**

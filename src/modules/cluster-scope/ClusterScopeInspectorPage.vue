@@ -1,19 +1,26 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import DashboardPageLayout from '@/layouts/page/DashboardPageLayout.vue';
-import { OfxPageHeader, OfxSectionCard } from '@opsfactor/front-shell';
+import { OfxPageHeader, type OfxTableColumn } from '@opsfactor/front-shell';
+import OfxDataTable from '@/components/ofx/data-display/OfxDataTable.vue';
+import OfxEntityMultiSelect from '@/components/ofx/data-entry/OfxEntityMultiSelect.vue';
+import OfxSelectField from '@/components/ofx/forms/OfxSelectField.vue';
+import OfxTextField from '@/components/ofx/forms/OfxTextField.vue';
 import { httpClient } from '../../services/community-authentication.service';
 import { ClusterScopeInspectorService } from './cluster-scope.service';
 import type {
+  CommunityClusterDeleteRequest,
   CommunityLocationClusterMember,
   CommunityLocationClusterRule,
   CommunityLocationClusterScope,
+  CommunityMaterialCharacteristic,
+  CommunityMaterialClusterMember,
   CommunityMaterialClusterRule,
   CommunityMaterialClusterScope,
 } from './cluster-scope.types';
 
-type ClusterEditorTab = 'material' | 'location';
-type PendingClusterDeletion = { kind: ClusterEditorTab; id: number; description: string };
+type ClusterDimension = 'material' | 'location';
+type PendingClusterDeletion = { dimension: ClusterDimension; id: number; description: string };
 
 const materialStatusOptions = ['NOT RELEASED', 'REGULAR', 'DISCONTINUED'] as const;
 const locationTypeOptions = [
@@ -27,12 +34,15 @@ const locationTypeOptions = [
 
 const clusterScopeInspectorService = new ClusterScopeInspectorService(httpClient);
 const materialClusters = ref<CommunityMaterialClusterScope[]>([]);
+const materialCharacteristics = ref<CommunityMaterialCharacteristic[]>([]);
 const locationClusters = ref<CommunityLocationClusterScope[]>([]);
-const activeTab = ref<ClusterEditorTab>('material');
+const activeDimension = ref<ClusterDimension>('material');
 const selectedMaterialClusterId = ref<number | null>(null);
 const selectedLocationClusterId = ref<number | null>(null);
 const materialDraft = ref<CommunityMaterialClusterScope | null>(null);
 const locationDraft = ref<CommunityLocationClusterScope | null>(null);
+const materialClusterMembers = ref<CommunityMaterialClusterMember[] | null>(null);
+const materialClusterMembersClusterId = ref<number | null>(null);
 const locationClusterMembers = ref<CommunityLocationClusterMember[] | null>(null);
 const locationClusterMembersClusterId = ref<number | null>(null);
 const pendingDeletion = ref<PendingClusterDeletion | null>(null);
@@ -41,16 +51,87 @@ const loadingDetail = ref(false);
 const saving = ref(false);
 const deleting = ref(false);
 const loadingLocationClusterMembers = ref(false);
+const loadingMaterialClusterMembers = ref(false);
 const errorMessage = ref<string | null>(null);
 const resultMessage = ref<string | null>(null);
 
 const isBusy = computed(() => loading.value || loadingDetail.value || saving.value || deleting.value);
+const dimensionOptions = [
+  { label: 'Material clusters', value: 'material' },
+  { label: 'Location clusters', value: 'location' },
+];
+const materialCriterionOptions = [
+  { label: 'Material status', value: 'Status' },
+  { label: 'Material characteristic', value: 'Characteristic' },
+];
+const locationCriterionOptions = [
+  { label: 'Location type', value: 'Location Type' },
+  { label: 'Country / state', value: 'Country / State' },
+];
+const materialStatusFieldOptions = materialStatusOptions.map((status) => ({ label: status, value: status }));
+const locationTypeFieldOptions = locationTypeOptions.map((locationType) => ({ label: locationType, value: locationType }));
+const materialCharacteristicOptions = computed(() => materialCharacteristics.value.map((characteristic) => ({
+  label: characteristic.descricao,
+  value: characteristic.caracteristicaId,
+})));
+const activeClusterOptions = computed(() => (activeDimension.value === 'material' ? materialClusters.value : locationClusters.value)
+  .filter((cluster) => cluster.id !== null)
+  .map((cluster) => ({
+    label: `#${cluster.id} · ${cluster.description?.trim() || 'Untitled cluster'}`,
+    value: String(cluster.id),
+  })));
+const selectedClusterValue = computed({
+  get: () => String(activeDimension.value === 'material' ? selectedMaterialClusterId.value ?? '' : selectedLocationClusterId.value ?? ''),
+  set: (value: string) => {
+    const clusterId = value ? Number(value) : null;
+    if (activeDimension.value === 'material') {
+      selectedMaterialClusterId.value = clusterId;
+      void selectMaterialCluster();
+      return;
+    }
+    selectedLocationClusterId.value = clusterId;
+    void selectLocationCluster();
+  },
+});
+const activeDraft = computed(() => activeDimension.value === 'material' ? materialDraft.value : locationDraft.value);
+const selectedMaterialCluster = computed(() => materialClusters.value.find(
+  (cluster) => cluster.id === selectedMaterialClusterId.value,
+) ?? null);
 const selectedLocationCluster = computed(() => locationClusters.value.find(
   (cluster) => cluster.id === selectedLocationClusterId.value,
 ) ?? null);
 const hasLocationClusterMembersSnapshot = computed(() => selectedLocationCluster.value !== null
   && locationClusterMembersClusterId.value === selectedLocationCluster.value.id
   && locationClusterMembers.value !== null);
+const hasMaterialClusterMembersSnapshot = computed(() => selectedMaterialCluster.value !== null
+  && materialClusterMembersClusterId.value === selectedMaterialCluster.value.id
+  && materialClusterMembers.value !== null);
+const materialMemberRows = computed(() => (materialClusterMembers.value ?? []).map((material) => ({
+  rowKey: material.id,
+  id: material.id,
+  description: material.description || '—',
+  status: material.materialStatus || '—',
+})));
+const materialMemberColumns: OfxTableColumn[] = [
+  { field: 'id', header: 'ID', width: '18%', dataType: 'text' },
+  { field: 'description', header: 'Description', width: '58%', dataType: 'text' },
+  { field: 'status', header: 'Status', width: '24%', dataType: 'text' },
+];
+const locationMemberRows = computed(() => (locationClusterMembers.value ?? []).map((location) => ({
+  rowKey: location.id,
+  id: location.id,
+  description: location.description || '—',
+  type: location.locationType || '—',
+  country: location.country || '—',
+  state: location.state || '—',
+})));
+const locationMemberColumns: OfxTableColumn[] = [
+  { field: 'id', header: 'ID', width: '15%', dataType: 'text' },
+  { field: 'description', header: 'Description', width: '35%', dataType: 'text' },
+  { field: 'type', header: 'Type', width: '20%', dataType: 'text' },
+  { field: 'country', header: 'Country', width: '15%', dataType: 'text' },
+  { field: 'state', header: 'State', width: '15%', dataType: 'text' },
+];
 
 function toErrorMessage(error: unknown, fallback: string): string {
 
@@ -62,40 +143,40 @@ function cloneSnapshot<T>(snapshot: T): T {
   return JSON.parse(JSON.stringify(snapshot)) as T;
 }
 
-function materialClusterLabel(cluster: CommunityMaterialClusterScope): string {
-
-  return cluster.description?.trim() ? `${cluster.description} (#${cluster.id})` : `Material cluster #${cluster.id}`;
-}
-
-function locationClusterLabel(cluster: CommunityLocationClusterScope): string {
-
-  return cluster.description?.trim() ? `${cluster.description} (#${cluster.id})` : `Location cluster #${cluster.id}`;
-}
-
 function formatCriterion(criterion: string | null): string {
 
   if (criterion === 'STATUS_PRODUTO' || criterion === 'Status') return 'Material status';
+  if (criterion === 'CARACTERISTICA' || criterion === 'Characteristic') return 'Material characteristic';
   if (criterion === 'TIPO_LOCATION' || criterion === 'Location Type') return 'Location type';
   if (criterion === 'PAIS_ESTADO' || criterion === 'Country / State') return 'Country / state';
   return criterion?.trim() || 'Criterion not returned';
 }
 
-function materialRuleValue(rule: CommunityMaterialClusterRule): string {
+function materialRuleSubject(rule: CommunityMaterialClusterRule): string {
 
-  return rule.caracteristicaDTO?.description?.trim()
-    || rule.caracteristicaDTO?.descricao?.trim()
-    || 'Value not returned';
+  if (rule.criterio !== 'CARACTERISTICA' && rule.criterio !== 'Characteristic') {
+    return rule.caracteristicaDTO?.description?.trim() || rule.caracteristicaDTO?.descricao?.trim() || 'Status not returned';
+  }
+  return rule.caracteristicaDTO?.description?.trim() || rule.caracteristicaDTO?.descricao?.trim() || 'Characteristic not returned';
+}
+
+function materialRuleValues(rule: CommunityMaterialClusterRule): string[] {
+
+  const values = rule.caracteristicaDTO?.listaAtributos?.filter((value) => value.trim().length > 0) ?? [];
+  return values.length > 0 ? values : [materialRuleSubject(rule)];
+}
+
+function materialRuleValueOptions(rule: CommunityMaterialClusterRule): Array<{ label: string; value: string }> {
+
+  return (materialCharacteristics.value.find(
+    (characteristic) => characteristic.caracteristicaId === rule.caracteristicaDTO?.caracteristicaId,
+  )?.listaAtributos ?? []).map((value) => ({ label: value, value }));
 }
 
 function locationRuleValue(rule: CommunityLocationClusterRule): string {
 
   if (rule.criterio === 'TIPO_LOCATION' || rule.criterio === 'Location Type') return rule.locationType?.trim() || 'Value not returned';
-  if (rule.criterio === 'PAIS_ESTADO' || rule.criterio === 'Country / State') {
-    const country = rule.pais?.trim();
-    const state = rule.estado?.trim();
-    return [country, state].filter((value): value is string => Boolean(value)).join(' / ') || 'Value not returned';
-  }
-  return 'Value not returned';
+  return [rule.pais?.trim(), rule.estado?.trim()].filter((value): value is string => Boolean(value)).join(' / ') || 'Value not returned';
 }
 
 function clearLocationMembersSnapshot(): void {
@@ -104,72 +185,68 @@ function clearLocationMembersSnapshot(): void {
   locationClusterMembersClusterId.value = null;
 }
 
-/**
- * Keeps the reference page's Material/Location switch while preserving each
- * Community editor draft. Switching the visual mode must never discard a
- * pending definition or make a new request by itself.
- */
-function selectEditorTab(tab: ClusterEditorTab): void {
+function clearMaterialMembersSnapshot(): void {
 
-  activeTab.value = tab;
-  errorMessage.value = null;
-  resultMessage.value = null;
+  materialClusterMembers.value = null;
+  materialClusterMembersClusterId.value = null;
 }
 
 function newMaterialDraft(): CommunityMaterialClusterScope {
 
-  return {
-    id: null,
-    description: '',
-    priority: null,
-    process: 'DP',
-    regraAlocacaoClusterDTOList: [],
-  };
+  return { id: null, description: '', priority: null, regraAlocacaoClusterDTOList: [] };
 }
 
 function newLocationDraft(): CommunityLocationClusterScope {
 
-  return {
-    id: null,
-    description: '',
-    priority: null,
-    regraAlocacaoClusterDTOList: [],
-  };
+  return { id: null, description: '', priority: null, regraAlocacaoClusterDTOList: [] };
 }
 
-/** Loads only the two bounded definition catalogs; allocation and DFU endpoints stay absent. */
+function selectDimension(dimension: ClusterDimension): void {
+
+  activeDimension.value = dimension;
+  errorMessage.value = null;
+  resultMessage.value = null;
+}
+
 async function loadClusterDefinitions(): Promise<void> {
 
-  if (loading.value || saving.value || deleting.value) {
-    return;
-  }
+  if (loading.value || saving.value || deleting.value) return;
 
+  let initialMaterialClusterId: number | null = null;
   loading.value = true;
   errorMessage.value = null;
   try {
-    const [materialClusterList, locationClusterList] = await Promise.all([
+    const [materialClusterList, locationClusterList, materialCharacteristicList] = await Promise.all([
       clusterScopeInspectorService.getMaterialClusters(),
       clusterScopeInspectorService.getLocationClusters(),
+      clusterScopeInspectorService.getMaterialCharacteristics(),
     ]);
     materialClusters.value = materialClusterList;
     locationClusters.value = locationClusterList;
+    materialCharacteristics.value = materialCharacteristicList;
+    if (materialDraft.value === null && selectedMaterialClusterId.value === null) {
+      initialMaterialClusterId = materialClusterList.find((cluster) => cluster.id !== null)?.id ?? null;
+    }
   } catch (error) {
     errorMessage.value = toErrorMessage(error, 'Unable to load cluster definitions.');
   } finally {
     loading.value = false;
   }
+
+  if (initialMaterialClusterId !== null) {
+    selectedMaterialClusterId.value = initialMaterialClusterId;
+    await selectMaterialCluster();
+  }
 }
 
-/** Replaces a browser draft with the authoritative Material DP snapshot before editing. */
 async function selectMaterialCluster(): Promise<void> {
 
   const clusterId = selectedMaterialClusterId.value;
   materialDraft.value = null;
+  clearMaterialMembersSnapshot();
   errorMessage.value = null;
   resultMessage.value = null;
-  if (clusterId === null || loading.value || loadingDetail.value || deleting.value) {
-    return;
-  }
+  if (clusterId === null || loading.value || loadingDetail.value || deleting.value) return;
 
   loadingDetail.value = true;
   try {
@@ -179,9 +256,12 @@ async function selectMaterialCluster(): Promise<void> {
   } finally {
     loadingDetail.value = false;
   }
+
+  if (materialDraft.value !== null) {
+    void loadSelectedMaterialClusterMembers();
+  }
 }
 
-/** Replaces a browser draft with the authoritative Location snapshot before editing. */
 async function selectLocationCluster(): Promise<void> {
 
   const clusterId = selectedLocationClusterId.value;
@@ -189,9 +269,7 @@ async function selectLocationCluster(): Promise<void> {
   clearLocationMembersSnapshot();
   errorMessage.value = null;
   resultMessage.value = null;
-  if (clusterId === null || loading.value || loadingDetail.value || deleting.value) {
-    return;
-  }
+  if (clusterId === null || loading.value || loadingDetail.value || deleting.value) return;
 
   loadingDetail.value = true;
   try {
@@ -203,82 +281,117 @@ async function selectLocationCluster(): Promise<void> {
   }
 }
 
-function startMaterialCreation(): void {
+function startCreation(): void {
 
-  if (isBusy.value) {
-    return;
-  }
+  if (isBusy.value) return;
 
-  activeTab.value = 'material';
-  selectedMaterialClusterId.value = null;
-  materialDraft.value = newMaterialDraft();
   errorMessage.value = null;
   resultMessage.value = null;
-}
-
-function startLocationCreation(): void {
-
-  if (isBusy.value) {
+  if (activeDimension.value === 'material') {
+    selectedMaterialClusterId.value = null;
+    materialDraft.value = newMaterialDraft();
+    clearMaterialMembersSnapshot();
     return;
   }
-
-  activeTab.value = 'location';
   selectedLocationClusterId.value = null;
   locationDraft.value = newLocationDraft();
   clearLocationMembersSnapshot();
-  errorMessage.value = null;
-  resultMessage.value = null;
 }
 
-/** Adds only a Community status rule; NEW and characteristics do not exist in this surface. */
+async function loadSelectedMaterialClusterMembers(): Promise<void> {
+
+  const clusterId = selectedMaterialCluster.value?.id;
+  if (clusterId === undefined || clusterId === null || loadingMaterialClusterMembers.value || hasMaterialClusterMembersSnapshot.value) return;
+  loadingMaterialClusterMembers.value = true;
+  try {
+    materialClusterMembers.value = await clusterScopeInspectorService.getMaterialClusterMembers(clusterId);
+    materialClusterMembersClusterId.value = clusterId;
+  } catch (error) {
+    errorMessage.value = toErrorMessage(error, 'Unable to load active Material Cluster members.');
+  } finally {
+    loadingMaterialClusterMembers.value = false;
+  }
+}
+
 function addMaterialRule(): void {
 
-  if (materialDraft.value === null || saving.value) {
-    return;
-  }
-
-  materialDraft.value.regraAlocacaoClusterDTOList.push({
+  materialDraft.value?.regraAlocacaoClusterDTOList.push({
     id: null,
     criterio: 'Status',
     caracteristicaDTO: { description: 'REGULAR', caracteristicaId: 'REGULAR' },
   });
 }
 
-/** Adds a new mutable Location rule. Existing persisted rules are never structurally changed in place. */
-function addLocationRule(): void {
+function addMaterialCharacteristicRule(): void {
 
-  if (locationDraft.value === null || saving.value) {
+  const characteristic = materialCharacteristics.value[0];
+  const firstAttribute = characteristic?.listaAtributos[0];
+  if (materialDraft.value === null || characteristic === undefined || firstAttribute === undefined) {
+    errorMessage.value = 'A published material characteristic with at least one value is required.';
     return;
   }
-
-  locationDraft.value.regraAlocacaoClusterDTOList.push({
+  materialDraft.value.regraAlocacaoClusterDTOList.push({
     id: null,
-    criterio: 'Location Type',
-    locationType: 'Internal',
+    criterio: 'Characteristic',
+    caracteristicaDTO: {
+      caracteristicaId: characteristic.caracteristicaId,
+      description: characteristic.descricao,
+      listaAtributos: [firstAttribute],
+    },
   });
 }
 
-/** Removing a persisted rule from the full snapshot is the backend-supported delete semantic. */
+function addLocationRule(): void {
+
+  locationDraft.value?.regraAlocacaoClusterDTOList.push({ id: null, criterio: 'Location Type', locationType: 'Internal' });
+}
+
 function removeMaterialRule(index: number): void {
 
   materialDraft.value?.regraAlocacaoClusterDTOList.splice(index, 1);
 }
 
-/** Removing a persisted rule from the full snapshot is the backend-supported delete semantic. */
 function removeLocationRule(index: number): void {
 
   locationDraft.value?.regraAlocacaoClusterDTOList.splice(index, 1);
 }
 
-/** Normalizes the fixed status object required by the historical material-rule DTO. */
 function normalizeMaterialRule(rule: CommunityMaterialClusterRule): void {
 
+  if (rule.criterio === 'Characteristic' || rule.criterio === 'CARACTERISTICA') {
+    const characteristic = materialCharacteristics.value.find(
+      (candidate) => candidate.caracteristicaId === rule.caracteristicaDTO?.caracteristicaId,
+    ) ?? materialCharacteristics.value[0];
+    if (characteristic === undefined) return;
+    rule.criterio = 'Characteristic';
+    rule.caracteristicaDTO = {
+      caracteristicaId: characteristic.caracteristicaId,
+      description: characteristic.descricao,
+      listaAtributos: rule.caracteristicaDTO?.listaAtributos?.filter(
+        (attribute) => characteristic.listaAtributos.includes(attribute),
+      ) ?? [],
+    };
+    return;
+  }
   const status = rule.caracteristicaDTO?.description?.trim() || 'REGULAR';
   rule.criterio = 'Status';
   rule.caracteristicaDTO = { description: status, caracteristicaId: status };
 }
 
-/** Keeps the polymorphic Location DTO aligned with its selected Community-only criterion. */
+function selectMaterialCharacteristic(rule: CommunityMaterialClusterRule): void {
+
+  const characteristic = materialCharacteristics.value.find(
+    (candidate) => candidate.caracteristicaId === rule.caracteristicaDTO?.caracteristicaId,
+  );
+  if (characteristic === undefined) return;
+  rule.criterio = 'Characteristic';
+  rule.caracteristicaDTO = {
+    caracteristicaId: characteristic.caracteristicaId,
+    description: characteristic.descricao,
+    listaAtributos: characteristic.listaAtributos.slice(0, 1),
+  };
+}
+
 function normalizeLocationRule(rule: CommunityLocationClusterRule): void {
 
   if (rule.criterio === 'Country / State') {
@@ -287,21 +400,15 @@ function normalizeLocationRule(rule: CommunityLocationClusterRule): void {
     rule.estado ??= '';
     return;
   }
-
   rule.criterio = 'Location Type';
   rule.pais = undefined;
   rule.estado = undefined;
   rule.locationType ??= 'Internal';
 }
 
-/** Number inputs may produce an empty string at runtime; the API represents an omitted priority as null. */
 function normalizePriority(snapshot: { priority: number | null }): void {
 
-  const runtimePriority = snapshot.priority as unknown;
-  if (runtimePriority === '') {
-    snapshot.priority = null;
-    return;
-  }
+  if ((snapshot.priority as unknown) === '') snapshot.priority = null;
   if (snapshot.priority !== null && !Number.isInteger(snapshot.priority)) {
     throw new Error('Cluster priority must be an integer when informed.');
   }
@@ -309,13 +416,21 @@ function normalizePriority(snapshot: { priority: number | null }): void {
 
 function validateMaterialSnapshot(snapshot: CommunityMaterialClusterScope): void {
 
-  snapshot.process = 'DP';
   normalizePriority(snapshot);
   for (const rule of snapshot.regraAlocacaoClusterDTOList) {
     normalizeMaterialRule(rule);
-    const status = rule.caracteristicaDTO?.description;
-    if (!materialStatusOptions.includes(status as typeof materialStatusOptions[number])) {
-      throw new Error('Material rules must use Not Released, Regular, or Discontinued status.');
+    if (rule.criterio !== 'Characteristic') {
+      if (!materialStatusOptions.includes(rule.caracteristicaDTO?.description as typeof materialStatusOptions[number])) {
+        throw new Error('Material rules must use Not Released, Regular, or Discontinued status.');
+      }
+      continue;
+    }
+    const characteristic = materialCharacteristics.value.find(
+      (candidate) => candidate.caracteristicaId === rule.caracteristicaDTO?.caracteristicaId,
+    );
+    const values = rule.caracteristicaDTO?.listaAtributos ?? [];
+    if (characteristic === undefined || values.length === 0 || values.some((value) => !characteristic.listaAtributos.includes(value))) {
+      throw new Error('Select at least one value from a published material characteristic.');
     }
   }
 }
@@ -334,80 +449,6 @@ function validateLocationSnapshot(snapshot: CommunityLocationClusterScope): void
   }
 }
 
-/** Saves one complete definition snapshot, then discards it in favour of fresh server catalogs. */
-async function saveMaterialDraft(): Promise<void> {
-
-  const draft = materialDraft.value;
-  if (draft === null || saving.value) {
-    return;
-  }
-
-  try {
-    validateMaterialSnapshot(draft);
-  } catch (error) {
-    errorMessage.value = toErrorMessage(error, 'Review the material cluster rules before saving.');
-    return;
-  }
-
-  saving.value = true;
-  errorMessage.value = null;
-  resultMessage.value = null;
-  const savedId = draft.id;
-  try {
-    await clusterScopeInspectorService.saveMaterialCluster(cloneSnapshot(draft));
-    await loadClusterDefinitionsAfterMutation();
-    if (savedId !== null) {
-      selectedMaterialClusterId.value = savedId;
-      await selectMaterialCluster();
-    } else {
-      materialDraft.value = null;
-    }
-    resultMessage.value = 'Material Demand Planning cluster saved and reloaded from the server.';
-  } catch (error) {
-    errorMessage.value = toErrorMessage(error, 'Unable to save the material cluster definition.');
-  } finally {
-    saving.value = false;
-  }
-}
-
-/** Saves one complete definition snapshot, then discards it in favour of fresh server catalogs. */
-async function saveLocationDraft(): Promise<void> {
-
-  const draft = locationDraft.value;
-  if (draft === null || saving.value) {
-    return;
-  }
-
-  try {
-    validateLocationSnapshot(draft);
-  } catch (error) {
-    errorMessage.value = toErrorMessage(error, 'Review the Location Cluster rules before saving.');
-    return;
-  }
-
-  saving.value = true;
-  errorMessage.value = null;
-  resultMessage.value = null;
-  const savedId = draft.id;
-  try {
-    await clusterScopeInspectorService.saveLocationCluster(cloneSnapshot(draft));
-    clearLocationMembersSnapshot();
-    await loadClusterDefinitionsAfterMutation();
-    if (savedId !== null) {
-      selectedLocationClusterId.value = savedId;
-      await selectLocationCluster();
-    } else {
-      locationDraft.value = null;
-    }
-    resultMessage.value = 'Location cluster saved and reloaded from the server.';
-  } catch (error) {
-    errorMessage.value = toErrorMessage(error, 'Unable to save the location cluster definition.');
-  } finally {
-    saving.value = false;
-  }
-}
-
-/** Allows a forced authoritative reload while a save/delete is in progress. */
 async function loadClusterDefinitionsAfterMutation(): Promise<void> {
 
   const [materialClusterList, locationClusterList] = await Promise.all([
@@ -418,45 +459,84 @@ async function loadClusterDefinitionsAfterMutation(): Promise<void> {
   locationClusters.value = locationClusterList;
 }
 
-function requestClusterDeletion(kind: ClusterEditorTab): void {
+async function saveActiveDraft(): Promise<void> {
 
-  const draft = kind === 'material' ? materialDraft.value : locationDraft.value;
-  if (draft?.id === null || draft?.id === undefined || isBusy.value) {
+  if (saving.value) return;
+
+  const isMaterial = activeDimension.value === 'material';
+  const draft = isMaterial ? materialDraft.value : locationDraft.value;
+  if (draft === null) return;
+  try {
+    if (isMaterial) validateMaterialSnapshot(draft as CommunityMaterialClusterScope);
+    else validateLocationSnapshot(draft as CommunityLocationClusterScope);
+  } catch (error) {
+    errorMessage.value = toErrorMessage(error, 'Review the cluster definition before saving.');
     return;
   }
 
+  saving.value = true;
+  errorMessage.value = null;
+  resultMessage.value = null;
+  const savedId = draft.id;
+  try {
+    if (isMaterial) await clusterScopeInspectorService.saveMaterialCluster(cloneSnapshot(draft as CommunityMaterialClusterScope));
+    else await clusterScopeInspectorService.saveLocationCluster(cloneSnapshot(draft as CommunityLocationClusterScope));
+    clearLocationMembersSnapshot();
+    clearMaterialMembersSnapshot();
+    await loadClusterDefinitionsAfterMutation();
+    if (savedId === null) {
+      if (isMaterial) materialDraft.value = null;
+      else locationDraft.value = null;
+    } else if (isMaterial) {
+      selectedMaterialClusterId.value = savedId;
+      await selectMaterialCluster();
+    } else {
+      selectedLocationClusterId.value = savedId;
+      await selectLocationCluster();
+    }
+    resultMessage.value = `${isMaterial ? 'Material' : 'Location'} cluster saved and reloaded from the server.`;
+  } catch (error) {
+    errorMessage.value = toErrorMessage(error, 'Unable to save the cluster definition.');
+  } finally {
+    saving.value = false;
+  }
+}
+
+function requestClusterDeletion(): void {
+
+  const draft = activeDraft.value;
+  if (draft?.id === null || draft?.id === undefined || isBusy.value) return;
   pendingDeletion.value = {
-    kind,
+    dimension: activeDimension.value,
     id: draft.id,
-    description: draft.description?.trim() || `${kind === 'material' ? 'Material' : 'Location'} cluster #${draft.id}`,
+    description: draft.description?.trim() || `${activeDimension.value === 'material' ? 'Material' : 'Location'} cluster #${draft.id}`,
   };
 }
 
-/** Sends only the selected cluster deletion; no browser cascade or dependent-record inference is attempted. */
 async function confirmClusterDeletion(): Promise<void> {
 
   const deletion = pendingDeletion.value;
-  if (deletion === null || deleting.value) {
-    return;
-  }
+  if (deletion === null || deleting.value) return;
 
   deleting.value = true;
   errorMessage.value = null;
   resultMessage.value = null;
+  const request: CommunityClusterDeleteRequest = { id: deletion.id };
   try {
-    if (deletion.kind === 'material') {
-      await clusterScopeInspectorService.deleteMaterialCluster({ id: deletion.id, process: 'DP' });
+    if (deletion.dimension === 'material') {
+      await clusterScopeInspectorService.deleteMaterialCluster(request);
       selectedMaterialClusterId.value = null;
       materialDraft.value = null;
+      clearMaterialMembersSnapshot();
     } else {
-      await clusterScopeInspectorService.deleteLocationCluster({ id: deletion.id });
+      await clusterScopeInspectorService.deleteLocationCluster(request);
       selectedLocationClusterId.value = null;
       locationDraft.value = null;
       clearLocationMembersSnapshot();
     }
     pendingDeletion.value = null;
     await loadClusterDefinitionsAfterMutation();
-    resultMessage.value = `${deletion.kind === 'material' ? 'Material' : 'Location'} cluster deleted and catalogs reloaded from the server.`;
+    resultMessage.value = `${deletion.dimension === 'material' ? 'Material' : 'Location'} cluster deleted and catalogs reloaded from the server.`;
   } catch (error) {
     errorMessage.value = toErrorMessage(error, 'Unable to delete the cluster. It may still be in use.');
   } finally {
@@ -464,20 +544,15 @@ async function confirmClusterDeletion(): Promise<void> {
   }
 }
 
-/** Captures one unpaginated member snapshot only after the explicit Location action. */
 async function loadSelectedLocationClusterMembers(): Promise<void> {
 
-  const clusterLocationsId = selectedLocationCluster.value?.id;
-  if (clusterLocationsId === undefined || clusterLocationsId === null || loadingLocationClusterMembers.value
-      || locationClusterMembersClusterId.value === clusterLocationsId) {
-    return;
-  }
-
+  const clusterId = selectedLocationCluster.value?.id;
+  if (clusterId === undefined || clusterId === null || loadingLocationClusterMembers.value || hasLocationClusterMembersSnapshot.value) return;
   loadingLocationClusterMembers.value = true;
   errorMessage.value = null;
   try {
-    locationClusterMembers.value = await clusterScopeInspectorService.getLocationClusterMembers(clusterLocationsId);
-    locationClusterMembersClusterId.value = clusterLocationsId;
+    locationClusterMembers.value = await clusterScopeInspectorService.getLocationClusterMembers(clusterId);
+    locationClusterMembersClusterId.value = clusterId;
   } catch (error) {
     errorMessage.value = toErrorMessage(error, 'Unable to load active Location Cluster members.');
   } finally {
@@ -492,71 +567,102 @@ onMounted(() => {
 
 <template>
   <DashboardPageLayout class="clustering-page">
-    <OfxPageHeader eyebrow="Configuration" title="Clustering" description="Create and maintain the material and location clusters used by Demand Planning.">
-      <template #actions>
-        <div class="cluster-mode-switch" role="tablist" aria-label="Cluster type">
-          <button :aria-selected="activeTab === 'material'" class="cluster-mode-button" :class="{ 'is-active': activeTab === 'material' }" role="tab" type="button" @click="selectEditorTab('material')">Material</button>
-          <button :aria-selected="activeTab === 'location'" class="cluster-mode-button" :class="{ 'is-active': activeTab === 'location' }" role="tab" type="button" @click="selectEditorTab('location')">Location</button>
-        </div>
-      </template>
-    </OfxPageHeader>
+    <OfxPageHeader eyebrow="Configuration" title="Clustering" description="Create reusable material and location groups in one planning clustering scheme." />
 
     <p v-if="resultMessage" class="success-message" role="status">{{ resultMessage }}</p>
-    <p v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
+    <p v-if="errorMessage" class="error-message" role="alert">{{ errorMessage }}</p>
 
-    <OfxSectionCard class="workspace-card" title="Edit / Create Cluster" aria-label="Community cluster configuration">
-      <section v-if="activeTab === 'material'" class="editor-layout" aria-labelledby="material-cluster-title">
-        <aside class="master-list">
-          <div class="list-heading"><h2 id="material-cluster-title">List of Clusters</h2><button class="secondary-button" type="button" :disabled="isBusy" @click="startMaterialCreation">New Material Cluster</button></div>
-          <label>Existing Material Cluster<select v-model.number="selectedMaterialClusterId" :disabled="isBusy" @change="void selectMaterialCluster()"><option :value="null">Select a material cluster</option><option v-for="(cluster, index) in materialClusters" :key="cluster.id ?? `material-catalog-${index}`" :value="cluster.id">{{ materialClusterLabel(cluster) }}</option></select></label>
-          <button class="secondary-button" type="button" :disabled="isBusy" @click="void loadClusterDefinitions()">{{ loading ? 'Loading…' : 'Refresh catalog' }}</button>
-          <p class="muted">Choose a cluster to edit it, or create a new Material cluster for Demand Planning.</p>
-        </aside>
+    <section class="clustering-workbench" aria-label="Cluster definition workspace">
+      <aside class="cluster-library" aria-label="Cluster selection">
+        <div class="library-heading">
+          <p class="eyebrow">Clusters</p>
+        </div>
 
-        <section v-if="materialDraft" class="editor-card" aria-labelledby="material-editor-title">
-          <div class="editor-heading"><div><p class="eyebrow">Complete server snapshot</p><h2 id="material-editor-title">{{ materialDraft.id === null ? 'New Material DP cluster' : materialClusterLabel(materialDraft) }}</h2></div><span class="process-chip">DP</span></div>
-          <div class="field-grid"><label>Cluster Description<input v-model="materialDraft.description" :disabled="saving" maxlength="255" type="text"></label><label>Cluster Priority<input v-model.number="materialDraft.priority" :disabled="saving" type="number"></label></div>
-          <section class="rules-editor" aria-labelledby="material-rules-title"><div class="rules-heading"><div><h3 id="material-rules-title">Material status rules</h3><p class="muted">To change a persisted rule, remove it and add a new rule. This preserves the server snapshot contract.</p></div><button class="secondary-button" type="button" :disabled="saving" @click="addMaterialRule">Add status rule</button></div>
-            <article v-for="(rule, index) in materialDraft.regraAlocacaoClusterDTOList" :key="rule.id ?? `new-material-rule-${index}`" class="rule-card"><label>Status<select v-model="rule.caracteristicaDTO!.description" :disabled="saving || rule.id !== null" @change="normalizeMaterialRule(rule)"><option v-for="status in materialStatusOptions" :key="status" :value="status">{{ status }}</option></select></label><span v-if="rule.id !== null" class="persisted-note">Persisted rule — remove and add to change status.</span><button class="danger-button" type="button" :disabled="saving" @click="removeMaterialRule(index)">Remove rule</button></article>
-            <p v-if="materialDraft.regraAlocacaoClusterDTOList.length === 0" class="muted">No rules: saving this snapshot removes all existing material rules.</p>
+        <div class="library-selectors">
+          <OfxSelectField
+            :model-value="activeDimension"
+            label="Dimension"
+            :options="dimensionOptions"
+            :disabled="isBusy"
+            :show-placeholder-option="false"
+            @update:model-value="selectDimension($event as ClusterDimension)"
+          />
+          <OfxSelectField
+            v-model="selectedClusterValue"
+            label="Cluster"
+            :options="activeClusterOptions"
+            :disabled="isBusy"
+            placeholder-label="Select a cluster"
+          />
+        </div>
+
+        <button class="primary-button create-button" type="button" :disabled="isBusy" @click="startCreation">
+          New {{ activeDimension }} cluster
+        </button>
+
+      </aside>
+
+      <main class="cluster-editor">
+        <template v-if="activeDimension === 'material' && materialDraft">
+          <header class="editor-heading">
+            <div><p class="eyebrow">Material cluster {{ materialDraft.id === null ? '' : `#${materialDraft.id}` }}</p><h2>{{ materialDraft.id === null ? 'New material cluster' : materialDraft.description || 'Untitled material cluster' }}</h2></div>
+            <span class="dimension-tag">Material</span>
+          </header>
+          <div class="definition-fields"><OfxTextField v-model="materialDraft.description" label="Description" :disabled="saving" maxlength="255" /><OfxTextField v-model="materialDraft.priority" label="Priority" :disabled="saving" type="number" /></div>
+          <section class="rules-section" aria-labelledby="material-rules-title">
+            <div class="rules-heading"><div><h3 id="material-rules-title">Membership rules</h3><p>Rules determine which materials belong to this cluster. Values in one characteristic are alternatives; separate rules are cumulative.</p></div><div class="rule-actions"><button class="secondary-button" type="button" :disabled="saving" @click="addMaterialRule">Add status</button><button class="secondary-button" type="button" :disabled="saving || materialCharacteristics.length === 0" @click="addMaterialCharacteristicRule">Add characteristic</button></div></div>
+            <article v-for="(rule, index) in materialDraft.regraAlocacaoClusterDTOList" :key="rule.id ?? `new-material-rule-${index}`" class="rule-card">
+              <template v-if="rule.id !== null"><div class="rule-summary"><span>{{ formatCriterion(rule.criterio) }}</span><strong>{{ materialRuleSubject(rule) }}</strong><div class="value-tags"><em v-for="value in materialRuleValues(rule)" :key="value">{{ value }}</em></div></div></template>
+              <template v-else><div class="rule-inputs"><OfxSelectField v-model="rule.criterio" label="Criterion" :options="materialCriterionOptions" :disabled="saving" :show-placeholder-option="false" @update:model-value="normalizeMaterialRule(rule)" /><template v-if="rule.criterio === 'Characteristic' || rule.criterio === 'CARACTERISTICA'"><OfxSelectField v-model="rule.caracteristicaDTO!.caracteristicaId" label="Characteristic" :options="materialCharacteristicOptions" :disabled="saving" :show-placeholder-option="false" @update:model-value="selectMaterialCharacteristic(rule)" /><OfxEntityMultiSelect :model-value="rule.caracteristicaDTO!.listaAtributos ?? []" label="Values" :options="materialRuleValueOptions(rule)" :disabled="saving" placeholder="Select values" @update:model-value="rule.caracteristicaDTO!.listaAtributos = $event" /></template><OfxSelectField v-else v-model="rule.caracteristicaDTO!.description" label="Status" :options="materialStatusFieldOptions" :disabled="saving" :show-placeholder-option="false" @update:model-value="normalizeMaterialRule(rule)" /></div></template>
+              <button class="icon-text danger-button" type="button" :disabled="saving" @click="removeMaterialRule(index)">Remove</button>
+            </article>
+            <p v-if="materialDraft.regraAlocacaoClusterDTOList.length === 0" class="empty-rules">Add a rule to define this material cluster.</p>
           </section>
-          <div class="editor-actions"><button class="danger-button" type="button" :disabled="saving || materialDraft.id === null" @click="requestClusterDeletion('material')">Delete</button><button class="primary-button" type="button" :disabled="saving" @click="void saveMaterialDraft()">{{ saving ? 'Saving…' : 'Submit' }}</button></div>
-        </section>
-        <section v-else class="empty-editor">Select an existing Material DP cluster or create a new one.</section>
-      </section>
+        </template>
 
-      <section v-else class="editor-layout" aria-labelledby="location-cluster-title">
-        <aside class="master-list">
-          <div class="list-heading"><h2 id="location-cluster-title">List of Clusters</h2><button class="secondary-button" type="button" :disabled="isBusy" @click="startLocationCreation">New Location Cluster</button></div>
-          <label>Existing Location Cluster<select v-model.number="selectedLocationClusterId" :disabled="isBusy" @change="void selectLocationCluster()"><option :value="null">Select a location cluster</option><option v-for="(cluster, index) in locationClusters" :key="cluster.id ?? `location-catalog-${index}`" :value="cluster.id">{{ locationClusterLabel(cluster) }}</option></select></label>
-          <button class="secondary-button" type="button" :disabled="isBusy" @click="void loadClusterDefinitions()">{{ loading ? 'Loading…' : 'Refresh catalog' }}</button>
-          <p class="muted">Choose a cluster to edit it, or create a new Location cluster.</p>
-        </aside>
-
-        <section v-if="locationDraft" class="editor-card" aria-labelledby="location-editor-title">
-          <div class="editor-heading"><div><p class="eyebrow">Complete server snapshot</p><h2 id="location-editor-title">{{ locationDraft.id === null ? 'New Location cluster' : locationClusterLabel(locationDraft) }}</h2></div></div>
-          <div class="field-grid"><label>Cluster Description<input v-model="locationDraft.description" :disabled="saving" maxlength="255" type="text"></label><label>Cluster Priority<input v-model.number="locationDraft.priority" :disabled="saving" type="number"></label></div>
-          <section class="rules-editor" aria-labelledby="location-rules-title"><div class="rules-heading"><div><h3 id="location-rules-title">Location rules</h3><p class="muted">To change a persisted rule, remove it and add a new rule. Only the supported criteria are available.</p></div><button class="secondary-button" type="button" :disabled="saving" @click="addLocationRule">Add location rule</button></div>
-            <article v-for="(rule, index) in locationDraft.regraAlocacaoClusterDTOList" :key="rule.id ?? `new-location-rule-${index}`" class="rule-card location-rule-card"><label>Criterion<select v-model="rule.criterio" :disabled="saving || rule.id !== null" @change="normalizeLocationRule(rule)"><option value="Location Type">Location type</option><option value="Country / State">Country / state</option></select></label><label v-if="rule.criterio === 'Location Type'">Location type<select v-model="rule.locationType" :disabled="saving || rule.id !== null"><option v-for="locationType in locationTypeOptions" :key="locationType" :value="locationType">{{ locationType }}</option></select></label><template v-else><label>Country<input v-model="rule.pais" :disabled="saving || rule.id !== null" maxlength="50" type="text"></label><label>State<input v-model="rule.estado" :disabled="saving || rule.id !== null" maxlength="50" type="text"></label></template><span v-if="rule.id !== null" class="persisted-note">Persisted rule — remove and add to change its structure.</span><button class="danger-button" type="button" :disabled="saving" @click="removeLocationRule(index)">Remove rule</button></article>
-            <p v-if="locationDraft.regraAlocacaoClusterDTOList.length === 0" class="muted">No rules: saving this snapshot removes all existing location rules.</p>
+        <template v-else-if="activeDimension === 'location' && locationDraft">
+          <header class="editor-heading"><div><p class="eyebrow">Location cluster {{ locationDraft.id === null ? '' : `#${locationDraft.id}` }}</p><h2>{{ locationDraft.id === null ? 'New location cluster' : locationDraft.description || 'Untitled location cluster' }}</h2></div><span class="dimension-tag">Location</span></header>
+          <div class="definition-fields"><OfxTextField v-model="locationDraft.description" label="Description" :disabled="saving" maxlength="255" /><OfxTextField v-model="locationDraft.priority" label="Priority" :disabled="saving" type="number" /></div>
+          <section class="rules-section" aria-labelledby="location-rules-title"><div class="rules-heading"><div><h3 id="location-rules-title">Membership rules</h3><p>Rules determine which locations belong to this cluster.</p></div><button class="secondary-button" type="button" :disabled="saving" @click="addLocationRule">Add location rule</button></div>
+            <article v-for="(rule, index) in locationDraft.regraAlocacaoClusterDTOList" :key="rule.id ?? `new-location-rule-${index}`" class="rule-card"><template v-if="rule.id !== null"><div class="rule-summary"><span>{{ formatCriterion(rule.criterio) }}</span><strong>{{ locationRuleValue(rule) }}</strong></div></template><template v-else><div class="rule-inputs location-rule-inputs"><OfxSelectField v-model="rule.criterio" label="Criterion" :options="locationCriterionOptions" :disabled="saving" :show-placeholder-option="false" @update:model-value="normalizeLocationRule(rule)" /><OfxSelectField v-if="rule.criterio === 'Location Type'" v-model="rule.locationType" label="Location type" :options="locationTypeFieldOptions" :disabled="saving" :show-placeholder-option="false" /><template v-else><OfxTextField v-model="rule.pais" label="Country" :disabled="saving" maxlength="50" /><OfxTextField v-model="rule.estado" label="State" :disabled="saving" maxlength="50" /></template></div></template><button class="icon-text danger-button" type="button" :disabled="saving" @click="removeLocationRule(index)">Remove</button></article>
+            <p v-if="locationDraft.regraAlocacaoClusterDTOList.length === 0" class="empty-rules">Add a rule to define this location cluster.</p>
           </section>
-          <div class="editor-actions"><button class="danger-button" type="button" :disabled="saving || locationDraft.id === null" @click="requestClusterDeletion('location')">Delete</button><button class="primary-button" type="button" :disabled="saving" @click="void saveLocationDraft()">{{ saving ? 'Saving…' : 'Submit' }}</button></div>
-        </section>
-        <section v-else class="empty-editor">Select an existing Location cluster or create a new one.</section>
-      </section>
-    </OfxSectionCard>
+        </template>
 
-    <OfxSectionCard v-if="activeTab === 'location' && selectedLocationCluster" class="location-members-section" aria-labelledby="location-cluster-members-title">
-      <div><p class="eyebrow">Projection-backed snapshot</p><h2 id="location-cluster-members-title">Active Location Cluster members</h2><p class="muted">This unpaginated list is fetched only after an explicit action. It remains separate from editing and is never used to infer a delete cascade.</p></div>
-      <button v-if="!hasLocationClusterMembersSnapshot" class="primary-button" type="button" :disabled="loadingLocationClusterMembers || isBusy" @click="void loadSelectedLocationClusterMembers()">{{ loadingLocationClusterMembers ? 'Loading active members…' : 'Load active members' }}</button>
-      <p v-else class="captured-message" role="status">Active-member snapshot captured. Reload is intentionally unavailable for this selected cluster.</p>
-      <div v-if="hasLocationClusterMembersSnapshot" class="members-table-wrapper"><table><thead><tr><th>ID</th><th>Description</th><th>Type</th><th>Active</th><th>Country</th><th>State</th><th>City</th></tr></thead><tbody><tr v-for="location in locationClusterMembers" :key="location.id"><td>{{ location.id }}</td><td>{{ location.description || '—' }}</td><td>{{ location.locationType || '—' }}</td><td>{{ location.active === null ? '—' : String(location.active) }}</td><td>{{ location.country || '—' }}</td><td>{{ location.state || '—' }}</td><td>{{ location.city || '—' }}</td></tr></tbody></table><p v-if="locationClusterMembers?.length === 0" class="muted">No active locations were returned for this cluster.</p></div>
-    </OfxSectionCard>
+        <section v-else class="empty-editor"><p class="eyebrow">Cluster definition</p><h2>Start with a cluster</h2><p>Select a cluster or create a new {{ activeDimension }} cluster.</p><button class="primary-button" type="button" :disabled="isBusy" @click="startCreation">New {{ activeDimension }} cluster</button></section>
 
-    <OfxSectionCard v-if="pendingDeletion" class="confirmation" role="dialog" aria-modal="true" aria-labelledby="delete-cluster-title"><h2 id="delete-cluster-title">Delete {{ pendingDeletion.kind === 'material' ? 'Material DP' : 'Location' }} cluster?</h2><p><strong>{{ pendingDeletion.description }}</strong> will be sent to the server for deletion. The page does not remove linked plans or records locally. If it is still referenced, the backend message will be shown here.</p><div class="editor-actions"><button class="secondary-button" type="button" :disabled="deleting" @click="pendingDeletion = null">Keep cluster</button><button class="danger-button" type="button" :disabled="deleting" @click="void confirmClusterDeletion()">{{ deleting ? 'Deleting…' : 'Delete cluster' }}</button></div></OfxSectionCard>
+        <footer v-if="activeDraft" class="editor-actions"><button v-if="activeDraft.id !== null" class="danger-button cluster-delete-button" type="button" :disabled="saving" @click="requestClusterDeletion">Delete cluster</button><button class="primary-button" type="button" :disabled="saving" @click="void saveActiveDraft()">{{ saving ? 'Saving…' : 'Save cluster' }}</button></footer>
+
+        <section v-if="activeDimension === 'material' && selectedMaterialCluster" class="members-section"><div><p class="eyebrow">Cluster members</p><h3>Materials in this cluster</h3><p>Resolved from the current cluster definition.</p></div><p v-if="loadingMaterialClusterMembers" class="snapshot-status">Loading materials…</p><div v-else class="members-table"><OfxDataTable v-if="materialMemberRows.length" :rows="materialMemberRows" :columns="materialMemberColumns" row-key="rowKey" :dense="true" :page-size="10" text-size="xs" export-base-name="cluster-material-members" /><p v-else>No active materials were returned.</p></div></section>
+        <section v-if="activeDimension === 'location' && selectedLocationCluster" class="members-section"><div><p class="eyebrow">Cluster members</p><h3>Locations in this cluster</h3><p>Resolved from the current cluster definition.</p></div><button v-if="!hasLocationClusterMembersSnapshot" class="secondary-button" type="button" :disabled="loadingLocationClusterMembers || isBusy" @click="void loadSelectedLocationClusterMembers()">{{ loadingLocationClusterMembers ? 'Loading…' : 'Load members' }}</button><p v-else class="snapshot-status">Member snapshot loaded.</p><div v-if="hasLocationClusterMembersSnapshot" class="members-table"><OfxDataTable v-if="locationMemberRows.length" :rows="locationMemberRows" :columns="locationMemberColumns" row-key="rowKey" :dense="true" :page-size="10" text-size="xs" export-base-name="cluster-location-members" /><p v-else>No active locations were returned.</p></div></section>
+      </main>
+    </section>
+
+    <section v-if="pendingDeletion" class="delete-confirmation" role="dialog" aria-modal="true" aria-labelledby="delete-cluster-title"><div><p class="eyebrow">Confirm deletion</p><h2 id="delete-cluster-title">Delete this cluster?</h2><p><strong>{{ pendingDeletion.description }}</strong> will be sent to the server for deletion. Linked plans and records are not removed by this page.</p></div><div><button class="secondary-button" type="button" :disabled="deleting" @click="pendingDeletion = null">Keep cluster</button><button class="danger-button" type="button" :disabled="deleting" @click="void confirmClusterDeletion()">{{ deleting ? 'Deleting…' : 'Delete cluster' }}</button></div></section>
   </DashboardPageLayout>
 </template>
 
 <style scoped>
-.workspace-card, .editor-card, .location-members-section { display: grid; gap: 1rem; margin-bottom: 1rem; }.editor-card h2, .rules-editor h3, .location-members-section h2 { margin: 0; }.muted { color: var(--ofx-muted); }.primary-button, .secondary-button, .danger-button { border: 1px solid #c8d0de; border-radius: .5rem; background: white; cursor: pointer; padding: .65rem .9rem; width: fit-content; }.primary-button { border-color: var(--ofx-accent); background: var(--ofx-accent); color: white; }.danger-button { border-color: #c93c32; background: #fff7f6; color: #9d2019; }.primary-button:disabled, .secondary-button:disabled, .danger-button:disabled { cursor: not-allowed; opacity: .55; }.cluster-mode-switch { display: inline-flex; align-items: center; gap: .3rem; border: 1px solid var(--ofx-border); border-radius: 999px; background: var(--ofx-surface-elevated); padding: .24rem; }.cluster-mode-button { min-width: 6.5rem; border: 0; border-radius: 999px; background: transparent; color: var(--ofx-text-muted); cursor: pointer; font-size: .82rem; font-weight: 600; padding: .58rem .95rem; }.cluster-mode-button.is-active { background: var(--ofx-accent); color: white; }.editor-layout { display: grid; gap: 1rem; grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr); }.master-list, .editor-card, .empty-editor { border: 1px solid #e2e7f0; border-radius: .75rem; padding: 1rem; }.master-list { align-content: start; display: grid; gap: 1rem; }.list-heading, .editor-heading, .rules-heading, .editor-actions { align-items: start; display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; }.list-heading h2, .editor-heading h2, .rules-heading h3 { margin: 0; }.master-list label, .field-grid label, .rule-card label { display: grid; gap: .4rem; font-size: .875rem; font-weight: 700; }.master-list select, .field-grid input, .rule-card input, .rule-card select { border: 1px solid #c8d0de; border-radius: .5rem; background: white; min-height: 2.5rem; padding: .55rem; }.master-list p, .rules-heading p { margin: 0; }.editor-heading p { margin: 0; }.process-chip, .persisted-note { color: var(--ofx-muted); font-size: .82rem; }.process-chip { border: 1px solid #d8d0ff; border-radius: 999px; padding: .35rem .6rem; }.field-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }.rules-editor { display: grid; gap: .75rem; border-top: 1px solid #e2e7f0; padding-top: 1rem; }.rule-card { align-items: end; border-left: 3px solid #e7e2ff; display: grid; gap: .75rem; grid-template-columns: minmax(14rem, 1fr) auto auto; padding: .75rem; }.location-rule-card { grid-template-columns: repeat(3, minmax(10rem, 1fr)) auto auto; }.empty-editor { color: var(--ofx-muted); display: grid; min-height: 10rem; place-content: center; }.success-message { border: 1px solid #70b694; border-radius: .5rem; background: #ebf8ef; color: #146c43; margin-bottom: 1rem; padding: .8rem 1rem; }.error { color: #b42318; }.location-members-section p { margin: 0; }.members-table-wrapper { max-width: 100%; overflow-x: auto; }.members-table-wrapper table { border-collapse: collapse; min-width: 50rem; width: 100%; }.members-table-wrapper th, .members-table-wrapper td { border-bottom: 1px solid #e7e2ff; padding: .65rem; text-align: left; vertical-align: top; white-space: nowrap; }.members-table-wrapper th { color: var(--ofx-muted); font-size: .78rem; }.captured-message { border-left: 3px solid #70b694; padding-left: .75rem; }.confirmation { border: 1px solid #f0b7b2; border-radius: 1rem; background: #fff8f7; margin-top: 1rem; max-width: 44rem; padding: 1.5rem; }.confirmation h2 { margin-top: 0; }@media (max-width: 60rem) { .editor-layout { grid-template-columns: 1fr; }.rule-card, .location-rule-card { grid-template-columns: 1fr; }.editor-actions { align-items: stretch; }.editor-actions button { width: 100%; } }
+.clustering-page { display: grid; gap: 1.25rem; }
+.clustering-workbench { display: grid; grid-template-columns: minmax(17.5rem, 20rem) minmax(0, 1fr); gap: 1.25rem; align-items: stretch; }
+.cluster-library, .cluster-editor, .delete-confirmation { border: 1px solid var(--ofx-border); border-radius: 14px; background: var(--ofx-surface-elevated); }
+.cluster-library { display: flex; flex-direction: column; min-height: 42rem; padding: 1.25rem; }
+.editor-heading h2, .empty-editor h2, .rules-heading h3, .members-section h3, .delete-confirmation h2 { margin: 0; color: var(--ofx-text); }
+.rules-heading p, .members-section p, .empty-editor p { margin: .45rem 0 0; color: var(--ofx-text-muted); font-size: .875rem; line-height: 1.5; }
+.eyebrow { margin: 0 0 .3rem; color: var(--ofx-text-muted); font-size: .6875rem; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+.library-selectors { display: grid; gap: 1rem; margin: 1.5rem 0 .9rem; }
+.create-button { width: 100%; }
+.empty-rules { margin: 1rem 0 0; border: 1px dashed var(--ofx-border); border-radius: 10px; padding: .8rem; color: var(--ofx-text-muted); font-size: .8125rem; }
+.cluster-editor { display: grid; align-content: start; min-width: 0; padding: 1.5rem; }
+.editor-heading, .rules-heading, .editor-actions, .delete-confirmation, .members-section { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.editor-heading { padding-bottom: 1.25rem; border-bottom: 1px solid var(--ofx-border); }.editor-heading h2 { font-size: 1.3rem; }.dimension-tag { border-radius: 999px; background: color-mix(in srgb, var(--ofx-primary) 10%, var(--ofx-surface)); padding: .35rem .65rem; color: var(--ofx-primary); font-size: .75rem; font-weight: 700; }
+.definition-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(8.5rem, 10rem); gap: 1rem; min-width: 0; padding: 1.25rem 0; }.definition-fields > *, .rule-inputs > * { min-width: 0; }
+.rules-section { display: grid; gap: .8rem; border-top: 1px solid var(--ofx-border); padding-top: 1.25rem; }.rules-heading h3 { font-size: 1rem; }.rule-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.rule-card { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; border: 1px solid var(--ofx-border); border-left: 3px solid var(--ofx-primary); border-radius: 10px; background: var(--ofx-surface); padding: .9rem 1rem; }.rule-summary { display: grid; min-width: 0; gap: .3rem; }.rule-summary > span { color: var(--ofx-text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }.rule-summary strong { color: var(--ofx-text); font-size: .875rem; }.value-tags { display: flex; flex-wrap: wrap; gap: .3rem; }.value-tags em { border: 1px solid color-mix(in srgb, var(--ofx-primary) 20%, var(--ofx-border)); border-radius: 999px; padding: .16rem .45rem; color: var(--ofx-text); font-size: .75rem; font-style: normal; }.rule-inputs { display: grid; grid-template-columns: minmax(10rem, .85fr) minmax(12rem, 1fr) minmax(13rem, 1.15fr); flex: 1; gap: .8rem; }.location-rule-inputs { grid-template-columns: repeat(3, minmax(10rem, 1fr)); }
+.editor-actions { display: grid; grid-template-columns: 1fr auto; align-items: center; margin-top: 1.25rem; border-top: 1px solid var(--ofx-border); padding-top: 1.25rem; }.cluster-delete-button { justify-self: start; }.empty-editor { display: grid; align-content: center; justify-items: start; min-height: 25rem; }.empty-editor p { max-width: 35rem; margin-bottom: 1.25rem; }
+.members-section { display: grid; grid-template-columns: 1fr auto; margin-top: 1.25rem; border-top: 1px solid var(--ofx-border); padding-top: 1.25rem; }.members-section h3 { font-size: 1rem; }.members-table { grid-column: 1 / -1; min-width: 0; }.snapshot-status { align-self: center; margin: 0 !important; color: #146c43 !important; font-weight: 650; }
+.primary-button, .secondary-button, .danger-button { display: inline-flex; min-height: 2.5rem; align-items: center; justify-content: center; border: 1px solid var(--ofx-border); border-radius: 9px; background: var(--ofx-surface); padding: .45rem .85rem; color: var(--ofx-text); cursor: pointer; font: inherit; font-size: .875rem; font-weight: 650; white-space: nowrap; }.primary-button { border-color: var(--ofx-primary); background: var(--ofx-primary); color: var(--ofx-primary-foreground); }.secondary-button:hover:not(:disabled) { border-color: var(--ofx-primary); color: var(--ofx-primary); }.danger-button { border-color: #e5aaa5; background: #fff8f7; color: #a42b22; }.primary-button:disabled, .secondary-button:disabled, .danger-button:disabled { cursor: not-allowed; opacity: .5; }.primary-button:focus-visible, .secondary-button:focus-visible, .danger-button:focus-visible { outline: 2px solid var(--ofx-primary); outline-offset: 2px; }
+.success-message, .error-message { margin: 0; border-radius: 10px; padding: .75rem 1rem; }.success-message { border: 1px solid #70b694; background: #ebf8ef; color: #146c43; }.error-message { border: 1px solid #efbab5; background: #fff7f6; color: #b42318; }.delete-confirmation { align-items: center; border-color: #efbab5; background: #fff8f7; padding: 1.25rem 1.5rem; }.delete-confirmation p:not(.eyebrow) { max-width: 43rem; margin: .45rem 0 0; color: var(--ofx-text-muted); line-height: 1.5; }.delete-confirmation > div:last-child { display: flex; gap: .6rem; }
+@media (max-width: 68rem) { .clustering-workbench { grid-template-columns: 1fr; }.cluster-library { min-height: auto; }.rule-inputs, .location-rule-inputs { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 46rem) { .cluster-editor, .cluster-library { padding: 1rem; }.editor-heading, .rules-heading, .rule-card, .delete-confirmation { flex-direction: column; }.definition-fields, .rule-inputs, .location-rule-inputs, .members-section { grid-template-columns: 1fr; }.members-table { grid-column: auto; }.editor-actions { grid-template-columns: 1fr; gap: .75rem; }.editor-actions button, .rule-card .danger-button { width: 100%; }.delete-confirmation > div:last-child { width: 100%; }.delete-confirmation > div:last-child button { flex: 1; } }
 </style>
