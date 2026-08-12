@@ -296,11 +296,9 @@ async function verifyCommunityLegacyNavigationCut() {
   if (communitySalesOverviewServiceSource.includes('demandplanandsaleshistory')) {
     violations.push('Community Sales/Demand Overview still calls the broad legacy BI endpoint.');
   }
-  if (communitySalesOverviewSource.includes('fetchProductCharacteristics')
-      || communitySalesOverviewSource.includes('fetchLocationCharacteristics')
-      || communitySalesOverviewSource.includes('Gross Sales')
+  if (communitySalesOverviewSource.includes('Gross Sales')
       || communitySalesOverviewSource.includes('Net Sales')) {
-    violations.push('Community Sales/Demand Overview still exposes Enterprise characteristics or monetary metrics.');
+    violations.push('Community Sales/Demand Overview still exposes monetary metrics.');
   }
   const canonicalCommunityPageLoaders = [
     '@/modules/demand-planning/DemandPlanningBookCommunityPage.vue',

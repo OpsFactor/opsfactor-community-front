@@ -1,5 +1,6 @@
 import { ApiRequestError } from '@opsfactor/front-core';
 import { httpClient } from './community-authentication.service';
+import type { MaterialLocationScopeCatalog } from '@/features/material-location-scope/material-location-scope.types';
 
 /** Shared option shape used by Community selectors that point to persisted master data. */
 export interface CommunityNamedOption {
@@ -46,6 +47,8 @@ export const COMMUNITY_OPTION_CATALOG_ENDPOINTS = {
   materials: '/api/secured/material',
   unitOfMeasureIds: '/api/secured/unitofmeasure/findids',
   inventoryPolicies: '/api/secured/configs/inventorypolicy',
+  materialCharacteristics: '/api/secured/material/characteristics',
+  locationCharacteristics: '/api/secured/location/characteristics',
 } as const;
 
 function toCatalogError(error: unknown, label: string): Error {
@@ -81,6 +84,26 @@ export const loadCommunityLocations = () => loadCatalog<CommunityLocationOption[
 export const loadCommunityMaterials = () => loadCatalog<CommunityMaterialOption[]>(COMMUNITY_OPTION_CATALOG_ENDPOINTS.materials, 'Materials');
 export const loadCommunityUnitOfMeasureIds = () => loadCatalog<string[]>(COMMUNITY_OPTION_CATALOG_ENDPOINTS.unitOfMeasureIds, 'units of measure');
 export const loadCommunityInventoryPolicies = () => loadCatalog<CommunityInventoryPolicyOption[]>(COMMUNITY_OPTION_CATALOG_ENDPOINTS.inventoryPolicies, 'Inventory Policies');
+
+/** Loads the four public dimensions used by request-level material/location filters. */
+export async function loadCommunityMaterialLocationFilterCatalog(): Promise<MaterialLocationScopeCatalog> {
+
+  const [materials, locations, materialCharacteristics, locationCharacteristics] = await Promise.all([
+    loadCommunityMaterials(),
+    loadCommunityLocations(),
+    loadCatalog<MaterialLocationScopeCatalog['materialCharacteristics']>(
+      COMMUNITY_OPTION_CATALOG_ENDPOINTS.materialCharacteristics,
+      'Material Characteristics',
+    ),
+    loadCatalog<MaterialLocationScopeCatalog['locationCharacteristics']>(
+      COMMUNITY_OPTION_CATALOG_ENDPOINTS.locationCharacteristics,
+      'Location Characteristics',
+    ),
+  ]);
+
+  return { materials, locations, materialCharacteristics, locationCharacteristics };
+
+}
 
 /** Keeps persisted identity visible while making descriptions the primary recognition aid. */
 export function communityNamedOptionLabel(option: CommunityNamedOption): string {

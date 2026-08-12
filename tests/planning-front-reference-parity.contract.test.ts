@@ -187,6 +187,9 @@ test('Enterprise supplies every planning-front page loader while Community omits
   for (const key of blockedKeys) {
     assert.equal(communityKeys.has(key), false, `Community must not supply the Enterprise page loader ${key}`);
   }
+
+  assert.equal(communityKeys.has('data-api-documentation'), false, 'Community must not expose Swagger navigation.');
+  assert.equal(enterpriseKeys.has('data-api-documentation'), true, 'Enterprise must retain the Swagger navigation loader.');
 });
 
 test('Enterprise preserves the current legacy module landing placeholders verbatim until those workflows are migrated', () => {

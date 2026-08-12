@@ -228,7 +228,7 @@ onMounted(() => {
         <div class="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            class="locked-action inline-flex h-10 items-center justify-center gap-2 rounded-[12px] px-4 text-sm font-semibold"
+            class="locked-action secondary-button"
             disabled
             aria-disabled="true"
           >
@@ -238,7 +238,7 @@ onMounted(() => {
 
           <button
             type="button"
-            class="inline-flex h-10 items-center justify-center rounded-[12px] border border-[color:rgb(69_116_213_/_0.52)] bg-[linear-gradient(135deg,rgb(69_104_206_/_0.94),rgb(96_151_248_/_0.74))] px-4 text-sm font-semibold text-white shadow-[0_14px_32px_rgb(26_56_122_/_0.32)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
+            class="primary-button"
             :disabled="!draft || isSaving"
             @click="handleSaveUser"
           >
@@ -256,7 +256,7 @@ onMounted(() => {
       <OfxEmptyState title="Users could not be loaded" :description="loadError">
         <button
           type="button"
-          class="mt-3 inline-flex h-10 items-center justify-center rounded-[12px] bg-[linear-gradient(135deg,rgb(74_108_210_/_0.94),rgb(92_151_245_/_0.78))] px-4 text-sm font-semibold text-white shadow-[0_14px_32px_rgb(26_56_122_/_0.32)] transition hover:brightness-110"
+          class="secondary-button mt-3"
           @click="bootstrapPage"
         >
           Retry
@@ -276,7 +276,7 @@ onMounted(() => {
 
           <button
             type="button"
-            class="inline-flex h-10 items-center justify-center rounded-[12px] border border-[color:rgb(73_144_109_/_0.5)] bg-[linear-gradient(135deg,rgb(41_104_66_/_0.94),rgb(60_158_95_/_0.72))] px-4 text-sm font-semibold text-white shadow-[0_12px_28px_rgb(17_61_33_/_0.28)] transition hover:brightness-110 lg:mt-[29px]"
+            class="secondary-button lg:mt-[29px]"
             @click="createDialogOpen = true"
           >
             New User
@@ -298,7 +298,7 @@ onMounted(() => {
         >
           <button
             type="button"
-            class="mt-3 inline-flex h-10 items-center justify-center rounded-[12px] bg-[linear-gradient(135deg,rgb(74_108_210_/_0.94),rgb(92_151_245_/_0.78))] px-4 text-sm font-semibold text-white shadow-[0_14px_32px_rgb(26_56_122_/_0.32)] transition hover:brightness-110"
+            class="secondary-button mt-3"
             @click="loadUsers(selectedUserId)"
           >
             Refresh user list
@@ -395,11 +395,41 @@ onMounted(() => {
 
 <style scoped>
 .locked-action {
-  border: 1px solid var(--ofx-border);
-  background: var(--ofx-surface);
-  color: var(--ofx-text);
   cursor: not-allowed;
   opacity: 0.72;
+}
+
+.primary-button,
+.secondary-button {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ofx-border);
+  border-radius: 12px;
+  background: var(--ofx-surface);
+  padding: .45rem .9rem;
+  color: var(--ofx-text);
+  font-size: .875rem;
+  font-weight: 600;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+
+.primary-button {
+  border-color: var(--ofx-primary);
+  background: var(--ofx-primary);
+  color: var(--ofx-primary-foreground);
+}
+
+.secondary-button:hover:not(:disabled) {
+  border-color: var(--ofx-primary);
+  color: var(--ofx-primary);
+}
+
+.primary-button:disabled,
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: .5;
 }
 
 .readonly-user-card,

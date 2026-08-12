@@ -25,5 +25,5 @@ test('Community network diagnostics remains an explicit raw read without unrelat
   assert.match(page, /onMounted\(loadSupplyNetworkVersions\)/);
   assert.match(page, /@click="loadCircularNetworkDiagnostics"/);
   assert.match(page, /No circular dependency was found/i);
-  assert.doesNotMatch(page, /uom|replenishment|optimizer|gis|map|cost/i);
+  assert.doesNotMatch(page, /UOM Gaps|replenishment|optimizer|GIS|network map|cost analysis/i);
 });

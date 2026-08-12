@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
+import OfxSelectField from '../../components/ofx/forms/OfxSelectField.vue';
 import { httpClient } from '../../services/community-authentication.service';
 import {
   communityNamedOptionLabel,
@@ -24,6 +25,14 @@ const errorMessage = ref<string | null>(null);
 const canLoad = computed(() => supplyNetworkVersionId.value.trim().length > 0 && materialId.value.trim().length > 0);
 const nodes = computed(() => lowLevelCodeSnapshot.value?.nodeDTOSet ?? []);
 const edges = computed(() => lowLevelCodeSnapshot.value?.edgeDTOSet ?? []);
+const supplyNetworkVersionOptions = computed(() => [
+  { label: 'Select a Supply Network Version', value: '' },
+  ...supplyNetworkVersions.value.map((version) => ({ label: communityNamedOptionLabel(version), value: version.id })),
+]);
+const materialOptions = computed(() => [
+  { label: 'Select a material', value: '' },
+  ...materials.value.map((material) => ({ label: communityNamedOptionLabel(material), value: material.id })),
+]);
 
 function formatRawValue(value: string | number | null): string {
 
@@ -83,8 +92,8 @@ onMounted(async () => {
 
     <OfxSectionCard class="selector-card" title="Material path" description="Explicit diagnostic.">
       <div class="field-grid">
-        <label>Supply Network Version<select v-model="supplyNetworkVersionId" :disabled="loading || loadingOptions"><option value="" disabled>Select a Supply Network Version</option><option v-for="version in supplyNetworkVersions" :key="version.id" :value="version.id">{{ communityNamedOptionLabel(version) }}</option></select></label>
-        <label>Material<select v-model="materialId" :disabled="loading || loadingOptions"><option value="" disabled>Select a material</option><option v-for="material in materials" :key="material.id" :value="material.id">{{ communityNamedOptionLabel(material) }}</option></select></label>
+        <OfxSelectField v-model="supplyNetworkVersionId" label="Supply Network Version" :options="supplyNetworkVersionOptions" :disabled="loading || loadingOptions" />
+        <OfxSelectField v-model="materialId" label="Material" :options="materialOptions" :disabled="loading || loadingOptions" />
       </div>
       <div class="actions"><button class="primary-button" type="button" :disabled="!canLoad || loading" @click="void loadLowLevelCode()">{{ loading ? 'Loading…' : 'Load material path' }}</button></div>
     </OfxSectionCard>
@@ -103,5 +112,5 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.boundary-card, .selector-card, .result-card { display: grid; gap: 1rem; }.boundary-card p, .empty-state { color: var(--ofx-text-muted); }.field-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); }.field-grid label { display: grid; gap: .4rem; font-size: .875rem; font-weight: 700; }.field-grid select { border: 1px solid var(--ofx-border); border-radius: .5rem; background: var(--ofx-surface); color: var(--ofx-text); min-height: 2.5rem; padding: .55rem; }.actions { display: flex; justify-content: flex-end; }.primary-button { border: 1px solid var(--ofx-accent); border-radius: .5rem; background: var(--ofx-accent); color: white; cursor: pointer; padding: .65rem .9rem; width: fit-content; }.primary-button:disabled { cursor: not-allowed; opacity: .55; }.table-scroll { overflow-x: auto; }.table-scroll table { border-collapse: collapse; min-width: 52rem; width: 100%; }.table-scroll th, .table-scroll td { border-bottom: 1px solid var(--ofx-border); padding: .7rem; text-align: left; vertical-align: top; white-space: nowrap; }.table-scroll th { color: var(--ofx-text-muted); font-size: .75rem; text-transform: uppercase; }.error { color: var(--ofx-text-danger); }@media (max-width: 48rem) { .actions { justify-content: stretch; }.primary-button { width: 100%; } }
+.boundary-card, .selector-card, .result-card { display: grid; gap: 1rem; }.boundary-card p, .empty-state { color: var(--ofx-text-muted); }.field-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); }.actions { display: flex; justify-content: flex-end; }.primary-button { border: 1px solid var(--ofx-accent); border-radius: .5rem; background: var(--ofx-accent); color: white; cursor: pointer; padding: .65rem .9rem; width: fit-content; }.primary-button:disabled { cursor: not-allowed; opacity: .55; }.table-scroll { overflow-x: auto; }.table-scroll table { border-collapse: collapse; min-width: 52rem; width: 100%; }.table-scroll th, .table-scroll td { border-bottom: 1px solid var(--ofx-border); padding: .7rem; text-align: left; vertical-align: top; white-space: nowrap; }.table-scroll th { color: var(--ofx-text-muted); font-size: .75rem; text-transform: uppercase; }.error { color: var(--ofx-text-danger); }@media (max-width: 48rem) { .actions { justify-content: stretch; }.primary-button { width: 100%; } }
 </style>

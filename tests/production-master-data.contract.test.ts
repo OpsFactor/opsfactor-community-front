@@ -73,7 +73,7 @@ test('Production Resource page confines mutation to a confirmed row and reloads 
   assert.match(source, /pendingProductionResourceSave/);
   assert.match(source, /:disabled="\s*savingProductionResource \|\| !productionResourceDraft\.isNew\s*"/);
   assert.match(source, /loadCommunityLocations/);
-  assert.match(source, /Location<select[\s\S]*?v-model="productionResourceDraft\.locationId"/);
+  assert.match(source, /<OfxSelectField[\s\S]*?v-model="productionResourceDraft\.locationId"[\s\S]*?label="Location"/);
   assert.match(source, /await productionMasterDataService\.saveProductionResource\(\s*snapshot\s*\)/);
   assert.match(source, /await loadTab\(["']productionResources["']\)/);
   assert.match(source, /There is no delete or[\s\S]*dependent-record reconciliation/);

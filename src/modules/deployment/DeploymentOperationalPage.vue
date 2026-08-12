@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
+import OfxSelectField from '../../components/ofx/forms/OfxSelectField.vue';
 import {
   getDeploymentOperationalLine,
   getDeploymentOperationalSelectors,
@@ -43,6 +44,22 @@ const canUpdate = computed(() => (
 
 const activeLocations = computed(() => locations.value.filter((location) => location.active !== false));
 const activeMaterials = computed(() => materials.value.filter((material) => material.active !== false));
+const supplyPlanOptions = computed(() => [
+  { label: 'Select a Supply Plan', value: '' },
+  ...supplyPlans.value.map((supplyPlan) => ({ label: supplyPlanLabel(supplyPlan), value: supplyPlan.supplyPlanId })),
+]);
+const originLocationOptions = computed(() => [
+  { label: 'Select an origin', value: '' },
+  ...activeLocations.value.map((location) => ({ label: optionLabel(location), value: location.id })),
+]);
+const destinationLocationOptions = computed(() => [
+  { label: 'Select a destination', value: '' },
+  ...activeLocations.value.map((location) => ({ label: optionLabel(location), value: location.id })),
+]);
+const materialOptions = computed(() => [
+  { label: 'Select a material', value: '' },
+  ...activeMaterials.value.map((material) => ({ label: optionLabel(material), value: material.id })),
+]);
 
 function optionLabel(option: { id: string; description: string | null }): string {
 
@@ -175,10 +192,10 @@ onMounted(loadSelectors);
           <p>All four selectors are required. Route viability remains validated by the backend.</p>
         </div>
       </div>
-      <label>Supply Plan <small>required</small><select v-model.number="supplyPlanId" :disabled="isLoadingSelectors"><option :value="null" disabled>Select a Supply Plan</option><option v-for="supplyPlan in supplyPlans" :key="supplyPlan.supplyPlanId" :value="supplyPlan.supplyPlanId">{{ supplyPlanLabel(supplyPlan) }}</option></select></label>
-      <label>Origin <small>required</small><select v-model="originLocationId" :disabled="isLoadingSelectors"><option value="" disabled>Select an origin</option><option v-for="location in activeLocations" :key="location.id" :value="location.id">{{ optionLabel(location) }}</option></select></label>
-      <label>Destination <small>required</small><select v-model="destinationLocationId" :disabled="isLoadingSelectors"><option value="" disabled>Select a destination</option><option v-for="location in activeLocations" :key="location.id" :value="location.id">{{ optionLabel(location) }}</option></select></label>
-      <label>Material <small>required</small><select v-model="materialId" :disabled="isLoadingSelectors"><option value="" disabled>Select a material</option><option v-for="material in activeMaterials" :key="material.id" :value="material.id">{{ optionLabel(material) }}</option></select></label>
+      <OfxSelectField v-model.number="supplyPlanId" label="Supply Plan" help-text="Required" :options="supplyPlanOptions" :disabled="isLoadingSelectors" />
+      <OfxSelectField v-model="originLocationId" label="Origin" help-text="Required" :options="originLocationOptions" :disabled="isLoadingSelectors" />
+      <OfxSelectField v-model="destinationLocationId" label="Destination" help-text="Required" :options="destinationLocationOptions" :disabled="isLoadingSelectors" />
+      <OfxSelectField v-model="materialId" label="Material" help-text="Required" :options="materialOptions" :disabled="isLoadingSelectors" />
       <div class="actions"><button class="primary-button" :disabled="!canLoadLine || isLoadingLine || isUpdating" @click="loadDeployment">{{ isLoadingLine ? 'Loading…' : 'Load route' }}</button></div>
     </OfxSectionCard>
 

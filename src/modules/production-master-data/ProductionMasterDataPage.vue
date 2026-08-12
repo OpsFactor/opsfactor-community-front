@@ -5,6 +5,7 @@ import {
   OfxSectionCard,
   TaskPageLayout,
 } from "@opsfactor/front-shell";
+import OfxSelectField from "../../components/ofx/forms/OfxSelectField.vue";
 import { httpClient } from "../../services/community-authentication.service";
 import {
   communityNamedOptionLabel,
@@ -162,6 +163,18 @@ const isProductionResourcesTab = computed(
 const isBusy = computed(
   () => loadingTabId.value !== null || savingProductionResource.value
 );
+const locationOptions = computed(() => [
+  { label: "Select a Location", value: "" },
+  ...locations.value.map((location) => ({
+    label: communityNamedOptionLabel(location),
+    value: location.id,
+  })),
+]);
+const lifecycleOptions = [
+  { label: "Not informed", value: "" },
+  { label: "Active", value: "true" },
+  { label: "Inactive", value: "false" },
+];
 
 function toErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
@@ -482,20 +495,12 @@ onMounted(async () => {
               "
               type="text"
             /><small>Editable only when creating the resource.</small></label
-          ><label
-            >Location<select
-              v-model="productionResourceDraft.locationId"
-              :disabled="savingProductionResource || loadingLocations"
-            >
-              <option value="" disabled>Select a Location</option>
-              <option
-                v-for="location in locations"
-                :key="location.id"
-                :value="location.id"
-              >
-                {{ communityNamedOptionLabel(location) }}
-              </option>
-            </select></label
+          ><OfxSelectField
+            v-model="productionResourceDraft.locationId"
+            label="Location"
+            :options="locationOptions"
+            :disabled="savingProductionResource || loadingLocations"
+          />
           ><label
             >Description<input
               v-model="productionResourceDraft.description"
@@ -508,16 +513,14 @@ onMounted(async () => {
               step="any"
               type="number"
             /><small>Optional finite number.</small></label
-          ><label
-            >Lifecycle<select
-              v-model="productionResourceDraft.active"
-              :disabled="savingProductionResource"
-            >
-              <option :value="null">Not informed</option>
-              <option :value="true">Active</option>
-              <option :value="false">Inactive</option>
-            </select></label
-          >
+          ><OfxSelectField
+            :model-value="productionResourceDraft.active === null ? '' : String(productionResourceDraft.active)"
+            label="Lifecycle"
+            :options="lifecycleOptions"
+            :disabled="savingProductionResource"
+            :show-placeholder-option="false"
+            @update:model-value="productionResourceDraft.active = $event === '' ? null : $event === 'true'"
+          />
         </div>
         <div class="editor-footer">
           <p>

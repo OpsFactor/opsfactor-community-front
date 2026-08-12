@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
+import OfxSelectField from '../../components/ofx/forms/OfxSelectField.vue';
 import { getMaterialFlows, getMaterialFlowsSupplyPlans } from './material-flows.service';
 import type { MaterialFlows } from './material-flows.types';
 import type { SupplyPlan } from '../supply-planning/supply-plan.types';
@@ -13,6 +14,10 @@ const isLoadingFlows = ref(false);
 const errorMessage = ref<string | null>(null);
 
 const canLoadMaterialFlows = computed(() => supplyPlanId.value !== null);
+const supplyPlanOptions = computed(() => supplyPlans.value.map((supplyPlan) => ({
+  label: supplyPlanLabel(supplyPlan),
+  value: supplyPlan.supplyPlanId,
+})));
 
 /** Returns a raw matrix cell only; absent data is never substituted with a calculated value. */
 function cellAt(originIndex: number, destinationIndex: number): number | null | undefined {
@@ -86,14 +91,7 @@ onMounted(loadSupplyPlans);
           <p>Select a saved plan, then load its materialized matrix.</p>
         </div>
       </div>
-      <label>
-        Supply Plan
-        <select v-model.number="supplyPlanId" :disabled="isLoadingSelectors">
-          <option v-for="supplyPlan in supplyPlans" :key="supplyPlan.supplyPlanId" :value="supplyPlan.supplyPlanId">
-            {{ supplyPlanLabel(supplyPlan) }}
-          </option>
-        </select>
-      </label>
+      <OfxSelectField v-model.number="supplyPlanId" label="Supply Plan" :options="supplyPlanOptions" :disabled="isLoadingSelectors" :show-placeholder-option="false" />
       <div class="actions">
         <button class="primary-button" :disabled="!canLoadMaterialFlows || isLoadingFlows" @click="loadMaterialFlows">
           {{ isLoadingFlows ? 'Loading…' : 'Load material flows' }}
@@ -143,7 +141,6 @@ onMounted(loadSupplyPlans);
 .section-header, .actions { display: flex; align-items: end; gap: 1rem; justify-content: space-between; }
 .section-header h2 { margin: .25rem 0; }
 .filters { display: grid; gap: 1rem; grid-template-columns: minmax(16rem, 28rem) auto; }.filters .section-header { grid-column: 1 / -1; }
-.filters label { display: grid; gap: .35rem; font-size: .85rem; font-weight: 700; }.filters select { min-height: 2.5rem; border: 1px solid var(--ofx-border); border-radius: .5rem; background: var(--ofx-surface); color: var(--ofx-text); padding: .55rem; }
 .primary-button { border: 1px solid var(--ofx-accent); border-radius: .5rem; background: var(--ofx-accent); color: white; cursor: pointer; padding: .65rem .9rem; }.primary-button:disabled { cursor: not-allowed; opacity: .5; }
 .table-scroll { overflow-x: auto; } table { width: 100%; border-collapse: collapse; text-align: right; } th, td { border-top: 1px solid var(--ofx-border); padding: .8rem .65rem; vertical-align: top; white-space: nowrap; } thead th { color: var(--ofx-text-muted); font-size: .75rem; text-transform: uppercase; } thead th:first-child, tbody th { text-align: left; }.location-dot { display: inline-block; width: .65rem; height: .65rem; margin-right: .35rem; border: 1px solid rgb(23 32 51 / 18%); border-radius: 50%; vertical-align: baseline; }.muted, .section-header p { color: var(--ofx-text-muted); }.notice { border-left: 3px solid var(--ofx-accent); background: var(--ofx-surface-muted); margin: 1rem 0; padding: .8rem 1rem; }.error { color: var(--ofx-text-danger); }
 </style>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
+import OfxSelectField from '../../components/ofx/forms/OfxSelectField.vue';
 import { getCircularNetworkAlerts, getSupplyNetworkVersions } from './network-diagnostics.service';
 import type { CircularNetworkAlert, SupplyNetworkVersion } from './network-diagnostics.types';
 
@@ -12,6 +13,10 @@ const isLoadingDiagnostics = ref(false);
 const errorMessage = ref<string | null>(null);
 
 const canLoadDiagnostics = computed(() => supplyNetworkVersionId.value.trim().length > 0);
+const supplyNetworkVersionOptions = computed(() => [
+  { label: 'Select a Supply Network Version', value: '' },
+  ...supplyNetworkVersions.value.map((version) => ({ label: supplyNetworkVersionLabel(version), value: version.id })),
+]);
 
 /** Shows a raw backend field while preserving null and absent values as unavailable. */
 function formatRawValue(value: string | number | null | undefined): string {
@@ -79,15 +84,7 @@ onMounted(loadSupplyNetworkVersions);
           <p>The diagnostic reconstructs only the selected circular subgraph when requested.</p>
         </div>
       </div>
-      <label>
-        Supply Network Version
-        <select v-model="supplyNetworkVersionId" :disabled="isLoadingSelectors">
-          <option value="" disabled>Select a Supply Network Version</option>
-          <option v-for="supplyNetworkVersion in supplyNetworkVersions" :key="supplyNetworkVersion.id" :value="supplyNetworkVersion.id">
-            {{ supplyNetworkVersionLabel(supplyNetworkVersion) }}
-          </option>
-        </select>
-      </label>
+      <OfxSelectField v-model="supplyNetworkVersionId" label="Supply Network Version" :options="supplyNetworkVersionOptions" :disabled="isLoadingSelectors" />
       <div class="actions">
         <button class="primary-button" :disabled="!canLoadDiagnostics || isLoadingDiagnostics" @click="loadCircularNetworkDiagnostics">
           {{ isLoadingDiagnostics ? 'Diagnosing…' : 'Diagnose circularity' }}
@@ -135,7 +132,6 @@ onMounted(loadSupplyNetworkVersions);
 .section-header, .actions { display: flex; align-items: end; gap: 1rem; justify-content: space-between; }
 .section-header h2 { margin: .25rem 0; }
 .filters { display: grid; gap: 1rem; grid-template-columns: minmax(16rem, 28rem) auto; }.filters .section-header { grid-column: 1 / -1; }
-.filters label { display: grid; gap: .35rem; font-size: .85rem; font-weight: 700; }.filters select { min-height: 2.5rem; border: 1px solid var(--ofx-border); border-radius: .5rem; background: var(--ofx-surface); color: var(--ofx-text); padding: .55rem; }
 .primary-button { border: 1px solid var(--ofx-accent); border-radius: .5rem; background: var(--ofx-accent); color: white; cursor: pointer; padding: .65rem .9rem; }.primary-button:disabled { cursor: not-allowed; opacity: .5; }
 .table-scroll { overflow-x: auto; } table { width: 100%; border-collapse: collapse; text-align: left; } th, td { border-top: 1px solid var(--ofx-border); padding: .8rem .65rem; vertical-align: top; white-space: nowrap; } thead th { color: var(--ofx-text-muted); font-size: .75rem; text-transform: uppercase; }.muted, .section-header p { color: var(--ofx-text-muted); }.error { color: var(--ofx-text-danger); }
 </style>
