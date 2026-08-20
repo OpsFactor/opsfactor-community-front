@@ -56,10 +56,12 @@ export interface CommunityConfiguredViewPayload extends ConfiguredView {
 export function buildCommunityConfiguredViewPayload(view: ConfiguredView): CommunityConfiguredViewPayload {
   const normalizeFilters = (filters: ConfiguredViewCharacteristicFilter[] | undefined) => (
     (filters ?? [])
+      .filter((filter) => (filter.filteredValues?.length ?? 0) > 0)
       .map((filter) => ({
         characteristicId: filter.characteristicId,
         characteristicDescription: filter.characteristicDescription,
-        aggregationType: 'Do Not Show Characteristic' as const,
+        // Community persists filters, but presentation/grouping belongs to Pro.
+        aggregationType: null,
         columnPosition: null,
         filteredValues: [...(filter.filteredValues ?? [])],
       }))

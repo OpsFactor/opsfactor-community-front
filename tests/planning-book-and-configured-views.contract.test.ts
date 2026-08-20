@@ -222,11 +222,11 @@ test('Configured Views payload fixes every Community-only setting', () => {
     locationIdFilterList: ['MILL-01'],
     materialCharacteristicDetailList: [{
       characteristicId: 'MATERIAL_STATUS', characteristicDescription: undefined,
-      aggregationType: 'Do Not Show Characteristic', columnPosition: null, filteredValues: ['Regular'],
+      aggregationType: null, columnPosition: null, filteredValues: ['Regular'],
     }],
     locationCharacteristicDetailList: [{
       characteristicId: 'COUNTRY', characteristicDescription: undefined,
-      aggregationType: 'Do Not Show Characteristic', columnPosition: null, filteredValues: ['BR'],
+      aggregationType: null, columnPosition: null, filteredValues: ['BR'],
     }],
     autoSubmitChanges: false,
     allowInputFrozenHorizon: false,
