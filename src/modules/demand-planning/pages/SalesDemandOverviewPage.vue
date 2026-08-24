@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { OfxButton } from '@opsfactor/front-shell';
-import { OfxKpiCard } from '@opsfactor/front-shell';
+import { OfxButton, OfxEntityMultiSelect, OfxKpiCard } from '@opsfactor/front-shell';
 import OfxPivotTable from '@/components/ofx/data-display/OfxPivotTable.vue';
 import { OfxLoadingState } from '@opsfactor/front-shell';
 import { OfxEmptyState } from '@opsfactor/front-shell';
@@ -24,7 +23,9 @@ import type { OfxSelectOption } from '@/types/ui';
 import EChartAdapter from '@/wrappers/echarts/EChartAdapter.vue';
 import {
   fetchDemandPlanAndSalesHistory,
+  fetchDemandPlanPeriodOptions,
   fetchDemandPlanVersions,
+  type DemandPlanPeriodOptionDto,
   fetchUomIds,
   type DemandPlanSalesHistoryResponse,
   type DemandPlanVersionOptionDto,
@@ -94,6 +95,8 @@ const selectedDemandPlanId = ref('');
 const selectedHistoricalSalesType = ref<'Sell-out' | ''>('');
 const selectedUomId = ref('');
 const selectedHistoricalPeriods = ref('12');
+const demandPlanPeriods = ref<DemandPlanPeriodOptionDto[]>([]);
+const selectedDemandPlanPeriodReferenceDates = ref<string[]>([]);
 const selectedMetricId = ref<MetricId>('quantity');
 
 const localFilterValues = reactive<Record<string, string[]>>({});
@@ -263,6 +266,13 @@ const uomOptions = computed(() => [
   })),
 ]);
 
+const demandPlanPeriodOptions = computed<OfxSelectOption[]>(() =>
+  demandPlanPeriods.value.map((period) => ({
+    value: period.referenceDate,
+    label: period.label,
+  })),
+);
+
 const metricOptions = computed(() => [{
   label: selectedUomId.value ? `Quantity (${selectedUomId.value})` : 'Quantity',
   value: 'quantity',
@@ -291,7 +301,12 @@ const compactSelectionSummary = computed(() => [
   selectedUomId.value || 'No UOM',
   'Material/location detail',
   `${selectedHistoricalPeriods.value || '12'} periods`,
-]);
+  selectedDemandPlanId.value
+    ? selectedDemandPlanPeriodReferenceDates.value.length
+      ? `${selectedDemandPlanPeriodReferenceDates.value.length} plan periods`
+      : 'All plan periods'
+    : null,
+].filter((item): item is string => Boolean(item)));
 
 const periodGranularity = computed(() => inferPeriodGranularity(report.value?.periods ?? []));
 
@@ -414,6 +429,30 @@ watch(
   },
   { immediate: true },
 );
+
+/**
+ * A period selection is meaningful only for the current Demand Plan. The
+ * request token prevents a slow previous response from repopulating options
+ * after the user switches plans.
+ */
+let demandPlanPeriodRequestToken = 0;
+watch(selectedDemandPlanId, async (demandPlanId) => {
+  selectedDemandPlanPeriodReferenceDates.value = [];
+  demandPlanPeriods.value = [];
+  const currentRequestToken = ++demandPlanPeriodRequestToken;
+  if (!demandPlanId) return;
+
+  try {
+    const periods = await fetchDemandPlanPeriodOptions(demandPlanId);
+    if (currentRequestToken === demandPlanPeriodRequestToken) {
+      demandPlanPeriods.value = periods;
+    }
+  } catch {
+    if (currentRequestToken === demandPlanPeriodRequestToken) {
+      workspaceError.value = 'The selected Demand Plan periods could not be loaded.';
+    }
+  }
+});
 
 const filteredRows = computed(() =>
   normalizedRows.value.filter((row) =>
@@ -634,6 +673,7 @@ async function openOverview() {
         : selectedHistoricalSalesType.value || null,
       unitOfMeasureId: selectedUomId.value,
       historicalPeriods: Math.max(1, Number(selectedHistoricalPeriods.value || 1)),
+      demandPlanPeriodReferenceDates: selectedDemandPlanPeriodReferenceDates.value,
       ...initialScope.value,
     });
 
@@ -688,56 +728,85 @@ onMounted(() => {
         description="Choose the initial scope once. After loading, use the workspace filters to explore the available data."
       >
         <div class="space-y-6">
-          <div class="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.8fr)_minmax(0,0.95fr)]">
-            <OfxSelectField
-              :model-value="selectedDemandPlanId"
-              label="Demand plan version"
-              :options="demandPlanOptions"
-              help-text="Leave empty to open historical sales only."
-              @update:model-value="selectedDemandPlanId = $event"
-            />
+          <div class="grid gap-6 xl:grid-cols-2">
+            <OfxSectionCard
+              title="Historical Sales"
+              description="Choose the past horizon and the sales document to compare."
+            >
+              <div class="grid gap-4 md:grid-cols-2">
+                <OfxTextField
+                  :model-value="selectedHistoricalPeriods"
+                  label="Historical horizon"
+                  type="number"
+                  placeholder="12"
+                  help-text="Use daily, weekly, or monthly periods."
+                  @update:model-value="selectedHistoricalPeriods = $event"
+                />
 
-            <OfxSelectField
-              :model-value="selectedHistoricalSalesType"
-              label="Historical sales type"
-              :options="historicalSalesTypeOptions"
-              :disabled="hasDemandPlanContext"
-              :help-text="hasDemandPlanContext
-                ? 'Inferred from the selected demand plan.'
-                : 'Required only when no demand plan version is selected.'"
-              @update:model-value="selectedHistoricalSalesType = $event as 'Sell-out' | ''"
-            />
+                <OfxSelectField
+                  :model-value="selectedHistoricalSalesType"
+                  label="Sales document type"
+                  :options="historicalSalesTypeOptions"
+                  :disabled="hasDemandPlanContext"
+                  :help-text="hasDemandPlanContext
+                    ? 'Sell-out is inferred from the selected Demand Plan in Community.'
+                    : 'Required when no Demand Plan version is selected.'"
+                  @update:model-value="selectedHistoricalSalesType = $event as 'Sell-out' | ''"
+                />
 
-            <OfxSelectField
-              :model-value="selectedUomId"
-              label="Unit of measure"
-              :options="uomOptions"
-              @update:model-value="selectedUomId = $event"
-            />
+                <OfxSelectField
+                  :model-value="selectedUomId"
+                  label="Unit of measure"
+                  :options="uomOptions"
+                  @update:model-value="selectedUomId = $event"
+                />
 
-            <OfxTextField
-              :model-value="selectedHistoricalPeriods"
-              label="Historical periods"
-              type="number"
-              placeholder="12"
-              help-text="Use daily, weekly, or monthly periods."
-              @update:model-value="selectedHistoricalPeriods = $event"
-            />
+                <OfxSelectField
+                  model-value="dfu"
+                  label="Detail level"
+                  :options="COMMUNITY_DETAIL_LEVEL_OPTIONS"
+                  help-text="This view uses the DFU detail level."
+                />
+              </div>
+            </OfxSectionCard>
 
-            <OfxSelectField
-              model-value="dfu"
-              label="Detail level"
-              :options="COMMUNITY_DETAIL_LEVEL_OPTIONS"
-              help-text="This view uses the DFU detail level."
-            />
+            <OfxSectionCard
+              title="Demand Plan"
+              description="Leave the plan empty to analyse only historical sales."
+            >
+              <div class="grid gap-4">
+                <OfxSelectField
+                  :model-value="selectedDemandPlanId"
+                  label="Demand plan version"
+                  :options="demandPlanOptions"
+                  help-text="Leave empty to open historical sales only."
+                  @update:model-value="selectedDemandPlanId = $event"
+                />
+
+                <OfxEntityMultiSelect
+                  v-model="selectedDemandPlanPeriodReferenceDates"
+                  label="Demand Plan periods"
+                  :options="demandPlanPeriodOptions"
+                  :disabled="!selectedDemandPlanId"
+                  placeholder="All Periods Selected"
+                  help-text="An empty selection reads the complete Demand Plan horizon."
+                />
+              </div>
+            </OfxSectionCard>
           </div>
 
-          <MaterialLocationScopeFilters
-            v-model="initialScope"
-            :catalog="materialLocationCatalog"
-            title="Material and location scope"
-            description="Choose materials, locations or their public characteristics. Empty selections include the complete active scope."
-          />
+          <div class="space-y-3">
+            <div>
+              <h2 class="text-base font-semibold text-white/90">Filters</h2>
+              <p class="mt-1 text-sm text-white/54">These filters restrict the dataset extracted from the backend.</p>
+            </div>
+            <MaterialLocationScopeFilters
+              v-model="initialScope"
+              :catalog="materialLocationCatalog"
+              title="Material and location filters"
+              description="Choose individual materials, locations or their public characteristics. Empty selections include the complete active scope."
+            />
+          </div>
 
           <div class="flex flex-wrap items-center gap-3">
             <button

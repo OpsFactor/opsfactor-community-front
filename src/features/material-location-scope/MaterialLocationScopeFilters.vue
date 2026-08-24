@@ -61,53 +61,72 @@ function updateLocationCharacteristic(characteristicId: string, values: string[]
 </script>
 
 <template>
-  <OfxOperationFilters
-    :title="title"
-    :description="description"
-    :show-date="false"
-    :show-custom-selectors="false"
-    :slot-order="['locations', 'location-characteristics', 'materials', 'material-characteristics']"
-  >
-    <template #locations>
-      <OfxLocationsFilter
-        :model-value="model.locationIds"
-        :options="locationOptions"
-        placeholder="All active locations"
-        @update:model-value="updateScope({ locationIds: $event })"
-      />
-    </template>
+  <div class="space-y-4">
+    <div>
+      <h3 class="text-sm font-semibold text-white/88">{{ title }}</h3>
+      <p v-if="description" class="mt-1 text-sm text-white/54">{{ description }}</p>
+    </div>
 
-    <template #location-characteristics>
-      <OfxLocationCharacteristicsFilter
-        v-for="characteristic in catalog.locationCharacteristics"
-        :key="characteristic.caracteristicaId"
-        :model-value="model.valuesByLocationCharacteristicId[characteristic.caracteristicaId] ?? []"
-        :label="characteristic.descricao"
-        :options="characteristic.listaAtributos.map((value) => ({ value, label: value }))"
-        placeholder="All values"
-        @update:model-value="updateLocationCharacteristic(characteristic.caracteristicaId, $event)"
-      />
-    </template>
+    <OfxOperationFilters
+      title="Material Filters"
+      description="Restrict the extraction by individual materials or material characteristics."
+      :show-date="false"
+      :show-locations="false"
+      :show-location-characteristics="false"
+      :show-custom-selectors="false"
+      :slot-order="['materials', 'material-characteristics']"
+    >
+      <template #materials>
+        <OfxMaterialsFilter
+          :model-value="model.materialIds"
+          :options="materialOptions"
+          placeholder="All active materials"
+          @update:model-value="updateScope({ materialIds: $event })"
+        />
+      </template>
 
-    <template #materials>
-      <OfxMaterialsFilter
-        :model-value="model.materialIds"
-        :options="materialOptions"
-        placeholder="All active materials"
-        @update:model-value="updateScope({ materialIds: $event })"
-      />
-    </template>
+      <template #material-characteristics>
+        <OfxMaterialCharacteristicsFilter
+          v-for="characteristic in catalog.materialCharacteristics"
+          :key="characteristic.caracteristicaId"
+          :model-value="model.valuesByMaterialCharacteristicId[characteristic.caracteristicaId] ?? []"
+          :label="characteristic.descricao"
+          :options="characteristic.listaAtributos.map((value) => ({ value, label: value }))"
+          placeholder="All values"
+          @update:model-value="updateMaterialCharacteristic(characteristic.caracteristicaId, $event)"
+        />
+      </template>
+    </OfxOperationFilters>
 
-    <template #material-characteristics>
-      <OfxMaterialCharacteristicsFilter
-        v-for="characteristic in catalog.materialCharacteristics"
-        :key="characteristic.caracteristicaId"
-        :model-value="model.valuesByMaterialCharacteristicId[characteristic.caracteristicaId] ?? []"
-        :label="characteristic.descricao"
-        :options="characteristic.listaAtributos.map((value) => ({ value, label: value }))"
-        placeholder="All values"
-        @update:model-value="updateMaterialCharacteristic(characteristic.caracteristicaId, $event)"
-      />
-    </template>
-  </OfxOperationFilters>
+    <OfxOperationFilters
+      title="Location Filters"
+      description="Restrict the extraction by individual locations or location characteristics."
+      :show-date="false"
+      :show-materials="false"
+      :show-material-characteristics="false"
+      :show-custom-selectors="false"
+      :slot-order="['locations', 'location-characteristics']"
+    >
+      <template #locations>
+        <OfxLocationsFilter
+          :model-value="model.locationIds"
+          :options="locationOptions"
+          placeholder="All active locations"
+          @update:model-value="updateScope({ locationIds: $event })"
+        />
+      </template>
+
+      <template #location-characteristics>
+        <OfxLocationCharacteristicsFilter
+          v-for="characteristic in catalog.locationCharacteristics"
+          :key="characteristic.caracteristicaId"
+          :model-value="model.valuesByLocationCharacteristicId[characteristic.caracteristicaId] ?? []"
+          :label="characteristic.descricao"
+          :options="characteristic.listaAtributos.map((value) => ({ value, label: value }))"
+          placeholder="All values"
+          @update:model-value="updateLocationCharacteristic(characteristic.caracteristicaId, $event)"
+        />
+      </template>
+    </OfxOperationFilters>
+  </div>
 </template>

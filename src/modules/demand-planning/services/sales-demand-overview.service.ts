@@ -12,11 +12,21 @@ export interface DemandPlanVersionOptionDto {
   planEndDate?: string;
 }
 
+/** A persisted Demand Plan period published for an explicit extraction filter. */
+export interface DemandPlanPeriodOptionDto {
+  referenceDate: string;
+  label: string;
+  bucketSize: string;
+  startDateTime: string;
+  endDateTime: string;
+}
+
 export interface DemandPlanSalesHistorySelectionPayload extends MaterialLocationScope {
   demandPlanId: string | number | null;
   historicalSalesDocumentType: 'Sell-out' | null;
   unitOfMeasureId: string;
   historicalPeriods: number;
+  demandPlanPeriodReferenceDates: string[];
 }
 
 export interface DemandPlanSalesHistoryDetailDto extends Record<string, unknown> {
@@ -44,6 +54,15 @@ export async function fetchUomIds() {
   return requestJson<string[]>('/api/secured/unitofmeasure/findids');
 }
 
+/** Loads only the periods that belong to the selected Demand Plan. */
+export async function fetchDemandPlanPeriodOptions(demandPlanId: string | number) {
+
+  return requestJson<DemandPlanPeriodOptionDto[]>(
+    `/api/secured/planning/demand/${encodeURIComponent(String(demandPlanId))}/periods`,
+  );
+
+}
+
 export async function fetchDemandPlanAndSalesHistory(payload: DemandPlanSalesHistorySelectionPayload) {
   const response = await requestJson<{
     periods: string[];
@@ -63,6 +82,7 @@ export async function fetchDemandPlanAndSalesHistory(payload: DemandPlanSalesHis
       historicalSalesDocumentType: payload.historicalSalesDocumentType,
       unitOfMeasureId: payload.unitOfMeasureId,
       historicalPeriods: payload.historicalPeriods,
+      demandPlanPeriodReferenceDates: payload.demandPlanPeriodReferenceDates,
       materialIds: payload.materialIds,
       locationIds: payload.locationIds,
       valuesByMaterialCharacteristicId: payload.valuesByMaterialCharacteristicId,
