@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import OfxActionLabel from './OfxActionLabel.vue';
 import OfxOperationPanel, { type OfxOperationPanelOption } from './OfxOperationPanel.vue';
 import OfxDownloadSplitButton, { type OfxDownloadOption } from './OfxDownloadSplitButton.vue';
 
@@ -13,6 +14,7 @@ const props = defineProps<{
   showMissingRequiredFilters?: boolean;
   downloadVisible?: boolean;
   downloadDisabled?: boolean;
+  downloadProcessing?: boolean;
   downloadFormat?: string;
   downloadOptions?: OfxDownloadOption[];
   downloadPresentation?: 'browser-file' | 'format-select' | 'server-file';
@@ -20,9 +22,11 @@ const props = defineProps<{
   downloadActionVariant?: 'default' | 'accent';
   importVisible?: boolean;
   importDisabled?: boolean;
+  importProcessing?: boolean;
   importLabel?: string;
   dangerVisible?: boolean;
   dangerDisabled?: boolean;
+  dangerProcessing?: boolean;
   warningTone?: 'warning' | 'danger';
   warningText?: string;
   dangerLabel?: string;
@@ -130,6 +134,7 @@ function warningCardClass() {
             :model-value="props.downloadFormat ?? ''"
             :options="props.downloadOptions ?? []"
             :disabled="props.downloadDisabled"
+            :processing="props.downloadProcessing"
             :selector-visible="props.downloadPresentation !== 'server-file'"
             :action-label="props.downloadPresentation === 'server-file' ? 'Download' : 'Download as'"
             :action-variant="resolvedDownloadActionVariant"
@@ -139,8 +144,11 @@ function warningCardClass() {
         </div>
 
         <div v-else-if="props.importVisible" class="flex flex-wrap items-center gap-2">
-          <button type="button" :class="importButtonClass" :disabled="props.importDisabled" @click="emit('import')">
-            {{ props.importLabel ?? 'Import file' }}
+          <button type="button" :class="importButtonClass" :disabled="props.importDisabled || props.importProcessing" @click="emit('import')">
+            <OfxActionLabel
+              :label="props.importLabel ?? 'Import file'"
+              :processing="props.importProcessing"
+            />
           </button>
         </div>
 
@@ -154,10 +162,14 @@ function warningCardClass() {
             <button
               type="button"
               :class="dangerButtonClass"
-              :disabled="props.dangerDisabled"
+              :disabled="props.dangerDisabled || props.dangerProcessing"
               @click="emit('danger')"
             >
-              {{ props.processingLabel || props.dangerLabel }}
+              <OfxActionLabel
+                :label="props.dangerLabel ?? ''"
+                :processing="props.dangerProcessing"
+                :processing-label="props.processingLabel ?? 'Processing…'"
+              />
             </button>
           </div>
         </template>

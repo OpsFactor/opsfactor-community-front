@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import {
+  OfxActionLabel,
   OfxEntityMultiSelect,
   OfxLoadingState,
   OfxPageHeader,
@@ -1661,7 +1662,7 @@ watch(
               class="rounded-md bg-[color:var(--ofx-primary)] px-4 py-2 text-sm font-medium text-[color:var(--ofx-primary-foreground)] transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-55"
               :disabled="isSubmitting || catalogLoading"
             >
-              {{ isSubmitting ? 'Submitting...' : 'Submit' }}
+              <OfxActionLabel label="Submit" :processing="isSubmitting" />
             </button>
           </div>
         </form>

@@ -47,6 +47,7 @@ export { default as OfxOperationFilters } from './OfxOperationFilters.vue';
 export { default as OfxOperationPanel } from './OfxOperationPanel.vue';
 export type { OfxOperationPanelOption } from './OfxOperationPanel.vue';
 export { default as OfxDataTopicWorkspace } from './OfxDataTopicWorkspace.vue';
+export { default as OfxActionLabel } from './OfxActionLabel.vue';
 export { default as OfxNotificationCenter } from './OfxNotificationCenter.vue';
 export { default as OfxAgGridCellRenderer } from './OfxAgGridCellRenderer.vue';
 export { default as OfxAgGridTableAdapter } from './OfxAgGridTableAdapter.vue';

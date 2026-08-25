@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import OfxActionLabel from './OfxActionLabel.vue';
 
 export interface OfxDownloadOption {
   label: string;
@@ -16,6 +17,8 @@ const props = withDefaults(
     actionLabel?: string;
     actionVariant?: OfxDownloadActionVariant;
     disabled?: boolean;
+    processing?: boolean;
+    processingLabel?: string;
     selectorVisible?: boolean;
     /** The host-owned visual mode; Community remains light by default. */
     themeMode?: 'light' | 'dark';
@@ -24,6 +27,8 @@ const props = withDefaults(
     actionLabel: 'Download',
     actionVariant: 'default',
     disabled: false,
+    processing: false,
+    processingLabel: 'Processing…',
     selectorVisible: true,
     themeMode: 'light',
   },
@@ -153,18 +158,30 @@ watch(menuOpen, async (isOpen) => {
   syncMenuPosition();
 
 });
+
+watch(() => props.processing, (isProcessing) => {
+
+  if (isProcessing) {
+    menuOpen.value = false;
+  }
+
+});
 </script>
 
 <template>
   <div ref="rootRef" class="ofx-download-split relative flex items-center">
     <button
       :class="actionButtonClass"
-      :disabled="props.disabled"
+      :disabled="props.disabled || props.processing"
       @click="emit('action')"
     >
       <span class="inline-flex items-center gap-2">
-        <span aria-hidden="true">↓</span>
-        <span>{{ props.actionLabel }}</span>
+        <span v-if="!props.processing" aria-hidden="true">↓</span>
+        <OfxActionLabel
+          :label="props.actionLabel"
+          :processing="props.processing"
+          :processing-label="props.processingLabel"
+        />
       </span>
     </button>
 
@@ -172,7 +189,7 @@ watch(menuOpen, async (isOpen) => {
       v-if="props.selectorVisible"
       ref="selectorRef"
       :class="selectorButtonClass"
-      :disabled="props.disabled || props.options.length <= 1"
+      :disabled="props.disabled || props.processing || props.options.length <= 1"
       @click="menuOpen = !menuOpen"
     >
       <span class="inline-flex items-center gap-2">
