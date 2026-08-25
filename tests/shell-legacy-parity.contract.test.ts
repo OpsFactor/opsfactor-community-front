@@ -67,7 +67,12 @@ test('Data operation workspace is supplied by the Community shell while Enterpri
   assert.match(sharedWorkspace, /OfxOperationPanel/);
   assert.match(sharedWorkspace, /OfxDownloadSplitButton/);
   assert.match(sharedWorkspace, /themeMode/);
-  assert.match(sharedWorkspace, /importDescription/);
+  assert.match(sharedWorkspace, /title="Operations"/);
+  assert.match(sharedWorkspace, /:action-label="props\.downloadPresentation === 'server-file' \? 'Download' : 'Download as'"/);
+  assert.match(sharedWorkspace, /class="flex flex-wrap items-center gap-2"/);
+  assert.match(sharedWorkspace, /inline-flex h-\[38px\] items-center justify-center/);
+  assert.doesNotMatch(sharedWorkspace, /Run Download/);
+  assert.doesNotMatch(sharedWorkspace, /rounded-\[14px\] border px-4 py-4 shadow/);
   assert.doesNotMatch(sharedWorkspace, /api\/secured|requestJson|uploadDataPackage/i);
   assert.match(enterpriseWorkspace, /OfxDataTopicWorkspace as CommunityDataTopicWorkspace/);
   assert.match(enterpriseWorkspace, /from '@opsfactor\/front-shell'/);

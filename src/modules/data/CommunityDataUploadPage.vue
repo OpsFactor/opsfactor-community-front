@@ -36,13 +36,16 @@ import {
   type DataCatalogThemeId,
   type DataCatalogTopic,
 } from './planning-front-data-taxonomy';
+import { useNotificationsStore } from '@/stores/app/notifications.store';
 
 const dataUploadService = new CommunityDataUploadService(httpClient);
-const selectedFamily = ref<CommunityDataFamily>(COMMUNITY_DATA_FAMILIES.find((family) => family.id === 'supply-network-version') ?? COMMUNITY_DATA_FAMILIES[0]);
+const notifications = useNotificationsStore();
+/** Starts on the Community material family; its catalog topic uses the distinct material-master id. */
+const selectedFamily = ref<CommunityDataFamily>(COMMUNITY_DATA_FAMILIES.find((family) => family.id === 'materials') ?? COMMUNITY_DATA_FAMILIES[0]);
 const selectedThemeId = ref<DataCatalogThemeId>('master-data');
-const selectedGroupId = ref<DataCatalogGroup['id']>('supply-network');
-const selectedSectionId = ref<DataCatalogSection['id']>('transportation-network');
-const selectedTopicId = ref<DataCatalogTopic['id']>('supply-network-version');
+const selectedGroupId = ref<DataCatalogGroup['id']>('materials-locations');
+const selectedSectionId = ref<DataCatalogSection['id']>('materials');
+const selectedTopicId = ref<DataCatalogTopic['id']>('material-master');
 type DataWorkspaceOperation = 'download' | 'import' | 'delete';
 type PlanPeriodScope = 'period' | 'full';
 
@@ -86,8 +89,6 @@ const supplyPlanOptions = computed(() => [
 ]);
 const loadingOptions = ref(false);
 const busy = ref(false);
-const resultMessage = ref<string | null>(null);
-const errorMessage = ref<string | null>(null);
 
 /** The Planning Front keeps a single Download operation with a format selector. */
 const downloadFormat = ref<CommunityDataDownloadFormat>('xlsx');
@@ -147,15 +148,25 @@ const operationOptions = computed<OfxOperationPanelOption[]>(() => {
 
   const operations: OfxOperationPanelOption[] = [];
   if (selectedFamily.value.operations.some((operation) => operation.kind === 'download-file')) {
-    operations.push({ value: 'download', label: 'Download', description: 'Download the selected data in XLSX or CSV format.' });
+    operations.push({ value: 'download', label: 'Download' });
   }
   if (selectedFamily.value.operations.some((operation) => operation.kind === 'upload-file')) {
-    operations.push({ value: 'import', label: 'Import', description: 'Upload a file using the published topic format.' });
+    operations.push({ value: 'import', label: 'Import' });
   }
   if (selectedFamily.value.operations.some((operation) => operation.kind === 'delete-json')) {
-    operations.push({ value: 'delete', label: 'Delete', description: 'Permanently remove the selected topic data.' });
+    operations.push({ value: 'delete', label: 'Delete' });
   }
   return operations;
+});
+const communityWorkspaceSummary = computed(() => {
+
+  const operations = operationOptions.value.map((operation) => operation.label.toLowerCase());
+  const operationSummary = operations.length === 1
+    ? `This Community workspace supports ${operations[0]}.`
+    : `This Community workspace supports ${operations.slice(0, -1).join(', ')} and ${operations[operations.length - 1]}.`;
+
+  return `${selectedFamily.value.description} ${operationSummary}`;
+
 });
 const currentEndpoint = computed(() => displayEndpoint(currentTarget()));
 const operationRequiresPlanOptions = computed(() => currentOperation.value.requiresDemandPlanId || currentOperation.value.requiresSupplyPlanId);
@@ -196,7 +207,11 @@ onMounted(async () => {
       loadCommunitySupplyPlans(),
     ]);
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Unable to load Supply Plans.';
+    notifications.push({
+      tone: 'error',
+      title: 'Unable to load plans',
+      description: error instanceof Error ? error.message : 'Unable to load Supply Plans.',
+    });
   } finally {
     loadingOptions.value = false;
   }
@@ -242,8 +257,6 @@ function selectCatalogTheme(theme: DataCatalogTheme): void {
 function selectCatalogGroup(group: DataCatalogGroup): void {
 
   selectedGroupId.value = group.id;
-  errorMessage.value = null;
-  resultMessage.value = null;
   const firstSection = group.subgroups.find((section) => sectionHasCommunityTopic(selectedThemeId.value, group.id, section))
     ?? group.subgroups[0];
   if (firstSection !== undefined) {
@@ -255,8 +268,6 @@ function selectCatalogGroup(group: DataCatalogGroup): void {
 function selectCatalogSection(section: DataCatalogSection): void {
 
   selectedSectionId.value = section.id;
-  errorMessage.value = null;
-  resultMessage.value = null;
   const firstFamily = section.topics
     .map((topic) => familyForTopic(selectedThemeId.value, selectedGroupId.value, section.id, topic.id))
     .find((family) => family !== undefined);
@@ -281,8 +292,6 @@ function selectCatalogFamily(family: CommunityDataFamily): void {
   selectedTopicId.value = family.catalogTopicId;
   selectedFamily.value = family;
   selectedOperation.value = family.operations.some((operation) => operation.kind === 'download-file') ? 'download' : 'import';
-  errorMessage.value = null;
-  resultMessage.value = null;
 }
 
 function physicalOperationKind(operation: DataWorkspaceOperation): CommunityDataOperation['kind'] {
@@ -423,12 +432,18 @@ async function download(): Promise<void> {
   try {
     const target = currentTarget();
     busy.value = true;
-    errorMessage.value = null;
-    resultMessage.value = null;
     await dataUploadService.downloadTabularData(target, downloadFormat.value);
-    resultMessage.value = `${target.family.label} download completed.`;
+    notifications.push({
+      tone: 'success',
+      title: 'Download completed',
+      description: `${target.family.label} file exported.`,
+    });
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Unable to download the selected data.';
+    notifications.push({
+      tone: 'error',
+      title: 'Download failed',
+      description: error instanceof Error ? error.message : 'Unable to download the selected data.',
+    });
   } finally {
     busy.value = false;
   }
@@ -460,12 +475,18 @@ async function runUpload(event: Event): Promise<void> {
     }
     buildCommunityDataEndpoint(target);
     busy.value = true;
-    errorMessage.value = null;
-    resultMessage.value = null;
     const message = await dataUploadService.uploadFile(target, file);
-    resultMessage.value = message;
+    notifications.push({
+      tone: 'success',
+      title: 'Import completed',
+      description: message,
+    });
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'The data operation failed.';
+    notifications.push({
+      tone: 'error',
+      title: 'Import failed',
+      description: error instanceof Error ? error.message : 'The data operation failed.',
+    });
   } finally {
     busy.value = false;
     input.value = '';
@@ -495,13 +516,19 @@ async function runDelete(): Promise<void> {
       throw new Error('Only published deletion operations are available from this workspace.');
     }
     busy.value = true;
-    errorMessage.value = null;
-    resultMessage.value = null;
     const message = await dataUploadService.deleteJson(target, '{}');
-    resultMessage.value = message;
+    notifications.push({
+      tone: 'success',
+      title: 'Delete completed',
+      description: message,
+    });
     deleteConfirmationOpen.value = false;
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Unable to delete the selected data.';
+    notifications.push({
+      tone: 'error',
+      title: 'Delete failed',
+      description: error instanceof Error ? error.message : 'Unable to delete the selected data.',
+    });
   } finally {
     busy.value = false;
   }
@@ -552,14 +579,12 @@ async function runDelete(): Promise<void> {
       </div>
     </OfxSectionCard>
 
-    <p v-if="catalogSelectionIsExecutable && resultMessage" class="message message-success" role="status">{{ resultMessage }}</p>
-    <p v-if="catalogSelectionIsExecutable && errorMessage" class="message message-error" role="alert">{{ errorMessage }}</p>
-
-    <OfxSectionCard v-if="catalogSelectionIsExecutable" class="data-operation-card" :title="selectedFamily.label" :description="selectedFamily.description">
+    <OfxSectionCard v-if="catalogSelectionIsExecutable" class="data-operation-card" :title="selectedFamily.label">
       <div class="workspace-summary">
         <div>
+          <div class="workspace-summary-label">About this data</div>
           <div class="workspace-breadcrumb">{{ selectedTheme.title }} / {{ selectedGroup.title }} / {{ selectedSection.title }}</div>
-          <p>Choose one of the operations available for this topic.</p>
+          <p>{{ communityWorkspaceSummary }}</p>
         </div>
       </div>
 
@@ -661,13 +686,10 @@ async function runDelete(): Promise<void> {
 .catalog-title { align-items: center; color: var(--ofx-text); display: inline-flex; font-size: .875rem; font-weight: 700; gap: .4rem; }
 .catalog-description, .muted, .workspace-summary p { color: var(--ofx-text-muted); font-size: .75rem; line-height: 1.45; }
 .workspace-summary { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 1rem; border: 1px solid var(--ofx-border); border-radius: 14px; background: var(--ofx-muted); padding: 1rem; }
+.workspace-summary-label { color: var(--ofx-text-subtle); font-size: .6875rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
 .workspace-summary p { margin: .45rem 0 0; max-width: 48rem; }
-.message { margin-top: 1.25rem; border-radius: 14px; padding: .8rem 1rem; font-size: .875rem; }
-.message-success { border: 1px solid #9ad5b2; background: #f0fbf4; color: #146c43; }
-.message-error { border: 1px solid #f0b7b2; background: #fff8f7; color: #b42318; }
 .input-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
 .plan-download-fields { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
-.plan-download-fields .message { grid-column: 1 / -1; margin-top: 0; }
 .download-selection-summary { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
 .selection-chip, .clear-selection-button { border: 1px solid var(--ofx-border); border-radius: 999px; background: var(--ofx-surface); color: var(--ofx-text); font-size: .8125rem; font-weight: 600; line-height: 1.25; padding: .42rem .7rem; }
 .selection-chip { border-color: var(--ofx-primary); color: var(--ofx-primary-strong); }

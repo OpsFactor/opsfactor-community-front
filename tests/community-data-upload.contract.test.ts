@@ -179,6 +179,7 @@ test('Community Data overlays availability on the Planning Front hierarchy witho
   assert.doesNotMatch(page, /Firm production, purchase, transfer, sell-in, and customer-order flows/);
   assert.match(page, /:disabled="familyForTopic/);
   assert.match(page, /This topic is not available in the current edition/);
+  assert.match(page, /family\.id === 'materials'/);
   assert.doesNotMatch(page, /Community \/ \{\{ selectedTheme\.title \}\}/);
   assert.doesNotMatch(page, /community-badge/);
   assert.match(page, /OfxDataTopicWorkspace/);
@@ -235,6 +236,48 @@ test('plan-based Community exports use the same complete-or-period scope as the 
   assert.doesNotMatch(page, /Unit of Measure/);
   assert.match(dataWorkspace, /resolvedDownloadActionVariant/);
   assert.match(dataWorkspace, /isLightTheme\.value \? 'accent' : 'default'/);
+});
+
+test('Community Data uses the shared top notification center instead of inline operation banners', () => {
+
+  const page = readFileSync(new URL('../src/modules/data/CommunityDataUploadPage.vue', import.meta.url), 'utf8');
+
+  assert.match(page, /useNotificationsStore/);
+  assert.match(page, /notifications\.push/);
+  assert.doesNotMatch(page, /message-success/);
+  assert.doesNotMatch(page, /resultMessage/);
+
+});
+
+test('Community Data keeps topic-specific context and omits redundant operation copy', () => {
+
+  const page = readFileSync(new URL('../src/modules/data/CommunityDataUploadPage.vue', import.meta.url), 'utf8');
+
+  assert.match(page, /communityWorkspaceSummary/);
+  assert.match(page, /selectedFamily\.value\.description/);
+  assert.match(page, /workspace-summary-label">About this data/);
+  assert.match(page, /label: 'Download'/);
+  assert.match(page, /busy\.value \? 'Importing…' : `Import \$\{selectedFamily\.value\.label\}`/);
+  assert.match(page, /busy\.value \? 'Deleting…' : 'Delete permanently'/);
+  assert.doesNotMatch(page, /Download the selected data in XLSX or CSV format/);
+  assert.doesNotMatch(page, /Upload a file using the published topic format/);
+
+});
+
+test('Community Data catalog follows the operational sequence selected for each theme', () => {
+
+  const masterData = PLANNING_FRONT_DATA_THEMES.find((theme) => theme.id === 'master-data');
+  const transactionalData = PLANNING_FRONT_DATA_THEMES.find((theme) => theme.id === 'transactional-data');
+  const planningData = PLANNING_FRONT_DATA_THEMES.find((theme) => theme.id === 'planning-data');
+
+  assert.ok(masterData);
+  assert.ok(transactionalData);
+  assert.ok(planningData);
+  assert.deepEqual(masterData.groups.slice(0, 4).map((group) => group.id), ['materials-locations', 'supply-network', 'production', 'units-and-conversions']);
+  assert.deepEqual(transactionalData.groups.slice(0, 2).map((group) => group.id), ['sales', 'inventory']);
+  assert.equal(planningData.groups.at(-1)?.id, 'inventory-policy-optimization-results');
+  assert.equal(masterData.groups.find((group) => group.id === 'supply-network')?.subgroups[0]?.title, 'Supply Network');
+
 });
 
 test('Community Data makes the Supply and Demand baseline inputs discoverable in the transactional hierarchy', () => {

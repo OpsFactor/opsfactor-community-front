@@ -21,7 +21,7 @@ const props = withDefaults(
     themeMode?: 'light' | 'dark';
   }>(),
   {
-    actionLabel: 'Download as',
+    actionLabel: 'Download',
     actionVariant: 'default',
     disabled: false,
     selectorVisible: true,

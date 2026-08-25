@@ -47,7 +47,7 @@ export const PLANNING_FRONT_DATA_THEMES: readonly DataCatalogTheme[] = [
         subgroups: [
           {
             id: 'transportation-network',
-            title: 'Transportation Network',
+            title: 'Supply Network',
             description: 'Transportation lanes and logistics structures.',
             topics: [
               { id: 'supply-network-version', title: 'Supply Network Version', description: 'Version header for the logistics network.' },
@@ -852,3 +852,30 @@ export const PLANNING_FRONT_DATA_THEMES: readonly DataCatalogTheme[] = [
     ],
   },
 ];
+
+/** Keeps the catalog sequence task-oriented while preserving every published group. */
+for (const theme of PLANNING_FRONT_DATA_THEMES) {
+
+  const originalPositionByGroup = new Map(theme.groups.map((group, index) => [group.id, index]));
+  const preferredGroupOrder = theme.id === 'master-data'
+    ? ['materials-locations', 'supply-network', 'production', 'units-and-conversions']
+    : theme.id === 'transactional-data'
+      ? ['sales', 'inventory']
+      : [];
+
+  theme.groups.sort((left, right) => {
+
+    if (theme.id === 'planning-data') {
+      if (left.id === 'inventory-policy-optimization-results') return 1;
+      if (right.id === 'inventory-policy-optimization-results') return -1;
+    }
+
+    const leftPreferredPosition = preferredGroupOrder.indexOf(left.id);
+    const rightPreferredPosition = preferredGroupOrder.indexOf(right.id);
+    const leftPosition = leftPreferredPosition >= 0 ? leftPreferredPosition : 100 + (originalPositionByGroup.get(left.id) ?? 0);
+    const rightPosition = rightPreferredPosition >= 0 ? rightPreferredPosition : 100 + (originalPositionByGroup.get(right.id) ?? 0);
+    return leftPosition - rightPosition;
+
+  });
+
+}
