@@ -35,6 +35,7 @@ import {
   updateDemandPlanPriceLists,
   updateTransportationRouting,
   type ProcessExecutionCatalog,
+  type ProcessExecutionResult,
 } from '@/modules/processes/services/process-execution.service';
 
 type JobId =
@@ -701,10 +702,6 @@ function geographicDivisionKey(hierarchyId?: string | null, divisionId?: string 
   return `${hierarchyId ?? ''}::${divisionId ?? ''}`;
 }
 
-function countJobs(macro: ProcessMacroSelection) {
-  return macro.subselections.reduce((total, item) => total + item.jobs.length, 0);
-}
-
 function syncSelection(macroId: string, subselectionId?: string, jobId?: JobId) {
   const nextMacro = processHierarchy.find((macro) => macro.id === macroId) ?? processHierarchy[0] ?? null;
   if (!nextMacro) return;
@@ -786,11 +783,6 @@ const selectionDescriptionClass = computed(() => (isLightTheme.value ? 'text-[co
 const selectionHintClass = computed(() => (isLightTheme.value ? 'text-[color:var(--ofx-text-muted)]' : 'text-white/44'));
 const jobTitleClass = computed(() => (isLightTheme.value ? 'text-[color:var(--ofx-text)]' : 'text-white/92'));
 const jobDescriptionClass = computed(() => (isLightTheme.value ? 'text-[color:var(--ofx-text-muted)]' : 'text-white/54'));
-const selectionBadgeClass = computed(() => (
-  isLightTheme.value
-    ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface-elevated)] text-[color:var(--ofx-text-muted)]'
-    : 'border-white/8 bg-white/[0.03] text-white/54'
-));
 const formDividerClass = computed(() => (isLightTheme.value ? 'border-[color:var(--ofx-border)]' : 'border-[color:rgb(43_55_77_/_0.9)]'));
 const formTitleClass = computed(() => (isLightTheme.value ? 'text-[color:var(--ofx-text)]' : 'text-white/92'));
 const nestedPanelClass = computed(() => (
@@ -1164,53 +1156,57 @@ async function submitSelectedJob() {
   isSubmitting.value = true;
 
   try {
-    let message = '';
+    let processExecutionResult: ProcessExecutionResult | null = null;
 
     switch (selectedJob.value.id) {
       case 'execute-demand-plan':
-        message = await submitDemandPlanJob();
+        processExecutionResult = await submitDemandPlanJob();
         break;
       case 'update-demand-plan-price-lists':
-        message = await submitDemandPlanPriceListUpdateJob();
+        processExecutionResult = await submitDemandPlanPriceListUpdateJob();
         break;
       case 'autofit-forecast-models':
-        message = await submitAutoFitJob();
+        processExecutionResult = await submitAutoFitJob();
         break;
       case 'execute-supply-plan':
-        message = await submitSupplyPlanJob();
+        processExecutionResult = await submitSupplyPlanJob();
         break;
       case 'execute-constrained-plan':
-        message = await submitConstrainedPlanJob();
+        processExecutionResult = await submitConstrainedPlanJob();
         break;
       case 'reprocess-constraint-explanation':
-        message = await submitConstraintExplanationJob();
+        processExecutionResult = await submitConstraintExplanationJob();
         break;
       case 'generate-pl':
-        message = await submitProfitAndLossJob();
+        processExecutionResult = await submitProfitAndLossJob();
         break;
       case 'execute-pricing-plan':
-        message = await submitPricingPlanJob();
+        processExecutionResult = await submitPricingPlanJob();
         break;
       case 'execute-inventory-policy-optimization':
-        message = await submitInventoryPolicyJob();
+        processExecutionResult = await submitInventoryPolicyJob();
         break;
       case 'update-geographical-data':
-        message = await submitGeographicUpdateJob();
+        processExecutionResult = await submitGeographicUpdateJob();
         break;
       case 'generate-logistics-cost-curves':
-        message = await submitLogisticsCostCurvesJob();
+        processExecutionResult = await submitLogisticsCostCurvesJob();
         break;
       case 'update-embeddings':
-        message = await submitEmbeddingsJob();
+        processExecutionResult = await submitEmbeddingsJob();
         break;
       case 'delete-orders':
-        message = await submitDeleteOrdersJob();
+        processExecutionResult = await submitDeleteOrdersJob();
         break;
+    }
+
+    if (!processExecutionResult) {
+      throw new Error('The selected process did not return a completion result.');
     }
 
     notifications.push({
       title: `${selectedJob.value.title} submitted`,
-      description: message,
+      description: processExecutionResult.message,
       tone: 'success',
     });
   } catch (error) {
@@ -1253,14 +1249,9 @@ watch(
               :class="macroCardClass(selectedMacroId === macro.id)"
               @click="syncSelection(macro.id)"
             >
-              <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                  <div :class="['text-sm font-semibold', selectionTitleClass]">{{ macro.title }}</div>
-                  <p :class="['mt-2 text-xs leading-5', selectionDescriptionClass]">{{ macro.description }}</p>
-                </div>
-                <span :class="['rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em]', selectionBadgeClass]">
-                  {{ countJobs(macro) }}
-                </span>
+              <div class="min-w-0">
+                <div :class="['text-sm font-semibold', selectionTitleClass]">{{ macro.title }}</div>
+                <p :class="['mt-2 text-xs leading-5', selectionDescriptionClass]">{{ macro.description }}</p>
               </div>
             </button>
           </div>

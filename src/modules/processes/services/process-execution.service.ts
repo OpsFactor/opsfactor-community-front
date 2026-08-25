@@ -72,6 +72,15 @@ interface InventoryOptimizationModelDto {
   releasedDemandId?: string | number | null;
 }
 
+/** Resultado explícito de um disparo que pode concluir na request ou seguir em background. */
+export type ProcessExecutionOutcome = 'COMPLETED' | 'ACCEPTED_FOR_BACKGROUND_PROCESSING';
+
+/** Resposta da API preservando a mensagem humana e a semântica operacional da task. */
+export interface ProcessExecutionResult {
+  message: string;
+  processExecutionOutcome?: ProcessExecutionOutcome;
+}
+
 export interface ProcessExecutionCatalog {
   demandPlans: DemandPlanOptionDto[];
   supplyPlans: SupplyPlanOptionDto[];
@@ -174,17 +183,23 @@ export interface ScheduleDeleteOrdersCronPayload extends DeleteOrdersPayload {
   cronExpression: string;
 }
 
-async function parseResponseMessage(response: Response, path: string) {
+async function parseProcessExecutionResult(response: Response, path: string): Promise<ProcessExecutionResult> {
   const contentType = response.headers.get('content-type') ?? '';
 
   if (contentType.includes('application/json')) {
     try {
-      const payload = await response.clone().json() as { message?: string } | string;
+      const payload = await response.clone().json() as {
+        message?: string;
+        processExecutionOutcome?: ProcessExecutionOutcome;
+      } | string;
       if (typeof payload === 'string' && payload.trim()) {
-        return payload;
+        return { message: payload };
       }
       if (payload && typeof payload === 'object' && 'message' in payload && payload.message) {
-        return payload.message;
+        return {
+          message: payload.message,
+          processExecutionOutcome: payload.processExecutionOutcome,
+        };
       }
     } catch {
       // Fall back to text parsing below.
@@ -193,23 +208,23 @@ async function parseResponseMessage(response: Response, path: string) {
 
   try {
     const text = await response.text();
-    if (text.trim()) return text;
+    if (text.trim()) return { message: text };
   } catch {
     // Keep default fallback below.
   }
 
-  return `Request finished for ${path}`;
+  return { message: `Request finished for ${path}` };
 }
 
-async function requestMessage(path: string, options: RequestInit = {}) {
+async function requestMessage(path: string, options: RequestInit = {}): Promise<ProcessExecutionResult> {
   const response = await httpRequest(path, options);
-  const message = await parseResponseMessage(response, path);
+  const processExecutionResult = await parseProcessExecutionResult(response, path);
 
   if (!response.ok) {
-    throw new Error(message);
+    throw new Error(processExecutionResult.message);
   }
 
-  return message;
+  return processExecutionResult;
 }
 
 export async function fetchProcessExecutionCatalog(): Promise<ProcessExecutionCatalog> {
