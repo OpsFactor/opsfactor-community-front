@@ -18,6 +18,7 @@ export const ENTERPRISE_NAVIGATION_PAGE_KEYS = new Set([
   'demand-demand-accuracy',
   'demand-autofit-models',
   'demand-autofit-configuration',
+  'demand-forecast-workflows',
   'supply-constraint-tracker',
   'supply-supply-plan-flows',
   'production-line-scheduling',

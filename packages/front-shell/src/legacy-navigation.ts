@@ -207,6 +207,16 @@ const legacyNavigationModules: AppNavigationModuleDefinition[] = [
             componentKey: 'demand-cluster-level-configuration',
           },
           {
+            key: 'demand-forecast-workflows',
+            label: 'Forecast Workflows',
+            path: '/demand-planning/forecast-workflows',
+            description: 'Configure multi-stage statistical forecast, reconciliation, final DFU split, and cluster-specific overrides.',
+            keywords: ['forecast workflow', 'forecast stages', 'reconciliation', 'split', 'demand configuration'],
+            legacyPath: '/configs/forecastworkflows',
+            status: 'live',
+            componentKey: 'demand-forecast-workflows',
+          },
+          {
             key: 'demand-execution-profiles',
             label: 'Execution Profiles',
             path: '/demand-planning/execution-profiles',

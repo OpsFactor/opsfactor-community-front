@@ -133,6 +133,7 @@ const enterpriseHostComponents = [
   'modules/demand-planning/pages/DemandAccuracyPage.vue',
   'modules/demand-planning/pages/DemandPlanChangeLogReportPage.vue',
   'modules/demand-planning/pages/DemandPlanningPage.vue',
+  'modules/demand-planning/pages/ForecastWorkflowsPage.vue',
   'modules/distribution/components/SalesBaricenterMap.vue',
   'modules/distribution/pages/DeploymentPage.vue',
   'modules/distribution/pages/DistributionPage.vue',

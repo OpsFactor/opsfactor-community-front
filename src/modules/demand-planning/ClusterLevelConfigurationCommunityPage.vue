@@ -368,10 +368,8 @@ function normalizeAggregation(_value: unknown): string {
   return 'Top-Down';
 }
 
-function normalizeSplitModel(value: unknown): string {
-  return String(value ?? 'Historical Sales') === 'HISTORICAL_SALES'
-    ? 'Historical Sales'
-    : String(value ?? 'Historical Sales');
+function normalizeSplitModel(_value: unknown): string {
+  return 'Historical Sales';
 }
 
 function toLocalDateInputValue(date: Date): string {
@@ -985,7 +983,7 @@ onMounted(() => {
 
         <OfxSectionCard
           title="DFU Split"
-          description="Historical Sales is fixed in Community. Only the number of days used by the split is configurable."
+          description="Community has one fixed split stage directly to material/location using Historical Sales. Only its historical day window is configurable."
         >
           <div class="grid gap-4 md:grid-cols-2">
             <OfxSelectField

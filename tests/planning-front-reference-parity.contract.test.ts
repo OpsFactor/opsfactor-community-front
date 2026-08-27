@@ -73,7 +73,7 @@ function stripImports(source: string) {
   return source.replace(/^import(?:.|\r?\n)*?;\r?\n/gm, '');
 }
 
-test('Every one of the 138 Planning Front Vue components has one explicit migration disposition', () => {
+test('Every one of the 139 Planning Front Vue components has one explicit migration disposition', () => {
 
   const referenceVueComponents = collectSourceFilePaths(resolve(legacyFrontRoot, 'src'))
     .filter((relativePath) => relativePath.endsWith('.vue'));
@@ -81,8 +81,8 @@ test('Every one of the 138 Planning Front Vue components has one explicit migrat
     .map((entry) => entry.referencePath)
     .sort();
 
-  assert.equal(referenceVueComponents.length, 138, 'The audited Planning Front reference must contain exactly 138 Vue components.');
-  assert.equal(planningFrontVueComponentInventory.length, 138, 'The migration inventory must classify all 138 reference components.');
+  assert.equal(referenceVueComponents.length, 139, 'The audited Planning Front reference must contain exactly 139 Vue components.');
+  assert.equal(planningFrontVueComponentInventory.length, 139, 'The migration inventory must classify all 139 reference components.');
   assert.equal(new Set(inventoryPaths).size, inventoryPaths.length, 'Every reference component must occur exactly once in the inventory.');
   assert.deepEqual(inventoryPaths, referenceVueComponents, 'The inventory must be updated whenever a reference Vue component is added, removed, or renamed.');
 
@@ -163,7 +163,7 @@ test('Community-owned navigation preserves the planning-front structure with the
   const referencePages = readNavigationPageDefinitions(readFileSync(referenceNavigationPath, 'utf8'), 'component');
   const sharedPages = readNavigationPageDefinitions(readFileSync(sharedNavigationPath, 'utf8'), 'componentKey');
 
-  assert.equal(referencePages.length, 48);
+  assert.equal(referencePages.length, 49);
   const expectedPages = referencePages.map((page) => page.key === 'configuration-transportation-line'
     ? { ...page, label: 'Transportation Lane' }
     : page);
@@ -264,6 +264,7 @@ test('Enterprise keeps every reference route page byte-for-byte equivalent outsi
     'demand-plans',
     'supply-plans',
     'process-status',
+    'demand-forecast-workflows',
   ]);
   const communityAdapterPaths = new Set(
     planningFrontVueComponentInventory
@@ -272,7 +273,7 @@ test('Enterprise keeps every reference route page byte-for-byte equivalent outsi
   );
   let comparedPageBodies = 0;
 
-  assert.equal(referenceComponents.size, 48, 'The navigation parser must find every Planning Front route component before comparing page bodies.');
+  assert.equal(referenceComponents.size, 49, 'The navigation parser must find every Planning Front route component before comparing page bodies.');
 
   for (const [key, componentPath] of referenceComponents) {
     const relativeComponentPath = componentPath.replace('@/', '');

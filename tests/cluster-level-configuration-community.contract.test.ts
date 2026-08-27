@@ -180,6 +180,14 @@ test('Community fixes the DFU split model as Pro while keeping only its day wind
     pageSource,
     /label="Days for Top-Down Split"[^>]*locked/,
   );
+  assert.match(pageSource, /function normalizeSplitModel\(_value: unknown\): string \{\s*return 'Historical Sales';\s*\}/);
+  assert.match(pageSource, /one fixed split stage directly to material\/location using Historical Sales/);
+  assert.doesNotMatch(pageSource, /function normalizeSplitModel[\s\S]*?return String\(value/);
+});
+
+test('Community does not expose the Enterprise multi-stage workflow editor', () => {
+  assert.match(navigationPolicySource, /'demand-forecast-workflows'/);
+  assert.doesNotMatch(navigationSource, /'demand-forecast-workflows':/);
 });
 
 test('Community preserves the selected statistical model while generating a preview', () => {
