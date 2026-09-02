@@ -559,9 +559,12 @@ async function verifySharedPagePrimitives() {
     for (const sharedPrimitive of sharedPrimitives) {
       const { name: primitiveName } = sharedPrimitive;
       const primitiveConsumers = [];
+      const sharedPrimitiveImportPattern = new RegExp(
+        `import\\s*\\{[^}]*\\b${primitiveName}\\b[^}]*\\}\\s*from\\s*['\"]@opsfactor/front-shell['\"]`,
+      );
       for (const sourceFile of [...sourceFiles, ...sharedFeaturePackageSourceFiles]) {
         const source = await readFile(sourceFile, 'utf8');
-        if (source.includes(`import { ${primitiveName} } from '@opsfactor/front-shell';`)) {
+        if (sharedPrimitiveImportPattern.test(source)) {
           primitiveConsumers.push(sourceFile);
         }
       }

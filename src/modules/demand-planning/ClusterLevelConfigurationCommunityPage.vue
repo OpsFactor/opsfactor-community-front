@@ -982,8 +982,8 @@ onMounted(() => {
         </OfxSectionCard>
 
         <OfxSectionCard
-          title="DFU Split"
-          description="Community has one fixed split stage directly to material/location using Historical Sales. Only its historical day window is configurable."
+          title="Forecast Split"
+          description="Community always splits directly to material/location with Historical Sales. Only this historical window is configurable."
         >
           <div class="grid gap-4 md:grid-cols-2">
             <OfxSelectField
@@ -991,12 +991,15 @@ onMounted(() => {
               label="Split Model"
               :options="splitModelOptions"
               locked
-              locked-label="Pro"
+              locked-label="Historical Sales"
+              locked-tone="neutral"
+              help-tooltip="Community uses one fixed top-down split from the aggregate forecast directly to material/location."
             />
             <OfxTextField
               v-model="configuration.demandPlanningForecastParameters.daysTopDownSplit"
               label="Days for Top-Down Split"
               type="number"
+              help-text="Number of historical days used to calculate the direct DFU proportion."
             />
           </div>
         </OfxSectionCard>

@@ -23,6 +23,7 @@ export { default as OfxTextField } from './OfxTextField.vue';
 export { default as OfxToggleField } from './OfxToggleField.vue';
 export { default as OfxDateField } from './OfxDateField.vue';
 export { default as OfxSelectField } from './OfxSelectField.vue';
+export { default as OfxInfoTooltip } from './OfxInfoTooltip.vue';
 export { default as OfxPeriodPicker } from './OfxPeriodPicker.vue';
 export { default as OfxPrimeMultiSelectAdapter } from './OfxPrimeMultiSelectAdapter.vue';
 export { default as OfxEntityMultiSelect } from './OfxEntityMultiSelect.vue';

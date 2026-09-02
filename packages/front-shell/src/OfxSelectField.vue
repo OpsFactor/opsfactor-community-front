@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import OfxEditionAvailabilityMark from './OfxEditionAvailabilityMark.vue';
+import OfxInfoTooltip from './OfxInfoTooltip.vue';
 import OfxLockedControlIcon from './OfxLockedControlIcon.vue';
 
 /** Preserves the option's domain value instead of coercing booleans and IDs to strings. */
@@ -12,11 +13,13 @@ const props = withDefaults(
     modelValue: SelectValue | undefined | null;
     options: Array<{ label: string; value: SelectValue }>;
     helpText?: string;
+    helpTooltip?: string;
     placeholderLabel?: string;
     showPlaceholderOption?: boolean;
     disabled?: boolean;
     locked?: boolean;
     lockedLabel?: string;
+    lockedTone?: 'accent' | 'neutral';
     loading?: boolean;
     loadingLabel?: string;
     maxRenderedOptions?: number;
@@ -424,12 +427,14 @@ watch(
     <div v-if="!props.compact" class="flex min-w-0 items-center justify-between gap-3">
       <span class="inline-flex min-w-0 items-center gap-1.5 text-[13px] font-medium" :class="labelClass">
         <span class="truncate">{{ props.label }}</span>
+        <OfxInfoTooltip v-if="props.helpTooltip" :text="props.helpTooltip" />
         <OfxEditionAvailabilityMark v-if="props.requiredEdition" :edition-label="props.requiredEdition" :theme-mode="props.themeMode" :size="12" />
       </span>
       <OfxEditionAvailabilityMark v-if="lockedEdition" :edition-label="lockedEdition" :theme-mode="props.themeMode" :size="12" />
       <span
         v-else-if="props.locked"
-        class="inline-flex items-center rounded-full border border-[color:var(--ofx-border-selected)] bg-[color:rgb(75_124_255_/_0.12)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ofx-text)]"
+        class="inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+        :class="props.lockedTone === 'neutral' ? 'border-[color:var(--ofx-border-strong)] bg-[color:var(--ofx-muted)] text-[color:var(--ofx-text-muted)]' : 'border-[color:var(--ofx-border-selected)] bg-[color:rgb(75_124_255_/_0.12)] text-[color:var(--ofx-text)]'"
       >
         {{ props.lockedLabel }}
       </span>

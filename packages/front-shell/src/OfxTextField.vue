@@ -14,6 +14,7 @@ const props = withDefaults(defineProps<{
   disabled?: boolean;
   locked?: boolean;
   lockedLabel?: string;
+  lockedTone?: 'accent' | 'neutral';
   requiredEdition?: 'Enterprise' | 'Pro / Enterprise';
   themeMode?: 'light' | 'dark';
 }>(), {
@@ -120,7 +121,11 @@ function handleInput(event: Event) {
         <OfxEditionAvailabilityMark v-if="requiredEdition" :edition-label="requiredEdition" :theme-mode="themeMode ?? 'light'" :size="12" />
       </span>
       <OfxEditionAvailabilityMark v-if="lockedEdition" :edition-label="lockedEdition" :theme-mode="themeMode ?? 'light'" :size="12" />
-      <span v-else-if="locked" class="inline-flex items-center rounded-full border border-[color:var(--ofx-border-selected)] bg-[color:rgb(75_124_255_/_0.12)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ofx-text)]">{{ lockedLabel ?? 'Auto-fit' }}</span>
+      <span
+        v-else-if="locked"
+        class="inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+        :class="lockedTone === 'neutral' ? 'border-[color:var(--ofx-border-strong)] bg-[color:var(--ofx-muted)] text-[color:var(--ofx-text-muted)]' : 'border-[color:var(--ofx-border-selected)] bg-[color:rgb(75_124_255_/_0.12)] text-[color:var(--ofx-text)]'"
+      >{{ lockedLabel ?? 'Auto-fit' }}</span>
     </div>
     <div class="relative">
       <input
