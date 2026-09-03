@@ -31,7 +31,7 @@ test('Community Data catalog exactly mirrors the approved operational families',
       'characteristic/material', 'characteristic/location', 'materiallocationparameters', 'inventorypolicy', 'inventorypolicydetail', 'supplynetworkversion',
       'transportationlane', 'transportationlanematerial', 'productionresourceavailability', 'bom',
       'bomcomponents', 'productionresource', 'productionrouting', 'operationproductionrouting',
-      'simpleproductionversion', 'stock', 'sellout', 'fulfilleddemand', 'demandplan', 'distributionplan',
+      'productionversion', 'stock', 'sellout', 'fulfilleddemand', 'demandplan', 'distributionplan',
       'productionplan/volume', 'productionplan/occupation', 'inventoryplan',
     ],
   );

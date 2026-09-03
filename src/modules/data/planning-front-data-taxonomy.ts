@@ -185,7 +185,7 @@ export const PLANNING_FRONT_DATA_THEMES: readonly DataCatalogTheme[] = [
             title: 'Production Version',
             description: 'Production versions linked to BOM and routing choices.',
             topics: [
-              { id: 'single-routing-production-version', title: 'Single-Routing Production Version', description: 'Production versions with a single routing.' },
+              { id: 'production-version', title: 'Production Version', description: 'Production versions linked to routing and BOM masters.' },
             ],
           },
         ],

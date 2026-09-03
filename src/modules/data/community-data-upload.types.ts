@@ -189,9 +189,9 @@ export const COMMUNITY_DATA_FAMILIES: readonly CommunityDataFamily[] = [
     operations: [{ kind: 'download-file' }, { kind: 'upload-file' }],
   },
   {
-    id: 'simple-production-version', catalogTopicId: 'single-routing-production-version', theme: 'master-data', group: 'production', section: 'production-version', label: 'Simple Production Version',
-    description: 'Production versions with a single routing.',
-    subPath: 'simpleproductionversion', jsonPayload: 'integration-envelope', operations: FILE_AND_JSON_MUTABLE_OPERATIONS,
+    id: 'production-version', catalogTopicId: 'production-version', theme: 'master-data', group: 'production', section: 'production-version', label: 'Production Version',
+    description: 'Production versions linking routing and bill of materials through one contract.',
+    subPath: 'productionversion', jsonPayload: 'integration-envelope', operations: FILE_AND_JSON_MUTABLE_OPERATIONS,
   },
   {
     id: 'stock', catalogTopicId: 'stock', theme: 'transactional-data', group: 'inventory', section: 'inventory-snapshots', label: 'Stock Position',
