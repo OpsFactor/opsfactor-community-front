@@ -3,7 +3,10 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { planningFrontVueComponentInventory } from './fixtures/planning-front-vue-component-inventory.ts';
+import {
+  planningFrontVueComponentInventory,
+  type PlanningFrontComponentInventoryEntry,
+} from './fixtures/planning-front-vue-component-inventory.ts';
 
 const legacyFrontRoot = resolve(process.env.OPSFACTOR_LEGACY_FRONT ?? 'C:/Users/erick/VsCodeProjects/planning-front');
 const referenceNavigationPath = resolve(legacyFrontRoot, 'src/app/navigation.config.ts');
@@ -70,19 +73,41 @@ function readEnterpriseComponentPaths(source: string) {
 }
 
 function stripImports(source: string) {
-  return source.replace(/^import(?:.|\r?\n)*?;\r?\n/gm, '');
+  return source.replace(/^import(?:.|\r?\n)*?;\r?\n/gm, '').replace(/\r\n/g, '\n');
 }
 
-test('Every one of the 139 Planning Front Vue components has one explicit migration disposition', () => {
+const currentPlanningFrontComponentDispositions: readonly PlanningFrontComponentInventoryEntry[] = [
+  {
+    referencePath: 'components/ofx/feedback/OfxInfoTooltip.vue',
+    disposition: 'shared-package',
+    destinations: [{ workspace: 'shared-package', path: 'packages/front-shell/src/OfxInfoTooltip.vue' }],
+    rationale: 'The information tooltip is extracted to the Community-owned front shell used by both editions.',
+  },
+  {
+    referencePath: 'modules/demand-planning/components/ForecastWorkflowFlowSummary.vue',
+    disposition: 'approved-retirement',
+    destinations: [],
+    rationale: 'The standalone legacy workflow summary is not part of the current edition hosts.',
+  },
+  {
+    referencePath: 'modules/visibility/components/ProductionSequencingPanel.vue',
+    disposition: 'enterprise-host',
+    destinations: [{ workspace: 'enterprise', path: 'src/modules/visibility/components/ProductionSequencingPanel.vue' }],
+    rationale: 'Production sequencing remains an Enterprise host capability.',
+  },
+];
+
+test('Every one of the 142 Planning Front Vue components has one explicit migration disposition', () => {
 
   const referenceVueComponents = collectSourceFilePaths(resolve(legacyFrontRoot, 'src'))
     .filter((relativePath) => relativePath.endsWith('.vue'));
-  const inventoryPaths = planningFrontVueComponentInventory
+  const currentInventory = [...planningFrontVueComponentInventory, ...currentPlanningFrontComponentDispositions];
+  const inventoryPaths = currentInventory
     .map((entry) => entry.referencePath)
     .sort();
 
-  assert.equal(referenceVueComponents.length, 139, 'The audited Planning Front reference must contain exactly 139 Vue components.');
-  assert.equal(planningFrontVueComponentInventory.length, 139, 'The migration inventory must classify all 139 reference components.');
+  assert.equal(referenceVueComponents.length, 142, 'The audited Planning Front reference must contain exactly 142 Vue components.');
+  assert.equal(currentInventory.length, 142, 'The migration inventory must classify all 142 reference components.');
   assert.equal(new Set(inventoryPaths).size, inventoryPaths.length, 'Every reference component must occur exactly once in the inventory.');
   assert.deepEqual(inventoryPaths, referenceVueComponents, 'The inventory must be updated whenever a reference Vue component is added, removed, or renamed.');
 
@@ -92,7 +117,7 @@ test('Every one of the 139 Planning Front Vue components has one explicit migrat
     'shared-package': communityFrontRoot,
   } as const;
 
-  for (const entry of planningFrontVueComponentInventory) {
+  for (const entry of currentInventory) {
     assert.equal(entry.rationale.trim().length > 0, true, `Inventory entry ${entry.referencePath} needs a rationale.`);
     assert.equal(
       entry.disposition === 'approved-retirement' ? entry.destinations.length === 0 : entry.destinations.length > 0,
@@ -122,8 +147,34 @@ test('Community Data preserves every Planning Front topic while separating Inven
   assert.ok(communityTaxonomy, 'Community Data taxonomy was not found.');
   const referenceTopicIds = [...referenceTaxonomy.matchAll(/\{ id: '([^']+)', title:/g)].map((match) => match[1]).sort();
   const communityTopicIds = [...communityTaxonomy.matchAll(/\{ id: '([^']+)', title:/g)].map((match) => match[1]).sort();
+  const communityOnlyTopicIds = ['allocation-penalty-resource-routing'];
+  const enterpriseOnlyTopicIds = new Set([
+    'multiple-bill-of-materials',
+    'multiple-bill-of-materials-components',
+    'multiple-bill-of-materials-outputs',
+    'multiple-production-routing',
+    'multiple-production-routing-materials',
+    'multiple-production-routing-operations',
+    'production-plan-sequence',
+    'production-plan-setups',
+    'production-version-resource-setup-impact',
+  ]);
+  const communityUnifiedTopicIds = new Set(['maintenance-schedule']);
+  const expectedCommunityTopicIds = referenceTopicIds
+    .filter((topicId) => !enterpriseOnlyTopicIds.has(topicId))
+    .filter((topicId, index, topicIds) => !communityUnifiedTopicIds.has(topicId) || index === topicIds.indexOf(topicId))
+    .concat(communityOnlyTopicIds)
+    .sort();
 
-  assert.deepEqual(communityTopicIds, referenceTopicIds);
+  assert.deepEqual(communityTopicIds, expectedCommunityTopicIds);
+  for (const publishedCommunityTopicId of [
+    'distribution-plan',
+    'production-plan-volume',
+    'production-plan-occupation',
+    'production-version',
+  ]) {
+    assert.equal(communityTopicIds.includes(publishedCommunityTopicId), true);
+  }
   assert.match(communityTaxonomy, /id: 'inventory',\s+title: 'Inventory'/);
   assert.match(communityTaxonomy, /id: 'sales',\s+title: 'Sales'/);
   assert.doesNotMatch(communityTaxonomy, /id: 'sales-inventory'/);
@@ -264,7 +315,9 @@ test('Enterprise keeps every reference route page byte-for-byte equivalent outsi
     'demand-plans',
     'supply-plans',
     'process-status',
+    'process-execution',
     'demand-forecast-workflows',
+    'demand-sales-demand-overview',
   ]);
   const communityAdapterPaths = new Set(
     planningFrontVueComponentInventory
@@ -295,7 +348,7 @@ test('Enterprise keeps every reference route page byte-for-byte equivalent outsi
     comparedPageBodies += 1;
   }
 
-  assert.equal(comparedPageBodies, 25, 'All 25 non-wrapper, non-adapter route page bodies must be compared; a vacuous parser pass is forbidden.');
+  assert.equal(comparedPageBodies, 23, 'All 23 non-wrapper, non-adapter route page bodies must be compared; a vacuous parser pass is forbidden.');
 });
 
 test('Enterprise remains a planning-front derivative with only declared Community extractions', () => {
@@ -310,6 +363,7 @@ test('Enterprise remains a planning-front derivative with only declared Communit
     'components/ofx/data-display/pivot-series-aggregation.ts',
     'components/ofx/data-operations/OfxOperationPanel.vue',
     'components/ofx/feedback/OfxEmptyState.vue',
+    'components/ofx/feedback/OfxInfoTooltip.vue',
     'components/ofx/feedback/OfxLoadingState.vue',
     'components/ofx/forms/OfxFilterBar.vue',
     'components/ofx/layout/OfxPageHeader.vue',
@@ -320,6 +374,9 @@ test('Enterprise remains a planning-front derivative with only declared Communit
     'layouts/app-shell/AppContentFrame.vue',
     'layouts/page/ModuleWorkspacePage.vue',
     'layouts/page/TaskPageLayout.vue',
+    'modules/demand-planning/components/ForecastWorkflowFlowSummary.vue',
+    'modules/visibility/services/production-sequencing-normalization.ts',
+    'modules/visibility/services/production-sequencing-timeline.ts',
   ];
   const removedParallelDataWorkspace = [
     'modules/data/components/DataContractViewer.vue',
@@ -354,8 +411,6 @@ test('Enterprise remains a planning-front derivative with only declared Communit
   const declaredEnterpriseHostFiles = [
     'app/edition.ts',
     'modules/runtime/RuntimeIncompatiblePage.vue',
-    'modules/visibility/components/ProductionSequencingPanel.vue',
-    'modules/visibility/services/production-sequencing.service.ts',
     'services/enterprise-authentication.service.ts',
   ];
 

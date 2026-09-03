@@ -33,7 +33,7 @@ test('Community Sales/Demand Overview exposes public scope filters without reque
 
   assert.match(pageSource, /type MetricId = 'quantity'/);
   assert.match(pageSource, /The June Community boundary admits only the Sell-out transactional family/);
-  assert.match(pageSource, /label="Historical sales type"/);
+  assert.match(pageSource, /label="Sales document type"/);
   assert.match(pageSource, /Only show historical sales/);
   assert.match(pageSource, /selectedHistoricalSalesType/);
   assert.match(pageSource, /label="Detail level"/);

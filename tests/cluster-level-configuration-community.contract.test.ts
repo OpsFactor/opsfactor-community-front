@@ -40,11 +40,10 @@ test('Community uses only its material-cluster catalog and public forecast endpo
 });
 
 test('Community preserves the canonical Planning Front section order', () => {
-  const orderedSections = [
+  const referenceOrderedSections = [
     'Execution Profile Selection',
     'Cluster Selection',
     'Outlier Smoothing',
-    'DFU Split',
     'Forecast Model Parametrization',
     'Sales History and Coverage',
     'Simulation Parameters',
@@ -52,8 +51,16 @@ test('Community preserves the canonical Planning Front section order', () => {
     'Detailed View Filters',
     'Forecast Preview',
   ];
+  const communityOrderedSections = [
+    ...referenceOrderedSections.slice(0, 3),
+    'Forecast Split',
+    ...referenceOrderedSections.slice(3),
+  ];
 
-  for (const source of [referenceSource, pageSource]) {
+  for (const [source, orderedSections] of [
+    [referenceSource, referenceOrderedSections],
+    [pageSource, communityOrderedSections],
+  ] as const) {
     let previousIndex = -1;
     for (const section of orderedSections) {
       const sectionIndex = source.indexOf(`title="${section}"`);
@@ -167,10 +174,10 @@ test('Community keeps Pro general settings visible, locked, and fixed to their e
   assert.doesNotMatch(pageSource, /value: 'Bottom-Up'/);
 });
 
-test('Community fixes the DFU split model as Pro while keeping only its day window editable', () => {
+test('Community fixes the forecast split model as Historical Sales while keeping only its day window editable', () => {
   assert.match(
     pageSource,
-    /label="Split Model"[^>]*:options="splitModelOptions"[^>]*locked[^>]*locked-label="Pro"/,
+    /label="Split Model"[^>]*:options="splitModelOptions"[^>]*locked[^>]*locked-label="Historical Sales"/,
   );
   assert.match(
     pageSource,
@@ -181,7 +188,7 @@ test('Community fixes the DFU split model as Pro while keeping only its day wind
     /label="Days for Top-Down Split"[^>]*locked/,
   );
   assert.match(pageSource, /function normalizeSplitModel\(_value: unknown\): string \{\s*return 'Historical Sales';\s*\}/);
-  assert.match(pageSource, /one fixed split stage directly to material\/location using Historical Sales/);
+  assert.match(pageSource, /one fixed top-down split from the aggregate forecast directly to material\/location/);
   assert.doesNotMatch(pageSource, /function normalizeSplitModel[\s\S]*?return String\(value/);
 });
 
