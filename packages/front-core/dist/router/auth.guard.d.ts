@@ -8,11 +8,13 @@ import type { NavigationGuardNext, RouteLocationNormalized } from 'vue-router';
 export interface FrontendAuthSession {
     isAuthenticated: boolean;
     isBootstrapping: boolean;
+    hasRole: (requiredRole?: string) => boolean;
 }
 /** Defines the host-owned dependencies injected into the shared route guard. */
 export interface FrontendAuthGuardDependencies {
     getSession: () => FrontendAuthSession;
     loginRouteName: string;
+    redirectToLogin?: (redirectPath: string) => void;
 }
 /**
  * Creates the standard authenticated-route guard used by both editions.

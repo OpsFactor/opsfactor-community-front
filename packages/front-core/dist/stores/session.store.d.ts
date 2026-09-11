@@ -3,6 +3,7 @@ export interface FrontendSessionUser {
     id: string;
     displayName: string;
     email: string;
+    roles?: string[];
 }
 /** Session shape returned by a host-specific authentication policy. */
 export interface FrontendSessionBootstrapResponse {
@@ -34,6 +35,8 @@ interface FrontendSessionState {
  * hosts provide those policies and receive explicit authenticated/logout hooks.
  */
 export declare function createFrontendSessionStore(dependencies: FrontendSessionStoreDependencies): import("pinia").StoreDefinition<"session", FrontendSessionState, {}, {
+    /** Applies an optional host-provided role gate without changing Community authentication. */
+    hasRole(requiredRole?: string): boolean;
     bootstrap(): Promise<void>;
     logout(): Promise<void>;
 }>;

@@ -20,12 +20,24 @@ export function createFrontendAuthGuard(dependencies) {
             return;
         }
         if (!sessionStore.isAuthenticated) {
+            if (dependencies.redirectToLogin) {
+                next(false);
+                dependencies.redirectToLogin(to.fullPath);
+                return;
+            }
             next({
                 name: dependencies.loginRouteName,
                 query: {
                     redirect: to.fullPath,
                 },
             });
+            return;
+        }
+        const requiredRole = typeof to.meta.requiredRole === 'string'
+            ? to.meta.requiredRole
+            : undefined;
+        if (!sessionStore.hasRole(requiredRole)) {
+            next({ path: '/' });
             return;
         }
         next();

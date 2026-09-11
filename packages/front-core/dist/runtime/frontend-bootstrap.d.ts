@@ -4,6 +4,7 @@ import type { RouteRecordName, Router } from 'vue-router';
 /** Session state required by the edition-neutral redirect decision. */
 export interface FrontendBootstrapSession {
     isAuthenticated: boolean;
+    hasRole: (requiredRole?: string) => boolean;
 }
 /**
  * Host-owned collaborators used to bootstrap the common Vue application flow.
@@ -21,6 +22,7 @@ export interface FrontendBootstrapDependencies {
     bootstrapSession: () => Promise<void>;
     getSession: () => FrontendBootstrapSession;
     loginRouteName: RouteRecordName;
+    redirectToLogin?: (redirectPath: string) => void;
     mountSelector?: string;
 }
 /**

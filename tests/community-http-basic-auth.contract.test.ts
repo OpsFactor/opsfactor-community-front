@@ -8,7 +8,7 @@ function readSource(relativePath: string): string {
 
 }
 
-test('Community login preserves tab-scoped HTTP Basic without probing a nonexistent session endpoint', () => {
+test('Community login exposes only tab-scoped HTTP Basic without SSO or session probing', () => {
 
   const loginSource = readSource('../src/modules/auth/pages/LoginPage.vue');
   const sessionSource = readSource('../src/services/auth/auth.service.ts');
@@ -16,8 +16,7 @@ test('Community login preserves tab-scoped HTTP Basic without probing a nonexist
   const bootstrapSessionSource = readSource('../src/app/boot/bootstrap-session.ts');
 
   assert.match(loginSource, /loginWithPassword/);
-  assert.match(loginSource, /beginOpsFactorLogin/);
-  assert.match(loginSource, /Continue with OpsFactor/);
+  assert.doesNotMatch(loginSource, /beginOpsFactorLogin|Continue with OpsFactor|oidcEnabled/);
   assert.match(loginSource, /ApiRequestError/);
   assert.match(loginSource, /error\.status === 401/);
   assert.match(loginSource, /Invalid username or password\./);
@@ -27,7 +26,7 @@ test('Community login preserves tab-scoped HTTP Basic without probing a nonexist
   assert.match(authenticationSource, /\/api\/secured\/user\/rolelist/);
   assert.doesNotMatch(authenticationSource, /userconfigs|user-interface/i);
   assert.doesNotMatch(sessionSource, /\/api\/open\/session/);
-  assert.match(sessionSource, /\/oauth2\/authorization\/opsfactor/);
+  assert.doesNotMatch(sessionSource, /oauth2|oidc|fetchIdentityOptions/i);
   assert.doesNotMatch(sessionSource, /JSESSIONID|csrf/i);
   assert.match(bootstrapSessionSource, /await restoreCommunityBasicSessionFromPeer\(\);[\s\S]*await sessionStore\.bootstrap\(\);/);
 

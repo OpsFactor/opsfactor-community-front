@@ -9,12 +9,14 @@ import type { NavigationGuardNext, RouteLocationNormalized } from 'vue-router';
 export interface FrontendAuthSession {
   isAuthenticated: boolean;
   isBootstrapping: boolean;
+  hasRole: (requiredRole?: string) => boolean;
 }
 
 /** Defines the host-owned dependencies injected into the shared route guard. */
 export interface FrontendAuthGuardDependencies {
   getSession: () => FrontendAuthSession;
   loginRouteName: string;
+  redirectToLogin?: (redirectPath: string) => void;
 }
 
 /**
@@ -49,12 +51,26 @@ export function createFrontendAuthGuard(dependencies: FrontendAuthGuardDependenc
     }
 
     if (!sessionStore.isAuthenticated) {
+      if (dependencies.redirectToLogin) {
+        next(false);
+        dependencies.redirectToLogin(to.fullPath);
+        return;
+      }
+
       next({
         name: dependencies.loginRouteName,
         query: {
           redirect: to.fullPath,
         },
       });
+      return;
+    }
+
+    const requiredRole = typeof to.meta.requiredRole === 'string'
+      ? to.meta.requiredRole
+      : undefined;
+    if (!sessionStore.hasRole(requiredRole)) {
+      next({ path: '/' });
       return;
     }
 

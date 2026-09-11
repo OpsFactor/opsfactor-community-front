@@ -30,6 +30,7 @@ export const ENTERPRISE_NAVIGATION_PAGE_KEYS = new Set([
   'configuration-product-details',
   'admin-user-settings',
   'admin-settings',
+  'admin-sso-configuration',
   'data-api-documentation',
 ]);
 

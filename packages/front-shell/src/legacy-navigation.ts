@@ -28,6 +28,7 @@ export interface AppModuleCardLink {
   legacyPath?: string;
   status: AppPageStatus;
   requiredEdition?: 'enterprise';
+  requiredRole?: string;
   availableInCurrentRuntime?: boolean;
 }
 
@@ -47,6 +48,7 @@ export interface AppModuleSummary {
   accent: string;
   railGroup: AppModuleRailGroup;
   requiredEdition?: 'enterprise';
+  requiredRole?: string;
   availableInCurrentRuntime?: boolean;
   previewItems: string[];
   sections: AppModuleSectionSummary[];
@@ -62,6 +64,7 @@ export interface AppSearchEntry {
   keywords: string[];
   status: AppPageStatus | 'overview';
   requiredEdition?: 'enterprise';
+  requiredRole?: string;
   availableInCurrentRuntime?: boolean;
 }
 
@@ -851,6 +854,16 @@ const legacyNavigationModules: AppNavigationModuleDefinition[] = [
             status: 'live',
             componentKey: 'admin-settings',
           },
+          {
+            key: 'admin-sso-configuration',
+            label: 'SSO Configuration',
+            path: '/admin/sso-configuration',
+            description: 'Validate the active Customer and OpsFactor SSO configuration, metadata, and connectivity.',
+            keywords: ['sso', 'saml', 'identity provider', 'metadata', 'entra', 'authentication'],
+            status: 'live',
+            requiredRole: 'ROLE_ADMIN',
+            componentKey: 'admin-sso-configuration',
+          },
         ],
       },
     ],
@@ -863,6 +876,7 @@ export interface LegacyNavigationConfiguration {
   pageComponents: Record<string, NonNullable<RouteRecordRaw['component']>>;
   moduleOverviewComponent: NonNullable<RouteRecordRaw['component']>;
   additionalDataSearchEntries?: AppSearchEntry[];
+  hasRole?: (requiredRole?: string) => boolean;
 }
 
 /**
@@ -922,6 +936,7 @@ export function createLegacyNavigation(configuration: LegacyNavigationConfigurat
         legacyPath: item.legacyPath,
         status: item.status,
         requiredEdition: item.requiredEdition,
+        requiredRole: item.requiredRole,
         availableInCurrentRuntime: item.availableInCurrentRuntime,
       })),
     };
@@ -952,6 +967,7 @@ export function createLegacyNavigation(configuration: LegacyNavigationConfigurat
       ...flattenPages(module).filter((item) => item.availableInCurrentRuntime !== false).map((item) => ({
         label: item.label,
         to: item.path,
+        requiredRole: item.requiredRole,
       })),
     ];
   }
@@ -968,7 +984,9 @@ export function createLegacyNavigation(configuration: LegacyNavigationConfigurat
       keywords: page?.keywords ?? module.overviewKeywords,
       legacyPath: page?.legacyPath,
       pageStatus: page?.status ?? 'overview',
+      requiredRole: page?.requiredRole,
       navigationModule: createModuleSummary(module),
+      navigationRoleCheck: configuration.hasRole,
       navigationPage: page
         ? {
             key: page.key,
@@ -978,6 +996,7 @@ export function createLegacyNavigation(configuration: LegacyNavigationConfigurat
             keywords: page.keywords,
             legacyPath: page.legacyPath,
             status: page.status,
+            requiredRole: page.requiredRole,
           }
         : null,
     };
@@ -1016,6 +1035,7 @@ export function createLegacyNavigation(configuration: LegacyNavigationConfigurat
       keywords: page.keywords,
       status: page.status,
       requiredEdition: page.requiredEdition,
+      requiredRole: page.requiredRole,
       availableInCurrentRuntime: page.availableInCurrentRuntime,
     }));
 

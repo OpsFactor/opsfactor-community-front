@@ -5,6 +5,7 @@ import type { RouteRecordName, Router } from 'vue-router';
 /** Session state required by the edition-neutral redirect decision. */
 export interface FrontendBootstrapSession {
   isAuthenticated: boolean;
+  hasRole: (requiredRole?: string) => boolean;
 }
 
 /**
@@ -23,6 +24,7 @@ export interface FrontendBootstrapDependencies {
   bootstrapSession: () => Promise<void>;
   getSession: () => FrontendBootstrapSession;
   loginRouteName: RouteRecordName;
+  redirectToLogin?: (redirectPath: string) => void;
   mountSelector?: string;
 }
 
@@ -54,6 +56,11 @@ export async function bootstrapFrontendApplication(dependencies: FrontendBootstr
   const currentRoute = router.currentRoute.value;
 
   if (!session.isAuthenticated && currentRoute.meta.requiresAuth !== false) {
+    if (dependencies.redirectToLogin) {
+      dependencies.redirectToLogin(currentRoute.fullPath);
+      return;
+    }
+
     await router.replace({
       name: dependencies.loginRouteName,
       query: {
@@ -63,6 +70,13 @@ export async function bootstrapFrontendApplication(dependencies: FrontendBootstr
   } else if (session.isAuthenticated && currentRoute.name === dependencies.loginRouteName) {
     const redirectPath = typeof currentRoute.query.redirect === 'string' ? currentRoute.query.redirect : '/';
     await router.replace(redirectPath);
+  } else if (session.isAuthenticated) {
+    const requiredRole = typeof currentRoute.meta.requiredRole === 'string'
+      ? currentRoute.meta.requiredRole
+      : undefined;
+    if (!session.hasRole(requiredRole)) {
+      await router.replace('/');
+    }
   }
 
   application.mount(dependencies.mountSelector ?? '#app');

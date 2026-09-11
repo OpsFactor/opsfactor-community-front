@@ -9,10 +9,6 @@ export interface SessionBootstrapResponse {
   };
 }
 
-export interface IdentityOptionsResponse {
-  oidcEnabled: boolean;
-}
-
 /**
  * Restores the Community session from the active tab's in-memory HTTP Basic
  * credential.
@@ -47,22 +43,10 @@ export async function loginWithPassword(username: string, password: string): Pro
 
 }
 
-/** Clears browser-memory Basic credentials and invalidates an OIDC session when present. */
+/** Clears browser-memory Basic credentials and closes the Community backend session. */
 export async function logoutSession(): Promise<void> {
 
   authenticationService.logout();
   await httpClient.request<void>('/logout', { method: 'POST' });
-
-}
-
-export async function fetchIdentityOptions(): Promise<IdentityOptionsResponse> {
-
-  return httpClient.request<IdentityOptionsResponse>('/api/open/identity');
-
-}
-
-export function beginOpsFactorLogin(): void {
-
-  window.location.assign('/oauth2/authorization/opsfactor');
 
 }

@@ -5,6 +5,7 @@ export interface FrontendSessionUser {
   id: string;
   displayName: string;
   email: string;
+  roles?: string[];
 }
 
 /** Session shape returned by a host-specific authentication policy. */
@@ -48,6 +49,12 @@ export function createFrontendSessionStore(dependencies: FrontendSessionStoreDep
       isBootstrapping: true,
     }),
     actions: {
+      /** Applies an optional host-provided role gate without changing Community authentication. */
+      hasRole(requiredRole?: string) {
+
+        return requiredRole === undefined || Boolean(this.user?.roles?.includes(requiredRole));
+
+      },
       async bootstrap() {
 
         this.isBootstrapping = true;

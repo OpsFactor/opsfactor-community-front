@@ -13,6 +13,10 @@ export function createFrontendSessionStore(dependencies) {
             isBootstrapping: true,
         }),
         actions: {
+            /** Applies an optional host-provided role gate without changing Community authentication. */
+            hasRole(requiredRole) {
+                return requiredRole === undefined || Boolean(this.user?.roles?.includes(requiredRole));
+            },
             async bootstrap() {
                 this.isBootstrapping = true;
                 try {
