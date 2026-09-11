@@ -9,6 +9,7 @@ export interface DemandPlanningBookTransport {
     httpRequest: (path: string, options?: DemandPlanningBookRequestOptions) => Promise<Response>;
 }
 export interface DemandPlanOptionDto {
+    calendarProfileId?: string | null;
     demandPlanId: number;
     description: string;
     executionProfileId?: string;

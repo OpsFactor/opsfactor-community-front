@@ -54,7 +54,7 @@ test('Community keeps the Planning Front semantic control type for enumerations 
   const inventoryOverview = source('src/modules/inventory-overview/InventoryOverviewPage.vue');
   const operationalParameters = source('src/modules/operational-planning-parameters/OperationalPlanningParametersPage.vue');
 
-  assert.match(demandProfiles, /<OfxSelectField v-model="draft\.bucketSize"/);
+  assert.match(demandProfiles, /<OfxSelectField v-model="draft\.calendarProfileId"/);
   assert.match(demandProfiles, /<OfxSelectField[\s\S]*?v-model="draft\.defaultDemandPlanningUomId"/);
   assert.match(supplyProfiles, /<OfxSelectField[^>]*v-model="current\.targetStockModel"/);
   assert.match(supplyProfiles, /<OfxSelectField[\s\S]*?v-if="current\.consolidateClientDemand"[\s\S]*?v-model="current\.demandConsolidationMode"/);

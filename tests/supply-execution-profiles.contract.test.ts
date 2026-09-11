@@ -12,6 +12,7 @@ test('Supply Execution Profile adapter preserves Community fields and fixes heur
     id: ' SUPPLY-01 ',
     description: ' Operational heuristic profile ',
     planHorizonInDays: 90,
+    calendarProfileId: 'CALENDAR-DAILY',
     generatePlannedInboundOrders: true,
     generatePlannedProductionOrders: true,
     generateUnconstrainedPlan: false,
@@ -27,6 +28,8 @@ test('Supply Execution Profile adapter preserves Community fields and fixes heur
     productionResourceConfigurationSet: [{ productionResourceId: 'LINE-01' }],
   });
 
+  assert.equal(payload.calendarProfileId, 'CALENDAR-DAILY');
+  assert.equal('planHorizonInDays' in payload, false);
   assert.equal(payload.id, 'SUPPLY-01');
   assert.equal(payload.description, 'Operational heuristic profile');
   assert.equal(payload.executionModel, 'Heuristic');
@@ -73,7 +76,7 @@ test('Supply Execution Profile adapter rejects a blank persisted identity', () =
 test('Supply Execution Profile adapter declares the complete editable Community field set', () => {
 
   assert.deepEqual(COMMUNITY_EDITABLE_SUPPLY_EXECUTION_PROFILE_FIELDS, [
-    'planHorizonInDays',
+    'calendarProfileId',
     'generatePlannedInboundOrders',
     'generatePlannedProductionOrders',
     'generatePlannedInboundOrdersWhenProductionIsViable',
@@ -106,7 +109,7 @@ test('Supply Execution Profiles uses the canonical Planning Front composition wi
 
   assert.match(service, /requestJson<SupplyExecutionProfile\[\]>\('\/api\/secured\/supplyplanexecutionprofile'\)/);
   assert.match(service, /httpRequest\('\/api\/secured\/supplyplanexecutionprofile'/);
-  assert.match(service, /const communityPayload = toCommunitySupplyExecutionProfilePayload\(profile\)/);
+  assert.match(service, /const communityPayload = toCommunitySupplyExecutionProfilePayload\(calendarBasedProfile\)/);
   assert.match(service, /body: JSON\.stringify\(communityPayload\)/);
   assert.match(service, /'\/api\/secured\/configs\/inventorypolicy'/);
 

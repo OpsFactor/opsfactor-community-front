@@ -711,6 +711,15 @@ const legacyNavigationModules: AppNavigationModuleDefinition[] = [
         label: 'Core Configuration',
         items: [
           {
+            key: 'configuration-calendars',
+            label: 'Calendars',
+            path: '/configuration/calendars',
+            description: 'Reusable calendar bucket and horizon configuration.',
+            keywords: ['calendar', 'calendario', 'horizon', 'bucket'],
+            status: 'live',
+            componentKey: 'configuration-calendars',
+          },
+          {
             key: 'configuration-sales-curves',
             label: 'Sales Curves',
             path: '/configuration/sales-curves',

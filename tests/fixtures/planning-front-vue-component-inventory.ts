@@ -188,6 +188,15 @@ function enterpriseDestination(referencePath: string): PlanningFrontComponentDes
 }
 
 export const planningFrontVueComponentInventory: readonly PlanningFrontComponentInventoryEntry[] = [
+  {
+    referencePath: 'modules/configuration/pages/CalendarProfilesPage.vue',
+    disposition: 'community-adapter',
+    destinations: [
+      { workspace: 'community', path: 'src/modules/calendar-profiles/CalendarProfilesPage.vue' },
+      { workspace: 'enterprise', path: 'src/modules/calendar-profiles/CalendarProfilesPage.vue' },
+    ],
+    rationale: 'Calendar profiles are edition-owned: the public editor supports one bucket, while ordered mixed-bucket definitions live only in Enterprise.',
+  },
   ...editionHostComponents.map(editionHostEntry),
   ...Object.entries(sharedPackageComponents).map(([referencePath, path]) => ({
     referencePath,

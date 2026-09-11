@@ -48,6 +48,7 @@ const plans = ref<SupplyPlanHistoryDto[]>([]);
 const selectedPlans = ref<SupplyPlanHistoryRow[]>([]);
 
 const columns: OfxTableColumn[] = [
+  { field: 'calendarProfileId', header: 'Calendar Profile Id', dataType: 'text' },
   { field: 'supplyPlanId', header: 'Supply Plan Id', width: '10%', dataType: 'number-0' },
   { field: 'description', header: 'Description', width: '16%', dataType: 'text' },
   { field: 'bucketSize', header: 'Time Bucket', width: '8%', dataType: 'text' },

@@ -2,7 +2,7 @@ function N(a, n) {
   return a === "Average Historical Sales" ? a : n === "DIARIO" || n === "SEMANAL" || n === "MENSAL" ? a.slice(0, 10) : a;
 }
 function R(a, n) {
-  const i = N(n, a.bucketSize), r = a.columnDefs.find((s) => !!s.dataColumn && (s.field === i || s.field === n || s.name === i));
+  const i = N(n, a.bucketSize), r = a.columnDefs.find((s) => !!s.dataColumn && (s.endDateTime === n || s.field === i || s.field === n || s.name === i));
   return (r == null ? void 0 : r.field) ?? i;
 }
 function I(a, n) {

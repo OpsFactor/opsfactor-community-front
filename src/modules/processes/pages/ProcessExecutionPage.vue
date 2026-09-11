@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { requireCalendarProfile } from '@/modules/calendar-profiles/calendar-profiles.service';
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import {
   OfxActionLabel,
@@ -357,7 +358,6 @@ const supplyPlanForm = reactive({
   presetConstraintGroupId: '',
   demandPlanId: '',
   description: '',
-  bucket: 'Monthly' as BucketSize,
   existingSupplyPlanId: '',
   startingStockProjectionSupplyPlanId: '',
   reference: createReferenceFieldsState(),
@@ -512,10 +512,16 @@ const uomOptions = computed<OfxSelectOption[]>(() => (catalog.value?.uomIds ?? [
 const selectedDemandExecutionProfile = computed(() => (catalog.value?.demandExecutionProfiles ?? []).find((profile) => profile.id === demandPlanForm.executionProfileId) ?? null);
 const selectedSupplyExecutionProfile = computed(() => (catalog.value?.supplyExecutionProfiles ?? []).find((profile) => profile.id === supplyPlanForm.executionProfileId) ?? null);
 
+/** Index the catalog once: selecting a profile does not trigger HTTP requests. */
+const calendarById = computed(() => new Map((catalog.value?.calendarProfiles ?? []).map((calendar) => [calendar.id, calendar])));
+const selectedDemandCalendar = computed(() => calendarById.value.get(selectedDemandExecutionProfile.value?.calendarProfileId ?? ''));
+const selectedSupplyCalendar = computed(() => calendarById.value.get(selectedSupplyExecutionProfile.value?.calendarProfileId ?? ''));
+const activeSupplyBucket = computed(() => selectedSupplyCalendar.value?.firstPeriodBucketSize as BucketSize | undefined);
+
 const activeDemandBucket = computed(() => (
   demandPlanForm.mode === 'trend'
     ? demandPlanForm.trendBucket
-    : (selectedDemandExecutionProfile.value?.bucketSize as ShortBucketSize | undefined) ?? ''
+    : (selectedDemandCalendar.value?.firstPeriodBucketSize as ShortBucketSize | undefined) ?? ''
 ));
 
 const demandReferencePeriodModel = computed({
@@ -524,9 +530,21 @@ const demandReferencePeriodModel = computed({
 });
 
 const supplyReferencePeriodModel = computed({
-  get: () => referenceStateToNormalizedDate(supplyPlanForm.bucket, supplyPlanForm.reference),
-  set: (value: string) => applyNormalizedDateToReference(supplyPlanForm.bucket, value, supplyPlanForm.reference),
+  get: () => activeSupplyBucket.value ? referenceStateToNormalizedDate(activeSupplyBucket.value, supplyPlanForm.reference) : '',
+  set: (value: string) => activeSupplyBucket.value && applyNormalizedDateToReference(activeSupplyBucket.value, value, supplyPlanForm.reference),
 });
+
+function buildSupplyStartDateTime(): string {
+
+  const calendar = requireCalendarProfile(catalog.value?.calendarProfiles ?? [], selectedSupplyExecutionProfile.value?.calendarProfileId);
+  const bucket = calendar.firstPeriodBucketSize as BucketSize;
+  const date = referenceStateToNormalizedDate(bucket, supplyPlanForm.reference);
+  if (!date) throw new Error('Select the first planning date.');
+  const hour = bucket === 'Hourly' || bucket === '8-hour turn' ? String(supplyPlanForm.reference.hour).padStart(2, '0') : '00';
+  const startDate = bucket === 'Monthly' ? `${date.slice(0, 7)}-01` : date.slice(0, 10);
+  return `${startDate}T${hour}:00:00`;
+
+}
 
 const pricingReferencePeriodModel = computed({
   get: () => referenceStateToNormalizedDate(pricingPlanForm.bucket, pricingPlanForm.reference),
@@ -979,9 +997,8 @@ async function submitDemandPlanJob() {
   }
 
   const executionProfile = selectedDemandExecutionProfile.value;
-  if (!executionProfile?.bucketSize) {
-    throw new Error('Select a demand-planning execution profile before submitting.');
-  }
+  if (!executionProfile) throw new Error('Select a demand-planning execution profile before submitting.');
+  requireCalendarProfile(catalog.value?.calendarProfiles ?? [], executionProfile.calendarProfileId);
 
   if (demandPlanForm.mode === 'file') {
     if (!demandPlanForm.file) {
@@ -992,14 +1009,14 @@ async function submitDemandPlanJob() {
     form.append('file', demandPlanForm.file);
     form.append('description', ensureText(demandPlanForm.description, 'Description'));
     form.append('executionProfileId', ensureText(demandPlanForm.executionProfileId, 'Demand-planning execution profile'));
-    form.append('referencePeriod', buildPeriodReference(executionProfile.bucketSize as ShortBucketSize, demandPlanForm.reference));
+    form.append('referencePeriod', buildPeriodReference(requireCalendarProfile(catalog.value?.calendarProfiles ?? [], executionProfile.calendarProfileId).firstPeriodBucketSize as ShortBucketSize, demandPlanForm.reference));
     return executeDemandPlanFromFile(form);
   }
 
   return executeDemandPlan({
     descricao: ensureText(demandPlanForm.description, 'Description'),
     executionProfileId: ensureText(demandPlanForm.executionProfileId, 'Demand-planning execution profile'),
-    periodoReferencia: buildPeriodReference(executionProfile.bucketSize as ShortBucketSize, demandPlanForm.reference),
+    periodoReferencia: buildPeriodReference(requireCalendarProfile(catalog.value?.calendarProfiles ?? [], executionProfile.calendarProfileId).firstPeriodBucketSize as ShortBucketSize, demandPlanForm.reference),
     demandPlanReferenciaCopiaDados: demandPlanForm.referenceDemandPlanManualInputCopy || undefined,
     copiaApenasNoHorizonteCongelado: demandPlanForm.referenceDemandPlanManualInputCopy
       ? demandPlanForm.onlyCopyDemandPlanOnFrozenHorizon
@@ -1039,8 +1056,7 @@ function submitSupplyPlanJob() {
     supplyNetworkVersionId: ensureText(supplyPlanForm.supplyNetworkVersionId, 'Supply network version'),
     presetConstraintGroupId: showSupplyPresetConstraintGroup.value ? (supplyPlanForm.presetConstraintGroupId || null) : undefined,
     descricaoSupplyPlan: ensureText(supplyPlanForm.description, 'Description'),
-    tamanhoBucket: ensureText(supplyPlanForm.bucket, 'Bucket size'),
-    periodoReferencia: buildPeriodReference(supplyPlanForm.bucket, supplyPlanForm.reference),
+    dataInicioPlano: buildSupplyStartDateTime(),
     supplyPlanIdForStartingStockProjection: supplyPlanForm.startingStockProjectionSupplyPlanId || undefined,
   });
 }
@@ -1434,7 +1450,7 @@ watch(
               <OfxSelectField v-if="showSupplyPresetConstraintGroup" v-model="supplyPlanForm.presetConstraintGroupId" label="Preset constraints group" :options="presetConstraintGroupOptions" :show-placeholder-option="false" />
               <OfxSelectField v-model="supplyPlanForm.demandPlanId" label="Reference demand plan" :options="demandPlanOptions" placeholder-label="Choose a demand plan" />
               <OfxTextField v-model="supplyPlanForm.description" label="Description" placeholder="New Supply Plan" />
-              <OfxSelectField v-model="supplyPlanForm.bucket" label="Bucket size" :options="supplyBucketOptions" :show-placeholder-option="false" />
+              <p>Calendar: {{ selectedSupplyCalendar?.id || 'Configure or migrate the execution profile calendar before running.' }}</p>
             </template>
 
             <template v-else>
@@ -1445,11 +1461,11 @@ watch(
           <div v-if="supplyPlanForm.action === 'new'" :class="['rounded-[14px] border p-4', nestedPanelClass]">
             <div :class="['mb-4 text-sm font-semibold', formTitleClass]">Reference period</div>
             <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_220px]">
-              <OfxPeriodPicker v-model="supplyReferencePeriodModel" label="Reference period" :bucket-size="supplyPlanForm.bucket" />
+              <OfxPeriodPicker v-model="supplyReferencePeriodModel" label="Reference period" :bucket-size="activeSupplyBucket || ''" />
               <OfxTextField
-                v-if="supplyPlanForm.bucket === '8-hour turn' || supplyPlanForm.bucket === 'Hourly'"
+                v-if="activeSupplyBucket === '8-hour turn' || activeSupplyBucket === 'Hourly'"
                 v-model="supplyPlanForm.reference.hour"
-                :label="supplyPlanForm.bucket === 'Hourly' ? 'Reference hour' : 'Reference turn'"
+                :label="activeSupplyBucket === 'Hourly' ? 'Reference hour' : 'Reference turn'"
                 type="number"
               />
             </div>

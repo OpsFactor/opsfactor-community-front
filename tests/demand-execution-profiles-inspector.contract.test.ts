@@ -13,6 +13,7 @@ test('Demand Execution Profile editor sends only the existing Community fields a
     description: 'Operational demand profile',
     historicalSalesDocumentType: 'SELLIN',
     bucketSize: 'MONTHLY',
+    calendarProfileId: 'CALENDAR-MONTHLY',
     planningHorizonInPeriods: 12,
     constrainPlanEditPeriods: true,
     initialPlanEditPeriod: 0,
@@ -22,8 +23,9 @@ test('Demand Execution Profile editor sends only the existing Community fields a
   const snapshot = buildCommunityDemandExecutionProfileSaveRequest(draft);
 
   assert.equal(snapshot.historicalSalesDocumentType, 'Sell-out');
-  assert.equal(snapshot.bucketSize, 'MONTHLY');
-  assert.equal(snapshot.planningHorizonInPeriods, 12);
+  assert.equal(snapshot.calendarProfileId, 'CALENDAR-MONTHLY');
+  assert.equal('bucketSize' in snapshot, false);
+  assert.equal('planningHorizonInPeriods' in snapshot, false);
   assert.equal(snapshot.defaultDemandPlanningUomId, 'UNIT');
   assert.equal(draft.constrainPlanEditPeriods, false);
   assert.equal(snapshot.constrainPlanEditPeriods, false);
@@ -40,23 +42,24 @@ test('Demand Execution Profile editor sends only the existing Community fields a
   }
 });
 
-test('Demand Execution Profile editor validates the positive planning horizon before POST', () => {
+test('Demand Execution Profile editor requires the linked calendar before POST', () => {
   const draft = buildCommunityDemandExecutionProfileDraft({
     id: 'DEMAND-01',
     description: 'Profile',
     historicalSalesDocumentType: 'SELLOUT',
     bucketSize: 'MONTHLY',
+    calendarProfileId: 'CALENDAR-MONTHLY',
     planningHorizonInPeriods: 12,
     constrainPlanEditPeriods: false,
     initialPlanEditPeriod: null,
     finalPlanEditPeriod: null,
     defaultDemandPlanningUomId: null,
   });
-  draft.planningHorizonInPeriods = '0';
+  draft.calendarProfileId = '';
 
   assert.throws(
     () => buildCommunityDemandExecutionProfileSaveRequest(draft),
-    /positive integer/i,
+    /calendar profile is required/i,
   );
 });
 
@@ -66,6 +69,7 @@ test('Demand Execution Profile editor normalizes fixed-horizon fields out of Com
     description: 'Open collaboration window',
     historicalSalesDocumentType: 'SELLOUT',
     bucketSize: 'Weekly',
+    calendarProfileId: 'CALENDAR-WEEKLY',
     planningHorizonInPeriods: 6,
     constrainPlanEditPeriods: true,
     initialPlanEditPeriod: 1,
@@ -125,7 +129,7 @@ test('Demand Execution Profile editor restores canonical selection and Community
   assert.match(page, /label="Constrain manual inputs to a fixed horizon"[\s\S]*?locked-label="Pro \/ Enterprise"/);
   assert.doesNotMatch(page, /v-model="draft\.constrainPlanEditPeriods"/);
   assert.match(page, /locked-label="Pro \/ Enterprise"/);
-  assert.match(page, /v-model="draft\.bucketSize"[^>]+OfxSelectField|OfxSelectField[^>]+v-model="draft\.bucketSize"/);
+  assert.match(page, /v-model="draft\.calendarProfileId"[^>]+OfxSelectField|OfxSelectField[^>]+v-model="draft\.calendarProfileId"/);
   assert.match(page, /v-model="draft\.defaultDemandPlanningUomId"[^>]+OfxSelectField|OfxSelectField[^>]+v-model="draft\.defaultDemandPlanningUomId"/);
   assert.match(page, /\{ label: 'Auto-fit', value: 'None' \}/);
   assert.doesNotMatch(page, /New profile\s*<OfxEditionAvailabilityMark/);

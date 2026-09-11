@@ -1,3 +1,4 @@
+import { fetchCalendarProfiles, type CalendarProfile } from '@/modules/calendar-profiles/calendar-profiles.service';
 import { httpRequest } from '@/services/api/http';
 import { requestJson } from '@/services/api/request';
 
@@ -11,6 +12,7 @@ interface DemandPlanOptionDto {
 
 interface SupplyExecutionProfile {
   id: string;
+  calendarProfileId?: string | null;
   description?: string | null;
   bucketSize?: string | null;
   executionModel?: string | null;
@@ -52,6 +54,7 @@ interface PricingPlanVersionsResponse {
 
 interface DemandExecutionProfileDto {
   id: string;
+  calendarProfileId?: string | null;
   description?: string | null;
   bucketSize?: string | null;
 }
@@ -82,6 +85,7 @@ export interface ProcessExecutionResult {
 }
 
 export interface ProcessExecutionCatalog {
+  calendarProfiles: CalendarProfile[];
   demandPlans: DemandPlanOptionDto[];
   supplyPlans: SupplyPlanOptionDto[];
   pricingPlans: PricingPlanVersionDto[];
@@ -127,8 +131,7 @@ export interface ExecuteSupplyPlanPayload {
   supplyNetworkVersionId?: string;
   presetConstraintGroupId?: string | null;
   descricaoSupplyPlan?: string;
-  tamanhoBucket?: string;
-  periodoReferencia?: string;
+  dataInicioPlano?: string;
   supplyPlanIdForStartingStockProjection?: string;
 }
 
@@ -229,12 +232,14 @@ async function requestMessage(path: string, options: RequestInit = {}): Promise<
 
 export async function fetchProcessExecutionCatalog(): Promise<ProcessExecutionCatalog> {
   const [
+    calendarProfiles,
     demandPlans,
     supplyPlans,
     supplyNetworks,
     demandExecutionProfiles,
     supplyExecutionProfiles,
   ] = await Promise.all([
+    fetchCalendarProfiles(),
     requestJson<DemandPlanOptionDto[]>('/api/secured/planning/demand/demandplan'),
     requestJson<SupplyPlanOptionDto[]>('/api/secured/planning/supply'),
     requestJson<SupplyNetworkVersionOption[]>('/api/secured/supplynetwork/version'),
@@ -243,6 +248,7 @@ export async function fetchProcessExecutionCatalog(): Promise<ProcessExecutionCa
   ]);
 
   return {
+    calendarProfiles,
     demandPlans,
     supplyPlans,
     pricingPlans: [],

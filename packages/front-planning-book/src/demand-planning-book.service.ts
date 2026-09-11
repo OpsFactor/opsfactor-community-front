@@ -12,6 +12,7 @@ export interface DemandPlanningBookTransport {
 }
 
 export interface DemandPlanOptionDto {
+  calendarProfileId?: string | null;
   demandPlanId: number;
   description: string;
   executionProfileId?: string;

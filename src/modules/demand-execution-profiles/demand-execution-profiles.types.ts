@@ -2,6 +2,7 @@
 export interface CommunityDemandExecutionProfile {
   id: string;
   description?: string | null;
+  calendarProfileId?: string | null;
   historicalSalesDocumentType?: string | null;
   bucketSize?: string | null;
   planningHorizonInPeriods?: number | null;
@@ -15,8 +16,7 @@ export interface CommunityDemandExecutionProfile {
 export interface CommunityDemandExecutionProfileDraft {
   id: string;
   description: string;
-  bucketSize: string;
-  planningHorizonInPeriods: string;
+  calendarProfileId: string;
   constrainPlanEditPeriods: boolean;
   initialPlanEditPeriod: string;
   finalPlanEditPeriod: string;
@@ -27,9 +27,8 @@ export interface CommunityDemandExecutionProfileDraft {
 export interface CommunityDemandExecutionProfileSaveRequest {
   id: string;
   description: string;
+  calendarProfileId: string;
   historicalSalesDocumentType: 'Sell-out';
-  bucketSize?: string;
-  planningHorizonInPeriods?: number;
   constrainPlanEditPeriods: boolean;
   initialPlanEditPeriod?: number;
   finalPlanEditPeriod?: number;
@@ -47,8 +46,7 @@ export function buildCommunityDemandExecutionProfileDraft(
   return {
     id: profile.id,
     description: profile.description ?? '',
-    bucketSize: profile.bucketSize ?? '',
-    planningHorizonInPeriods: formatDraftNumber(profile.planningHorizonInPeriods),
+    calendarProfileId: profile.calendarProfileId ?? '',
     constrainPlanEditPeriods: false,
     initialPlanEditPeriod: '',
     finalPlanEditPeriod: '',
@@ -67,29 +65,18 @@ export function buildCommunityDemandExecutionProfileSaveRequest(
 ): CommunityDemandExecutionProfileSaveRequest {
 
   const id = requireText(draft.id, 'Demand Planning execution profile ID');
-  const planningHorizonInPeriods = parseOptionalInteger(
-    draft.planningHorizonInPeriods,
-    'Planning horizon',
-    true,
-  );
+  const calendarProfileId = requireText(draft.calendarProfileId, 'Calendar profile');
 
   return {
     id,
     description: draft.description.trim(),
     historicalSalesDocumentType: 'Sell-out',
-    bucketSize: toOptionalText(draft.bucketSize),
-    planningHorizonInPeriods,
+    calendarProfileId,
     constrainPlanEditPeriods: false,
     initialPlanEditPeriod: undefined,
     finalPlanEditPeriod: undefined,
     defaultDemandPlanningUomId: toOptionalText(draft.defaultDemandPlanningUomId),
   };
-
-}
-
-function formatDraftNumber(value: number | null | undefined): string {
-
-  return value === null || value === undefined ? '' : String(value);
 
 }
 
@@ -108,26 +95,5 @@ function toOptionalText(value: string): string | undefined {
 
   const normalizedValue = value.trim();
   return normalizedValue.length === 0 ? undefined : normalizedValue;
-
-}
-
-function parseOptionalInteger(
-  value: string,
-  fieldName: string,
-  requirePositive = false,
-): number | undefined {
-
-  const normalizedValue = value.trim();
-  if (normalizedValue.length === 0) {
-    return undefined;
-  }
-
-  const parsedValue = Number(normalizedValue);
-  if (!Number.isInteger(parsedValue) || (requirePositive && parsedValue <= 0)) {
-    const constraint = requirePositive ? 'a positive integer' : 'an integer';
-    throw new Error(`${fieldName} must be ${constraint} when informed.`);
-  }
-
-  return parsedValue;
 
 }

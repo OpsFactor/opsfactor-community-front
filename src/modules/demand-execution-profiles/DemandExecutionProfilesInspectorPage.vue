@@ -22,6 +22,12 @@ import {
 } from './demand-execution-profiles.types';
 
 const demandExecutionProfilesInspectorService = new DemandExecutionProfilesInspectorService(httpClient);
+import { fetchCalendarProfiles, requireCalendarProfile, type CalendarProfile } from '@/modules/calendar-profiles/calendar-profiles.service';
+
+const calendars = ref<CalendarProfile[]>([]);
+const calendarOptions = computed(() => calendars.value.map((calendar) => ({ value: calendar.id, label: `${calendar.id} — ${calendar.baseBucketSize} · ${calendar.numberOfBasePeriods} periods` })));
+const newCalendarProfileId = ref('');
+const selectedCalendar = computed(() => calendars.value.find((calendar) => calendar.id === draft.value?.calendarProfileId));
 const profiles = ref<CommunityDemandExecutionProfile[]>([]);
 const unitOfMeasureIds = ref<string[]>([]);
 const selectedProfileId = ref('');
@@ -33,7 +39,6 @@ const createDialogOpen = ref(false);
 const copyDialogOpen = ref(false);
 const newProfileId = ref('');
 const newProfileDescription = ref('');
-const newProfileBucketSize = ref('Monthly');
 const copiedProfileId = ref('');
 const copiedProfileDescription = ref('');
 const errorMessage = ref<string | null>(null);
@@ -57,22 +62,16 @@ const unitOfMeasureOptions = computed(() => [
     label: unitOfMeasureId,
   })),
 ]);
-const bucketOptions = ['Yearly', 'Monthly', 'Weekly', 'Daily'].map((bucketSize) => ({
-  value: bucketSize,
-  label: bucketSize,
-}));
 
 /**
  * Keeps the four canonical overview cards in the same order as Planning Front.
  * Community has no auto-fit catalog, so the last card truthfully reports None.
  */
 const summaryCards = computed(() => draft.value === null ? [] : [
-  { label: 'Bucket', value: draft.value.bucketSize || 'Not defined' },
+  { label: 'Bucket', value: selectedCalendar.value?.baseBucketSize || 'Calendar required' },
   {
     label: 'Horizon',
-    value: draft.value.planningHorizonInPeriods
-      ? `${draft.value.planningHorizonInPeriods} periods`
-      : 'Open',
+    value: selectedCalendar.value ? `${selectedCalendar.value.numberOfBasePeriods} periods` : 'Calendar required',
   },
   {
     label: 'Edit window',
@@ -97,10 +96,12 @@ async function loadProfiles(preferredProfileId = ''): Promise<void> {
   errorMessage.value = null;
 
   try {
-    const [loadedProfiles, loadedUnitOfMeasureIds] = await Promise.all([
+    const [loadedProfiles, loadedUnitOfMeasureIds, loadedCalendars] = await Promise.all([
       demandExecutionProfilesInspectorService.getProfiles(),
       loadCommunityUnitOfMeasureIds(),
+      fetchCalendarProfiles(),
     ]);
+    calendars.value = loadedCalendars;
     profiles.value = loadedProfiles;
     unitOfMeasureIds.value = loadedUnitOfMeasureIds;
 
@@ -142,6 +143,7 @@ async function saveProfile(): Promise<void> {
   resultMessage.value = null;
 
   try {
+    requireCalendarProfile(calendars.value, draft.value.calendarProfileId);
     const snapshot = buildCommunityDemandExecutionProfileSaveRequest(draft.value);
     const response = await demandExecutionProfilesInspectorService.saveProfile(snapshot);
     await loadProfiles(snapshot.id);
@@ -159,7 +161,7 @@ function openCreateDialog(): void {
 
   newProfileId.value = '';
   newProfileDescription.value = '';
-  newProfileBucketSize.value = 'Monthly';
+  newCalendarProfileId.value = '';
   createDialogOpen.value = true;
 
 }
@@ -170,7 +172,7 @@ function closeCreateDialog(): void {
   createDialogOpen.value = false;
   newProfileId.value = '';
   newProfileDescription.value = '';
-  newProfileBucketSize.value = 'Monthly';
+  newCalendarProfileId.value = '';
 
 }
 
@@ -195,8 +197,7 @@ async function createProfile(): Promise<void> {
     const snapshot = buildCommunityDemandExecutionProfileSaveRequest({
       id,
       description: newProfileDescription.value.trim() || id,
-      bucketSize: newProfileBucketSize.value,
-      planningHorizonInPeriods: '12',
+      calendarProfileId: requireCalendarProfile(calendars.value, newCalendarProfileId.value).id,
       constrainPlanEditPeriods: false,
       initialPlanEditPeriod: '',
       finalPlanEditPeriod: '',
@@ -336,7 +337,7 @@ onMounted(async () => {
         <OfxSectionCard title="General parameters" description="Core profile metadata and aggregation settings.">
           <div class="grid gap-4 md:grid-cols-2">
             <OfxTextField v-model="draft.description" label="Profile description" :disabled="isBusy" />
-            <OfxSelectField v-model="draft.bucketSize" label="Bucket size" :options="bucketOptions" :disabled="isBusy" />
+            <OfxSelectField v-model="draft.calendarProfileId" label="Calendar profile" :options="calendarOptions" :disabled="isBusy" />
             <OfxSelectField
               model-value="Sell-out"
               label="Historical sales document type"
@@ -369,12 +370,7 @@ onMounted(async () => {
 
         <OfxSectionCard title="Forecast and collaboration" description="Planner horizon, edit window, and default auto-fit link.">
           <div class="grid gap-4 md:grid-cols-2">
-            <OfxTextField
-              v-model="draft.planningHorizonInPeriods"
-              :label="`Planning horizon in periods${draft.bucketSize ? ` (${draft.bucketSize})` : ''}`"
-              type="number"
-              :disabled="isBusy"
-            />
+            <p>Bucket and horizon are defined in Configuration → Calendar profiles.</p>
             <OfxSelectField
               model-value=""
               label="Default auto-fit configuration"
@@ -423,7 +419,7 @@ onMounted(async () => {
     <div class="space-y-4">
       <OfxTextField v-model="newProfileId" label="Profile ID" placeholder="DP_MONTHLY_BASE" />
       <OfxTextField v-model="newProfileDescription" label="Description" placeholder="Profile description" />
-      <OfxSelectField v-model="newProfileBucketSize" label="Bucket size" :options="bucketOptions" />
+      <OfxSelectField v-model="newCalendarProfileId" label="Calendar profile" :options="calendarOptions" />
     </div>
   </OfxConfirmDialog>
 

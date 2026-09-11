@@ -28,7 +28,7 @@ export interface CommunitySupplyExecutionProfilePayload {
 
 /** Fields the Community UI may copy from the canonical Planning Front draft. */
 export const COMMUNITY_EDITABLE_SUPPLY_EXECUTION_PROFILE_FIELDS = [
-  'planHorizonInDays',
+  'calendarProfileId',
   'generatePlannedInboundOrders',
   'generatePlannedProductionOrders',
   'generatePlannedInboundOrdersWhenProductionIsViable',

@@ -41,6 +41,12 @@ import {
   type SupplyExecutionProfileProductionResourceConfiguration,
 } from './supply-execution-profiles.service';
 
+import { fetchCalendarProfiles, type CalendarProfile } from '@/modules/calendar-profiles/calendar-profiles.service';
+
+const calendars = ref<CalendarProfile[]>([]);
+const calendarOptions = computed(() => calendars.value.map((calendar) => ({ value: calendar.id, label: `${calendar.id} — ${calendar.baseBucketSize}` })));
+const newCalendarProfileId = ref('');
+
 type SectionId =
   | 'general'
   | 'unconstrained'
@@ -758,7 +764,7 @@ const summaryCards = computed<SummaryCard[]>(() => {
   const scopeCard: SummaryCard = {
     title: 'Scope',
     pills: [
-      ...(current.value.planHorizonInDays ? [{ label: `${current.value.planHorizonInDays} days`, tone: 'default' as const }] : []),
+      { label: current.value.calendarProfileId || 'Calendar required', tone: 'default' as const },
       {
         label: isProcessChain.value ? `${processChainRows.value.length} steps` : `${locationRows.value.length} location overrides`,
         tone: 'info',
@@ -851,7 +857,7 @@ function setBooleanValue(source: Record<string, unknown> | null | undefined, key
 async function loadPage() {
   isLoading.value = true;
   try {
-    const [profileData, locationData, productionResourceData, pf, dm, ssm, ip, tsc, lc, uoms] = await Promise.all([
+    const [profileData, locationData, productionResourceData, pf, dm, ssm, ip, tsc, lc, uoms, calendarList] = await Promise.all([
       fetchSupplyExecutionProfiles(),
       fetchLocations(),
       fetchProductionResources(),
@@ -862,7 +868,9 @@ async function loadPage() {
       fetchTemporalSplitCurves(),
       fetchLogisticsCostCurves(),
       fetchUomIds(),
+      fetchCalendarProfiles(),
     ]);
+    calendars.value = calendarList;
     profiles.value = profileData;
     locations.value = locationData;
     productionResources.value = productionResourceData;
@@ -873,6 +881,11 @@ async function loadPage() {
     temporalSplitCurves.value = tsc;
     logisticsCurves.value = lc;
     uomIds.value = uoms;
+  } catch (error) {
+    notifications.push({
+      tone: 'error', title: 'Unable to load execution profiles and calendars',
+      description: error instanceof Error ? error.message : String(error),
+    });
   } finally {
     isLoading.value = false;
   }
@@ -1115,6 +1128,7 @@ async function handleCreateProfile() {
   isSaving.value = true;
   try {
     await saveSupplyExecutionProfile({
+      calendarProfileId: newCalendarProfileId.value,
       id,
       description,
       executionModel: 'Heuristic',
@@ -1342,6 +1356,7 @@ onMounted(loadPage);
         <div class="grid gap-4 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)_auto]">
           <OfxTextField v-model="newProfileId" label="Profile id" placeholder="SNP_EXECUTION_PROFILE_ID" />
           <OfxTextField v-model="newProfileDescription" label="Profile description" placeholder="Execution profile description" />
+        <OfxSelectField v-model="newCalendarProfileId" label="Calendar profile" :options="calendarOptions" />
           <div class="flex items-end">
             <button
               type="button"
@@ -1426,7 +1441,8 @@ onMounted(loadPage);
         <OfxSectionCard title="Identity and planning scope" description="Core profile identity, planning horizon, work version, and filter scope.">
           <div class="grid gap-4 md:grid-cols-2">
             <OfxTextField v-model="current.description" label="Profile description" />
-            <OfxTextField v-if="!isProcessChain" v-model="current.planHorizonInDays" label="SNP horizon in days" type="number" />
+            <OfxSelectField v-model="current.calendarProfileId" label="Calendar profile" :options="calendarOptions" />
+            <p v-if="!current.calendarProfileId">Configure or migrate this execution profile calendar before running Supply Planning.</p>
             <OfxSelectField v-if="!isProcessChain" v-model="current.planTypeForWorkVersion" label="Work version source" :options="workVersionOptions" />
             <OfxSelectField
               v-model="current.productFilterId"

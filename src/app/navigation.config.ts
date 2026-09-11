@@ -20,6 +20,7 @@ export type {
  * by the Community front-shell package.
  */
 const pageComponents = {
+  'configuration-calendars': () => import('@/modules/calendar-profiles/CalendarProfilesPage.vue'),
   'demand-planning-book': () => import('@/modules/demand-planning/DemandPlanningBookCommunityPage.vue'),
   'demand-plans': () => import('@/modules/demand-planning/pages/DemandPlansPage.vue'),
   'demand-sales-demand-overview': () => import('@/modules/demand-planning/pages/SalesDemandOverviewPage.vue'),

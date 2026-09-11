@@ -21,6 +21,11 @@ export type PlanningBookColumnDefDto = {
   field: string;
   name: string;
   dataColumn?: boolean;
+  /** Resolved boundaries published by the plan, never inferred from its header. */
+  periodIndex?: number;
+  bucketSize?: string;
+  startDateTime?: string;
+  endDateTime?: string;
   dimension?: string;
   cellClass?: string;
   cellTemplate?: string;

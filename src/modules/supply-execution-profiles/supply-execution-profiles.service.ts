@@ -10,6 +10,7 @@ export {
 
 export interface SupplyExecutionProfile {
   id: string;
+  calendarProfileId?: string | null;
   description: string;
   executionModel: 'Optimizer' | 'Heuristic' | 'Process Chain' | string;
   optimizationModelType?: 'Continuo' | 'Mixed Integer' | 'Integer / Combinatorial' | string | null;
@@ -173,7 +174,10 @@ export async function saveSupplyExecutionProfileProcessChainStep(
 }
 
 export async function saveSupplyExecutionProfile(profile: SupplyExecutionProfile) {
-  const communityPayload = toCommunitySupplyExecutionProfilePayload(profile);
+  if (!profile.calendarProfileId) throw new Error('Calendar profile is required. Configure or migrate the execution profile.');
+  // The root horizon belongs to the calendar; per-location overrides are separate.
+  const { planHorizonInDays: _obsoleteHorizon, ...calendarBasedProfile } = profile;
+  const communityPayload = toCommunitySupplyExecutionProfilePayload(calendarBasedProfile);
   const response = await httpRequest('/api/secured/supplyplanexecutionprofile', {
     method: 'POST',
     body: JSON.stringify(communityPayload),

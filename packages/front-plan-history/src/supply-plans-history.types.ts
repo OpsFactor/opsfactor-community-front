@@ -6,6 +6,7 @@ export interface SupplyPlanHistoryDemandPlanDto {
 
 /** A persisted Supply Plan version returned by the edition-specific HTTP adapter. */
 export interface SupplyPlanHistoryDto {
+  calendarProfileId?: string | null;
   supplyPlanId: number;
   supplyNetworkVersionId?: string;
   executionProfileId?: string;

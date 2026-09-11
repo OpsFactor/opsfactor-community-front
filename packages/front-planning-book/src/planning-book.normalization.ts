@@ -17,7 +17,7 @@ export function getPlanningBookPeriodField(dto: PlanningBookDto, period: string)
 
   const summarizedPeriod = summarizePlanningBookPeriod(period, dto.bucketSize);
   const matchingColumn = dto.columnDefs.find((column) => Boolean(column.dataColumn)
-    && (column.field === summarizedPeriod || column.field === period || column.name === summarizedPeriod));
+    && (column.endDateTime === period || column.field === summarizedPeriod || column.field === period || column.name === summarizedPeriod));
 
   return matchingColumn?.field ?? summarizedPeriod;
 }

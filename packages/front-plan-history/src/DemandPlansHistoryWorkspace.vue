@@ -46,6 +46,7 @@ const plans = ref<DemandPlanOptionDto[]>([]);
 const selectedPlans = ref<DemandPlanHistoryRow[]>([]);
 
 const columns: OfxTableColumn[] = [
+  { field: 'calendarProfileId', header: 'Calendar Profile Id', dataType: 'text' },
   { field: 'demandPlanId', header: 'Demand Plan Id', width: '14%', dataType: 'number-0' },
   { field: 'description', header: 'Description', width: '24%', dataType: 'text' },
   { field: 'executionProfileId', header: 'Execution Profile Id', width: '14%', dataType: 'text' },
