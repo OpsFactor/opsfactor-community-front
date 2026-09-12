@@ -155,11 +155,15 @@ test('Community User Administration preserves the ordered Planning Front workspa
     }
   }
 
-  for (const fieldLabel of ['User', 'Active user', 'Change Password', 'First Name', 'Last Name', 'Email', 'Assigned Roles']) {
+  for (const fieldLabel of ['User', 'Active user', 'First Name', 'Last Name', 'Email', 'Assigned Roles']) {
     assert.match(referenceSource, new RegExp(`label="${fieldLabel}"`));
     assert.match(communitySource, new RegExp(`label="${fieldLabel}"`));
   }
 
+  assert.doesNotMatch(referenceSource, /label="Change Password"/);
+  assert.match(referenceSource, /Send Password Reset/);
+  assert.match(communitySource, /label="Change Password"/);
+  assert.doesNotMatch(communitySource, /Send Password Reset/);
   assert.match(communitySource, /required-edition="Pro \/ Enterprise"[\s\S]*?disabled/);
   assert.doesNotMatch(communitySource, /Refresh users|Review save|pendingSaveRequest/i);
 });
