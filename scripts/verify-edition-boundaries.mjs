@@ -506,7 +506,6 @@ async function verifySharedPagePrimitives() {
   ];
   const sharedStateAdapters = [
     { relativePath: path.join('layouts', 'page', 'DashboardPageLayout.vue'), name: 'OpsFactorDashboardPageLayout' },
-    { relativePath: path.join('components', 'ofx', 'feedback', 'OfxNotificationCenter.vue'), name: 'OfxNotificationCenter' },
   ];
   const apiDocumentationPageRelativePath = path.join('modules', 'data', 'pages', 'ApiDocumentationRedirectPage.vue');
   const moduleWorkspacePageRelativePath = path.join('layouts', 'page', 'ModuleWorkspacePage.vue');
@@ -602,6 +601,23 @@ async function verifySharedPagePrimitives() {
           || !adapterSource.includes(requiredBinding)) {
         violations.push(`${path.relative(workspaceDirectory, adapterPath)} must inject host navigation state into the Community-owned ${sharedStateAdapter.name}.`);
       }
+    }
+
+    // Community keeps the shared notification surface; Enterprise owns the
+    // acknowledged popup required by its operational feedback contract.
+    const notificationAdapterPath = path.join(
+      application.applicationDirectory, 'src', 'components', 'ofx', 'feedback', 'OfxNotificationCenter.vue',
+    );
+    const notificationAdapterSource = await readFile(notificationAdapterPath, 'utf8');
+    if (application.edition === 'community') {
+      if (!notificationAdapterSource.includes("import { OfxNotificationCenter } from '@opsfactor/front-shell';")
+          || !notificationAdapterSource.includes(':items="items"')) {
+        violations.push(`${path.relative(workspaceDirectory, notificationAdapterPath)} must consume the Community-owned notification surface.`);
+      }
+    } else if (!notificationAdapterSource.includes('import OfxMessageDialog')
+        || !notificationAdapterSource.includes(':open="Boolean(activeNotification)"')
+        || !notificationAdapterSource.includes('@close="dismissActiveNotification"')) {
+      violations.push(`${path.relative(workspaceDirectory, notificationAdapterPath)} must present Enterprise notices as acknowledged dialogs.`);
     }
 
     const navigationConfigPath = path.join(application.applicationDirectory, 'src', 'app', 'navigation.config.ts');
