@@ -303,6 +303,7 @@ async function loadSelectedMaterialClusterMembers(): Promise<void> {
   const clusterId = selectedMaterialCluster.value?.id;
   if (clusterId === undefined || clusterId === null || loadingMaterialClusterMembers.value || hasMaterialClusterMembersSnapshot.value) return;
   loadingMaterialClusterMembers.value = true;
+  errorMessage.value = null;
   try {
     materialClusterMembers.value = await clusterScopeInspectorService.getMaterialClusterMembers(clusterId);
     materialClusterMembersClusterId.value = clusterId;
@@ -574,10 +575,6 @@ onMounted(() => {
 
     <section class="clustering-workbench" aria-label="Cluster definition workspace">
       <aside class="cluster-library" aria-label="Cluster selection">
-        <div class="library-heading">
-          <p class="eyebrow">Clusters</p>
-        </div>
-
         <div class="library-selectors">
           <OfxSelectField
             :model-value="activeDimension"
@@ -602,7 +599,7 @@ onMounted(() => {
 
       </aside>
 
-      <main class="cluster-editor">
+      <main class="cluster-editor" :aria-busy="isBusy">
         <template v-if="activeDimension === 'material' && materialDraft">
           <header class="editor-heading">
             <div><p class="eyebrow">Material cluster {{ materialDraft.id === null ? '' : `#${materialDraft.id}` }}</p><h2>{{ materialDraft.id === null ? 'New material cluster' : materialDraft.description || 'Untitled material cluster' }}</h2></div>
@@ -629,12 +626,13 @@ onMounted(() => {
           </section>
         </template>
 
+        <section v-else-if="loading || loadingDetail" class="empty-editor" role="status"><p>Loading cluster definition…</p></section>
         <section v-else class="empty-editor"><p class="eyebrow">Cluster definition</p><h2>Start with a cluster</h2><p>Select a cluster or create a new {{ activeDimension }} cluster.</p><button class="primary-button" type="button" :disabled="isBusy" @click="startCreation">New {{ activeDimension }} cluster</button></section>
 
-        <footer v-if="activeDraft" class="editor-actions"><button v-if="activeDraft.id !== null" class="danger-button cluster-delete-button" type="button" :disabled="saving" @click="requestClusterDeletion">Delete cluster</button><button class="primary-button" type="button" :disabled="saving" @click="void saveActiveDraft()">{{ saving ? 'Saving…' : 'Save cluster' }}</button></footer>
+        <footer v-if="activeDraft" class="editor-actions"><button v-if="activeDraft.id !== null" class="danger-button cluster-delete-button" type="button" :disabled="saving" @click="requestClusterDeletion">Delete cluster</button><button class="primary-button save-button" type="button" :disabled="isBusy" @click="void saveActiveDraft()">{{ saving ? 'Saving…' : 'Save cluster' }}</button></footer>
 
-        <section v-if="activeDimension === 'material' && selectedMaterialCluster" class="members-section"><div><p class="eyebrow">Cluster members</p><h3>Materials in this cluster</h3><p>Resolved from the current cluster definition.</p></div><p v-if="loadingMaterialClusterMembers" class="snapshot-status">Loading materials…</p><div v-else class="members-table"><OfxDataTable v-if="materialMemberRows.length" :rows="materialMemberRows" :columns="materialMemberColumns" row-key="rowKey" :dense="true" :page-size="10" text-size="xs" export-base-name="cluster-material-members" /><p v-else>No active materials were returned.</p></div></section>
-        <section v-if="activeDimension === 'location' && selectedLocationCluster" class="members-section"><div><p class="eyebrow">Cluster members</p><h3>Locations in this cluster</h3><p>Resolved from the current cluster definition.</p></div><button v-if="!hasLocationClusterMembersSnapshot" class="secondary-button" type="button" :disabled="loadingLocationClusterMembers || isBusy" @click="void loadSelectedLocationClusterMembers()">{{ loadingLocationClusterMembers ? 'Loading…' : 'Load members' }}</button><p v-else class="snapshot-status">Member snapshot loaded.</p><div v-if="hasLocationClusterMembersSnapshot" class="members-table"><OfxDataTable v-if="locationMemberRows.length" :rows="locationMemberRows" :columns="locationMemberColumns" row-key="rowKey" :dense="true" :page-size="10" text-size="xs" export-base-name="cluster-location-members" /><p v-else>No active locations were returned.</p></div></section>
+        <section v-if="activeDimension === 'material' && selectedMaterialCluster" class="members-section"><div><p class="eyebrow">Cluster members</p><h3>Materials in this cluster</h3><p>Members reflect the saved definition. Save changes to update membership.</p></div><p v-if="loadingMaterialClusterMembers" class="snapshot-status">Loading materials…</p><div v-else-if="hasMaterialClusterMembersSnapshot" class="members-table"><OfxDataTable v-if="materialMemberRows.length" :rows="materialMemberRows" :columns="materialMemberColumns" row-key="rowKey" :dense="true" :page-size="10" text-size="xs" export-base-name="cluster-material-members" /><p v-else>No active materials were returned.</p></div><button v-else class="secondary-button" type="button" :disabled="isBusy" @click="void loadSelectedMaterialClusterMembers()">Load members</button></section>
+        <section v-if="activeDimension === 'location' && selectedLocationCluster" class="members-section"><div><p class="eyebrow">Cluster members</p><h3>Locations in this cluster</h3><p>Members reflect the saved definition. Save changes to update membership.</p></div><button v-if="!hasLocationClusterMembersSnapshot" class="secondary-button" type="button" :disabled="loadingLocationClusterMembers || isBusy" @click="void loadSelectedLocationClusterMembers()">{{ loadingLocationClusterMembers ? 'Loading…' : 'Load members' }}</button><p v-else class="snapshot-status">Member snapshot loaded.</p><div v-if="hasLocationClusterMembersSnapshot" class="members-table"><OfxDataTable v-if="locationMemberRows.length" :rows="locationMemberRows" :columns="locationMemberColumns" row-key="rowKey" :dense="true" :page-size="10" text-size="xs" export-base-name="cluster-location-members" /><p v-else>No active locations were returned.</p></div></section>
       </main>
     </section>
 
@@ -644,25 +642,27 @@ onMounted(() => {
 
 <style scoped>
 .clustering-page { display: grid; gap: 1.25rem; }
-.clustering-workbench { display: grid; grid-template-columns: minmax(17.5rem, 20rem) minmax(0, 1fr); gap: 1.25rem; align-items: stretch; }
+/* Keep the selectors above the editor so rules and member tables use the available width. */
+.clustering-workbench { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
 .cluster-library, .cluster-editor, .delete-confirmation { border: 1px solid var(--ofx-border); border-radius: 14px; background: var(--ofx-surface-elevated); }
-.cluster-library { display: flex; flex-direction: column; min-height: 42rem; padding: 1.25rem; }
+.cluster-library { display: flex; align-items: flex-end; gap: 1rem; min-width: 0; padding: 1.25rem; }
 .editor-heading h2, .empty-editor h2, .rules-heading h3, .members-section h3, .delete-confirmation h2 { margin: 0; color: var(--ofx-text); }
 .rules-heading p, .members-section p, .empty-editor p { margin: .45rem 0 0; color: var(--ofx-text-muted); font-size: .875rem; line-height: 1.5; }
 .eyebrow { margin: 0 0 .3rem; color: var(--ofx-text-muted); font-size: .6875rem; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
-.library-selectors { display: grid; gap: 1rem; margin: 1.5rem 0 .9rem; }
-.create-button { width: 100%; }
+.library-selectors { display: grid; grid-template-columns: minmax(13rem, .4fr) minmax(0, 1fr); flex: 1; gap: 1rem; min-width: 0; }
+.library-selectors > * { min-width: 0; }
+.create-button { flex-shrink: 0; }
 .empty-rules { margin: 1rem 0 0; border: 1px dashed var(--ofx-border); border-radius: 10px; padding: .8rem; color: var(--ofx-text-muted); font-size: .8125rem; }
 .cluster-editor { display: grid; align-content: start; min-width: 0; padding: 1.5rem; }
 .editor-heading, .rules-heading, .editor-actions, .delete-confirmation, .members-section { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .editor-heading { padding-bottom: 1.25rem; border-bottom: 1px solid var(--ofx-border); }.editor-heading h2 { font-size: 1.3rem; }.dimension-tag { border-radius: 999px; background: color-mix(in srgb, var(--ofx-primary) 10%, var(--ofx-surface)); padding: .35rem .65rem; color: var(--ofx-primary); font-size: .75rem; font-weight: 700; }
 .definition-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(8.5rem, 10rem); gap: 1rem; min-width: 0; padding: 1.25rem 0; }.definition-fields > *, .rule-inputs > * { min-width: 0; }
-.rules-section { display: grid; gap: .8rem; border-top: 1px solid var(--ofx-border); padding-top: 1.25rem; }.rules-heading h3 { font-size: 1rem; }.rule-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
-.rule-card { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; border: 1px solid var(--ofx-border); border-left: 3px solid var(--ofx-primary); border-radius: 10px; background: var(--ofx-surface); padding: .9rem 1rem; }.rule-summary { display: grid; min-width: 0; gap: .3rem; }.rule-summary > span { color: var(--ofx-text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }.rule-summary strong { color: var(--ofx-text); font-size: .875rem; }.value-tags { display: flex; flex-wrap: wrap; gap: .3rem; }.value-tags em { border: 1px solid color-mix(in srgb, var(--ofx-primary) 20%, var(--ofx-border)); border-radius: 999px; padding: .16rem .45rem; color: var(--ofx-text); font-size: .75rem; font-style: normal; }.rule-inputs { display: grid; grid-template-columns: minmax(10rem, .85fr) minmax(12rem, 1fr) minmax(13rem, 1.15fr); flex: 1; gap: .8rem; }.location-rule-inputs { grid-template-columns: repeat(3, minmax(10rem, 1fr)); }
-.editor-actions { display: grid; grid-template-columns: 1fr auto; align-items: center; margin-top: 1.25rem; border-top: 1px solid var(--ofx-border); padding-top: 1.25rem; }.cluster-delete-button { justify-self: start; }.empty-editor { display: grid; align-content: center; justify-items: start; min-height: 25rem; }.empty-editor p { max-width: 35rem; margin-bottom: 1.25rem; }
+.rules-section { display: grid; gap: .8rem; border-top: 1px solid var(--ofx-border); padding-top: 1.25rem; }.rules-heading { flex-wrap: wrap; }.rules-heading > div:first-child { flex: 1 1 20rem; }.rules-heading h3 { font-size: 1rem; }.rule-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.rule-card { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; border: 1px solid var(--ofx-border); border-left: 3px solid var(--ofx-primary); border-radius: 10px; background: var(--ofx-surface); padding: .9rem 1rem; }.rule-summary { display: grid; min-width: 0; gap: .3rem; }.rule-summary > span { color: var(--ofx-text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }.rule-summary strong { color: var(--ofx-text); font-size: .875rem; }.value-tags { display: flex; flex-wrap: wrap; gap: .3rem; }.value-tags em { border: 1px solid color-mix(in srgb, var(--ofx-primary) 20%, var(--ofx-border)); border-radius: 999px; padding: .16rem .45rem; color: var(--ofx-text); font-size: .75rem; font-style: normal; }.rule-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); flex: 1; gap: .8rem; min-width: 0; }
+.editor-actions { display: grid; grid-template-columns: 1fr auto; align-items: center; margin-top: 1.25rem; border-top: 1px solid var(--ofx-border); padding-top: 1.25rem; }.cluster-delete-button { justify-self: start; }.save-button { grid-column: 2; justify-self: end; }.empty-editor { display: grid; align-content: center; justify-items: start; min-height: 12rem; }.empty-editor p { max-width: 35rem; margin-bottom: 1.25rem; }
 .members-section { display: grid; grid-template-columns: 1fr auto; margin-top: 1.25rem; border-top: 1px solid var(--ofx-border); padding-top: 1.25rem; }.members-section h3 { font-size: 1rem; }.members-table { grid-column: 1 / -1; min-width: 0; }.snapshot-status { align-self: center; margin: 0 !important; color: #146c43 !important; font-weight: 650; }
 .primary-button, .secondary-button, .danger-button { display: inline-flex; min-height: 2.5rem; align-items: center; justify-content: center; border: 1px solid var(--ofx-border); border-radius: 9px; background: var(--ofx-surface); padding: .45rem .85rem; color: var(--ofx-text); cursor: pointer; font: inherit; font-size: .875rem; font-weight: 650; white-space: nowrap; }.primary-button { border-color: var(--ofx-primary); background: var(--ofx-primary); color: var(--ofx-primary-foreground); }.secondary-button:hover:not(:disabled) { border-color: var(--ofx-primary); color: var(--ofx-primary); }.danger-button { border-color: #e5aaa5; background: #fff8f7; color: #a42b22; }.primary-button:disabled, .secondary-button:disabled, .danger-button:disabled { cursor: not-allowed; opacity: .5; }.primary-button:focus-visible, .secondary-button:focus-visible, .danger-button:focus-visible { outline: 2px solid var(--ofx-primary); outline-offset: 2px; }
 .success-message, .error-message { margin: 0; border-radius: 10px; padding: .75rem 1rem; }.success-message { border: 1px solid #70b694; background: #ebf8ef; color: #146c43; }.error-message { border: 1px solid #efbab5; background: #fff7f6; color: #b42318; }.delete-confirmation { align-items: center; border-color: #efbab5; background: #fff8f7; padding: 1.25rem 1.5rem; }.delete-confirmation p:not(.eyebrow) { max-width: 43rem; margin: .45rem 0 0; color: var(--ofx-text-muted); line-height: 1.5; }.delete-confirmation > div:last-child { display: flex; gap: .6rem; }
-@media (max-width: 68rem) { .clustering-workbench { grid-template-columns: 1fr; }.cluster-library { min-height: auto; }.rule-inputs, .location-rule-inputs { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 46rem) { .cluster-editor, .cluster-library { padding: 1rem; }.editor-heading, .rules-heading, .rule-card, .delete-confirmation { flex-direction: column; }.definition-fields, .rule-inputs, .location-rule-inputs, .members-section { grid-template-columns: 1fr; }.members-table { grid-column: auto; }.editor-actions { grid-template-columns: 1fr; gap: .75rem; }.editor-actions button, .rule-card .danger-button { width: 100%; }.delete-confirmation > div:last-child { width: 100%; }.delete-confirmation > div:last-child button { flex: 1; } }
+@media (max-width: 68rem) { .cluster-library { flex-wrap: wrap; }.library-selectors { flex-basis: 100%; } }
+@media (max-width: 46rem) { .rules-heading > div:first-child { flex: initial; }.library-selectors { grid-template-columns: minmax(0, 1fr); }.create-button { width: 100%; }.rule-inputs { width: 100%; }.save-button { grid-column: auto; justify-self: stretch; }.cluster-editor, .cluster-library { padding: 1rem; }.editor-heading, .rules-heading, .rule-card, .delete-confirmation { flex-direction: column; }.definition-fields, .rule-inputs, .location-rule-inputs, .members-section { grid-template-columns: 1fr; }.members-table { grid-column: auto; }.editor-actions { grid-template-columns: 1fr; gap: .75rem; }.editor-actions button, .rule-card .danger-button { width: 100%; }.delete-confirmation > div:last-child { width: 100%; }.delete-confirmation > div:last-child button { flex: 1; } }
 </style>
