@@ -9,6 +9,8 @@ export interface FrontendNotification {
   title: string;
   description?: string;
   tone: FrontendNotificationTone;
+  /** Optional in-app next step rendered inside the dismissible card. */
+  action?: { label: string; to: string };
 }
 
 /** Provides the single notification queue used by Community and Enterprise. */

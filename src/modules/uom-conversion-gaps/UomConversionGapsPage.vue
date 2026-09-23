@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref } from 'vue';
 import { OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
 import OfxSelectField from '../../components/ofx/forms/OfxSelectField.vue';
@@ -286,9 +287,9 @@ onMounted(loadSelectors);
 
       <p v-if="mode === 'supply-planning'" class="muted">SNP does not infer its bucket, network, profiles, or Demand Plan from another selection.</p>
       <div class="actions">
-        <button class="primary-button" :disabled="!canDiagnose || isLoadingDiagnostics" @click="diagnose">
+        <OfxButton variant="primary" icon="run" :disabled="!canDiagnose || isLoadingDiagnostics" @click="diagnose">
           {{ isLoadingDiagnostics ? 'Diagnosing…' : 'Diagnose conversion gaps' }}
-        </button>
+        </OfxButton>
       </div>
     </OfxSectionCard>
 
@@ -314,7 +315,7 @@ onMounted(loadSelectors);
               <td>{{ formatRawValue(gap.originTask) }} · {{ formatRawValue(gap.originConversionRequirementType) }}</td>
               <td>{{ formatRawValue(gap.targetTask) }} · {{ formatRawValue(gap.targetConversionRequirementType) }}</td>
               <td>{{ formatRawValue(gap.targetConversionRequirementId ?? gap.originConversionRequirementId) }}</td>
-              <td><button :disabled="!canOpenConversionDetail(gap) || isLoadingDetail" @click="openConversionDetail(gap)">View detail</button></td>
+              <td><OfxButton variant="secondary" icon="open" size="table" :disabled="!canOpenConversionDetail(gap) || isLoadingDetail" @click="openConversionDetail(gap)">View detail</OfxButton></td>
             </tr>
           </tbody>
         </table>
@@ -327,7 +328,7 @@ onMounted(loadSelectors);
           <p class="eyebrow">Material-specific conversion</p>
           <h2 id="uom-gap-detail-title">{{ formatRawValue(selectedGap.materialId) }}: {{ formatRawValue(selectedGap.originUnitOfMeasure) }} → {{ formatRawValue(selectedGap.targetUnitOfMeasure) }}</h2>
         </div>
-        <button @click="selectedGap = null; conversionDetail = null; detailErrorMessage = null">Close</button>
+        <OfxButton variant="secondary" icon="close" @click="selectedGap = null; conversionDetail = null; detailErrorMessage = null">Close</OfxButton>
       </div>
       <p v-if="isLoadingDetail" class="muted">Loading detail…</p>
       <p v-else-if="detailErrorMessage" class="error" role="alert">{{ detailErrorMessage }}</p>
@@ -344,9 +345,11 @@ onMounted(loadSelectors);
 
 <style scoped>
 .section-header, .actions { display: flex; align-items: end; gap: 1rem; justify-content: space-between; }.section-header h2 { margin: .25rem 0; }
-.mode-buttons, .actions { display: flex; gap: .6rem; flex-wrap: wrap; }.mode-buttons button, .detail button { border: 1px solid var(--ofx-border); border-radius: .5rem; background: var(--ofx-surface); color: var(--ofx-text); cursor: pointer; padding: .55rem .8rem; }.mode-buttons button.active { border-color: var(--ofx-accent); background: var(--ofx-accent); color: white; }
-.selector-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin-top: 1rem; }.selector-grid label { display: grid; gap: .35rem; font-size: .85rem; font-weight: 700; }.selector-grid select, .selector-grid input { min-height: 2.5rem; border: 1px solid var(--ofx-border); border-radius: .5rem; background: var(--ofx-surface); color: var(--ofx-text); padding: .55rem; }
-.primary-button { border: 1px solid var(--ofx-accent); border-radius: .5rem; background: var(--ofx-accent); color: white; cursor: pointer; padding: .65rem .9rem; }.primary-button:disabled, button:disabled { cursor: not-allowed; opacity: .5; }.actions { margin-top: 1rem; }
-.table-scroll { overflow-x: auto; } table { width: 100%; border-collapse: collapse; text-align: left; } th, td { border-top: 1px solid #e2e7f0; padding: .8rem .65rem; vertical-align: top; white-space: nowrap; } thead th { color: var(--ofx-muted); font-size: .75rem; text-transform: uppercase; } td button { border: 1px solid #c8d0de; border-radius: .4rem; background: white; cursor: pointer; padding: .4rem .6rem; }
+.mode-buttons, .actions { display: flex; gap: .6rem; flex-wrap: wrap; }.mode-buttons button { border: 1px solid var(--ofx-border); border-radius: .5rem; background: var(--ofx-surface); color: var(--ofx-text); cursor: pointer; padding: .55rem .8rem; }.mode-buttons button.active { border-color: var(--ofx-accent); background: var(--ofx-accent); color: white; }
+.selector-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin-top: 1rem; }.selector-grid label { display: grid; gap: .35rem; font-size: .85rem; font-weight: 700; }.selector-grid select, .selector-grid input { min-height: 2.5rem; border: 1px solid var(--ofx-border); border-radius: .5rem; background: var(--ofx-surface); color: var(--ofx-text); padding: .55rem; }.mode-buttons button:disabled { cursor: not-allowed; opacity: .5; }.actions { margin-top: 1rem; }
+.table-scroll { overflow-x: auto; } table { width: 100%; border-collapse: collapse; text-align: left; } th, td { border-top: 1px solid #e2e7f0; padding: .8rem .65rem; vertical-align: top; white-space: nowrap; } thead th { color: var(--ofx-muted); font-size: .75rem; text-transform: uppercase; }
 .detail { margin-top: 1rem; }.detail-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); }.detail-grid .full { grid-column: 1 / -1; }.detail-grid dt { color: var(--ofx-muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; }.detail-grid dd { margin: .35rem 0 0; white-space: pre-wrap; }.muted, .section-header p { color: var(--ofx-muted); }.error { color: #b42318; }
+
+/* Commands stay together; section headings retain their own spacing. */
+.actions { align-items: center; justify-content: flex-end; gap: .5rem; flex-wrap: wrap; }
 </style>

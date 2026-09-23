@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { requireCalendarProfile } from '@/modules/calendar-profiles/calendar-profiles.service';
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import {
@@ -1323,13 +1324,12 @@ watch(
             {{ catalogError }}
           </div>
 
-          <button
+          <OfxButton variant="secondary" icon="refresh"
             type="button"
-            class="rounded-md border border-[color:var(--ofx-border)] px-4 py-2 text-sm text-[color:var(--ofx-text)] transition hover:bg-[color:var(--ofx-surface-elevated)]"
             @click="loadCatalog"
           >
             Reload inputs
-          </button>
+          </OfxButton>
         </div>
 
         <form v-else class="space-y-5" @submit.prevent="submitSelectedJob">
@@ -1673,13 +1673,12 @@ watch(
         </template>
 
           <div :class="['flex items-center justify-end gap-3 border-t pt-4', formDividerClass]">
-            <button
+            <OfxButton variant="primary" icon="run"
               type="submit"
-              class="rounded-md bg-[color:var(--ofx-primary)] px-4 py-2 text-sm font-medium text-[color:var(--ofx-primary-foreground)] transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-55"
               :disabled="isSubmitting || catalogLoading"
             >
               <OfxActionLabel label="Submit" :processing="isSubmitting" />
-            </button>
+            </OfxButton>
           </div>
         </form>
         </section>

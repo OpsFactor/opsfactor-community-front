@@ -427,6 +427,7 @@ watch(
     <div v-if="!props.compact" class="flex min-w-0 items-center justify-between gap-3">
       <span class="inline-flex min-w-0 items-center gap-1.5 text-[13px] font-medium" :class="labelClass">
         <span class="truncate">{{ props.label }}</span>
+        <slot name="label-action" />
         <OfxInfoTooltip v-if="props.helpTooltip" :text="props.helpTooltip" />
         <OfxEditionAvailabilityMark v-if="props.requiredEdition" :edition-label="props.requiredEdition" :theme-mode="props.themeMode" :size="12" />
       </span>

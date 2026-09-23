@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref, watch } from 'vue';
 import {
   OfxEmptyState,
@@ -694,7 +695,7 @@ onMounted(loadSelectors);
           <div class="selector-grid">
             <OfxSelectField label="Supply plan version" :model-value="supplyPlanId === null ? '' : String(supplyPlanId)" :options="supplyPlanOptions" @update:model-value="supplyPlanId = $event ? Number($event) : null" />
             <OfxSelectField label="Unit of measure" :model-value="uomId" :options="unitOfMeasureOptions" @update:model-value="uomId = String($event)" />
-            <div class="selector-actions"><button class="primary-button" :disabled="!canLoadOverview || isLoadingOverview" @click="loadOverview">{{ isLoadingOverview ? 'Loading…' : 'Open Dashboard' }}</button></div>
+            <div class="selector-actions"><OfxButton variant="secondary" icon="open" :disabled="!canLoadOverview || isLoadingOverview" @click="loadOverview">{{ isLoadingOverview ? 'Loading…' : 'Open Dashboard' }}</OfxButton></div>
           </div>
         </OfxSectionCard>
 
@@ -811,12 +812,9 @@ onMounted(loadSelectors);
 .dashboard-selection-grid, .chart-grid { display: grid; gap: 1.5rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .selector-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
 .selector-actions { align-self: end; display: flex; min-height: 2.5rem; }
-.selector-actions .primary-button { justify-content: center; width: 100%; }
+.selector-actions .ofx-button { justify-content: center; width: 100%; }
 .kpi-grid { display: grid; gap: 1rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .dashboard-state { border: 1px dashed var(--ofx-border); border-radius: 12px; color: var(--ofx-text-muted); padding: 2rem; text-align: center; }
-.primary-button { display: inline-flex; min-height: 2.5rem; align-items: center; border: 1px solid var(--ofx-border); border-radius: 12px; background: var(--ofx-surface); color: var(--ofx-text); cursor: pointer; padding: .45rem .9rem; font-size: .875rem; font-weight: 600; }
-.primary-button { border-color: var(--ofx-primary); background: var(--ofx-primary); color: var(--ofx-primary-foreground); }
-.primary-button:disabled { cursor: not-allowed; opacity: .5; }
 .table-stack { display: grid; gap: .5rem; }
 .detail-workspace { display: grid; gap: .75rem; }
 .detail-summary-row { align-items: start; display: flex; gap: .75rem; justify-content: space-between; }

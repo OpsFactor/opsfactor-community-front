@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref } from 'vue';
 import { OfxDateField, OfxEntityMultiSelect, OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
 import { httpClient } from '../../services/community-authentication.service';
@@ -98,7 +99,7 @@ onMounted(async () => {
         <OfxEntityMultiSelect v-model="materialIds" label="Materials" :options="materialOptions" :disabled="loading || loadingOptions" placeholder="All materials" />
         <OfxEntityMultiSelect v-model="locationIds" label="Locations" :options="locationOptions" :disabled="loading || loadingOptions" placeholder="All locations" />
       </div>
-      <div class="actions"><button class="primary-button" :disabled="loading" type="button" @click="loadReport">{{ loading ? 'Loading historical sell-out…' : 'Load historical sell-out' }}</button></div>
+      <div class="actions"><OfxButton variant="secondary" icon="open" :disabled="loading" type="button" @click="loadReport">{{ loading ? 'Loading historical sell-out…' : 'Load historical sell-out' }}</OfxButton></div>
     </OfxSectionCard>
 
     <OfxSectionCard v-if="report" class="results-card" title="Historical sell-out documents" description="The six columns below are returned exactly as reported. The browser does not aggregate or convert them.">
@@ -110,5 +111,8 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.boundary-card, .filter-card, .results-card { display: grid; gap: 1rem; }.muted, .boundary-card p { color: var(--ofx-text-muted); }.filter-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }.filter-grid label { display: grid; gap: .4rem; font-size: .875rem; font-weight: 700; }.filter-grid input { border: 1px solid var(--ofx-border); border-radius: .5rem; background: var(--ofx-surface); color: var(--ofx-text); min-height: 2.5rem; padding: .55rem; }.actions, .section-heading { align-items: start; display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; }.primary-button { border: 1px solid var(--ofx-accent); border-radius: .5rem; background: var(--ofx-accent); color: white; cursor: pointer; padding: .65rem .9rem; }.primary-button:disabled { cursor: not-allowed; opacity: .55; }.error { color: var(--ofx-text-danger); margin-bottom: 1rem; }.section-heading > span { color: var(--ofx-text-muted); }.table-wrap { overflow-x: auto; }table { border-collapse: collapse; min-width: 64rem; width: 100%; }th, td { border-bottom: 1px solid var(--ofx-border); padding: .65rem; text-align: left; vertical-align: top; white-space: nowrap; }th { color: var(--ofx-text-muted); font-size: .78rem; }
+.boundary-card, .filter-card, .results-card { display: grid; gap: 1rem; }.muted, .boundary-card p { color: var(--ofx-text-muted); }.filter-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }.filter-grid label { display: grid; gap: .4rem; font-size: .875rem; font-weight: 700; }.filter-grid input { border: 1px solid var(--ofx-border); border-radius: .5rem; background: var(--ofx-surface); color: var(--ofx-text); min-height: 2.5rem; padding: .55rem; }.actions, .section-heading { align-items: start; display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; }.error { color: var(--ofx-text-danger); margin-bottom: 1rem; }.section-heading > span { color: var(--ofx-text-muted); }.table-wrap { overflow-x: auto; }table { border-collapse: collapse; min-width: 64rem; width: 100%; }th, td { border-bottom: 1px solid var(--ofx-border); padding: .65rem; text-align: left; vertical-align: top; white-space: nowrap; }th { color: var(--ofx-text-muted); font-size: .78rem; }
+
+/* Commands stay together; section headings retain their own spacing. */
+.actions { align-items: center; justify-content: flex-end; gap: .5rem; flex-wrap: wrap; }
 </style>

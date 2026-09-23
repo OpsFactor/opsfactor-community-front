@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref } from 'vue';
 import {
   OfxConfirmDialog,
@@ -61,23 +62,6 @@ const unitOfMeasureOptions = computed(() => [
     value: unitOfMeasureId,
     label: unitOfMeasureId,
   })),
-]);
-
-/**
- * Keeps the four canonical overview cards in the same order as Planning Front.
- * Community has no auto-fit catalog, so the last card truthfully reports None.
- */
-const summaryCards = computed(() => draft.value === null ? [] : [
-  { label: 'Bucket', value: selectedCalendar.value?.baseBucketSize || 'Calendar required' },
-  {
-    label: 'Horizon',
-    value: selectedCalendar.value ? `${selectedCalendar.value.numberOfBasePeriods} periods` : 'Calendar required',
-  },
-  {
-    label: 'Edit window',
-    value: draft.value.constrainPlanEditPeriods ? 'Fixed horizon' : 'Open editing',
-  },
-  { label: 'Auto-fit', value: 'None' },
 ]);
 
 function toErrorMessage(error: unknown, fallback: string): string {
@@ -288,16 +272,19 @@ onMounted(async () => {
     <OfxPageHeader
       eyebrow="Demand Planning"
       title="Demand Execution Profiles"
-      description="Configure the demand planning horizon, planner edit window, time bucket, and default unit of measure."
+      description="Configure profile identity, planning calendar, and the default unit of measure."
     >
       <template #actions>
-        <div class="flex flex-wrap justify-end gap-3">
-          <button class="secondary-button" type="button" :disabled="!draft || isBusy" @click="openCopyDialog">
+        <div class="flex flex-wrap justify-end gap-2 items-center">
+          <OfxButton variant="create" icon="new" type="button" :disabled="isBusy" @click="openCreateDialog">
+            New profile
+          </OfxButton>
+          <OfxButton variant="copy" icon="copy" type="button" :disabled="!draft || isBusy" @click="openCopyDialog">
             Copy profile
-          </button>
-          <button class="primary-button" type="button" :disabled="!draft || isBusy" @click="saveProfile">
+          </OfxButton>
+          <OfxButton variant="primary" icon="save" type="button" :disabled="!draft || isBusy" @click="saveProfile">
             {{ saving ? 'Saving profile...' : 'Save profile' }}
-          </button>
+          </OfxButton>
         </div>
       </template>
     </OfxPageHeader>
@@ -309,35 +296,54 @@ onMounted(async () => {
       title="Profile selection"
       description="Select the demand execution profile whose Community parameters you want to edit."
     >
-      <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-        <OfxSelectField
-          :model-value="selectedProfileId"
-          label="Execution profile"
-          :options="profileOptions"
-          :disabled="isBusy"
-          :loading="loading"
-          loading-label="Loading profiles..."
-          @update:model-value="selectProfileById"
-        />
-        <button class="secondary-button" type="button" :disabled="isBusy" @click="openCreateDialog">
-          New profile
-        </button>
-      </div>
+      <OfxSelectField
+        :model-value="selectedProfileId"
+        label="Execution profile"
+        :options="profileOptions"
+        :disabled="isBusy"
+        :loading="loading"
+        loading-label="Loading profiles..."
+        @update:model-value="selectProfileById"
+      />
     </OfxSectionCard>
-
-    <div v-if="draft" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      <div v-for="item in summaryCards" :key="item.label" class="summary-card">
-        <div class="summary-label">{{ item.label }}</div>
-        <div class="summary-value">{{ item.value }}</div>
-      </div>
-    </div>
 
     <form v-if="draft" class="space-y-4" @submit.prevent="saveProfile">
       <div class="grid gap-4 xl:grid-cols-2 xl:items-start">
-        <OfxSectionCard title="General parameters" description="Core profile metadata and aggregation settings.">
+        <OfxSectionCard class="!h-auto min-w-0" title="Profile identity" description="Identify this execution profile before configuring its planning behavior.">
           <div class="grid gap-4 md:grid-cols-2">
+            <OfxTextField :model-value="draft.id" label="Profile id" disabled />
             <OfxTextField v-model="draft.description" label="Profile description" :disabled="isBusy" />
-            <OfxSelectField v-model="draft.calendarProfileId" label="Calendar profile" :options="calendarOptions" :disabled="isBusy" />
+          </div>
+        </OfxSectionCard>
+
+        <OfxSectionCard class="!h-auto !overflow-visible min-w-0" title="Planning calendar" description="The selected calendar defines the time buckets and planning horizon.">
+          <div class="min-w-0 space-y-4">
+            <OfxSelectField v-model="draft.calendarProfileId" label="Calendar profile" :options="calendarOptions" :disabled="isBusy">
+              <template #label-action>
+                <span class="group relative inline-flex">
+                  <RouterLink to="/configuration/calendars" target="_blank" rel="noopener noreferrer" class="inline-flex h-5 w-5 items-center justify-center rounded text-[color:var(--ofx-text-muted)] hover:text-[color:var(--ofx-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--ofx-primary)]" aria-label="Configure calendar profiles in a new tab">
+                    <svg viewBox="0 0 20 20" fill="none" class="h-4 w-4" aria-hidden="true"><path d="M11.75 3.5h4.75v4.75M16.5 3.5l-7.25 7.25M15 11.25V15a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 15V6.5A1.5 1.5 0 0 1 5 5h3.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                  </RouterLink>
+                  <span role="tooltip" class="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 hidden w-52 -translate-x-1/2 rounded-lg border border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface-overlay)] px-2.5 py-2 text-xs font-normal text-[color:var(--ofx-text)] shadow-[var(--ofx-shadow-lg)] group-hover:block group-focus-within:block">Open calendar profile settings in a new tab. Create or edit the calendar used by this execution profile.</span>
+                </span>
+              </template>
+            </OfxSelectField>
+            <dl v-if="selectedCalendar" class="grid grid-cols-2 gap-4 rounded-[10px] border border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface)] p-4">
+              <div>
+                <dt class="text-xs text-[color:var(--ofx-text-muted)]">Time bucket</dt>
+                <dd class="mt-1 text-sm font-semibold text-[color:var(--ofx-text)]">{{ selectedCalendar.baseBucketSize }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs text-[color:var(--ofx-text-muted)]">Planning horizon</dt>
+                <dd class="mt-1 text-sm font-semibold text-[color:var(--ofx-text)]">{{ selectedCalendar.numberOfBasePeriods == null ? 'Not configured' : `${selectedCalendar.numberOfBasePeriods} periods` }}</dd>
+              </div>
+            </dl>
+            <p v-if="!selectedCalendar" class="text-sm text-[color:var(--ofx-text-muted)]">Select a simple calendar before saving or running this profile.</p>
+          </div>
+        </OfxSectionCard>
+
+        <OfxSectionCard class="!h-auto min-w-0" title="Demand analysis" description="Historical sales, units of measure, and aggregation settings.">
+          <div class="grid gap-4 md:grid-cols-2">
             <OfxSelectField
               model-value="Sell-out"
               label="Historical sales document type"
@@ -368,9 +374,8 @@ onMounted(async () => {
           </div>
         </OfxSectionCard>
 
-        <OfxSectionCard title="Forecast and collaboration" description="Planner horizon, edit window, and default auto-fit link.">
+        <OfxSectionCard class="!h-auto min-w-0" title="Forecast and collaboration" description="Planner edit window and default auto-fit configuration.">
           <div class="grid gap-4 md:grid-cols-2">
-            <p>Bucket and horizon are defined in Configuration → Calendar profiles.</p>
             <OfxSelectField
               model-value=""
               label="Default auto-fit configuration"
@@ -381,7 +386,7 @@ onMounted(async () => {
             <div class="md:col-span-2">
               <OfxToggleField
                 :model-value="false"
-                label="Constrain manual inputs to a fixed horizon"
+                label="Limit manual inputs to an edit window"
                 locked
                 locked-label="Pro / Enterprise"
               />
@@ -409,8 +414,9 @@ onMounted(async () => {
 
   <OfxConfirmDialog
     :open="createDialogOpen"
+    confirm-tone="create"
     title="Create demand execution profile"
-    description="Set the identifier, description, and time bucket for the new Community profile."
+    description="Set the identifier, description, and calendar for the new Community profile."
     :confirm-label="saving ? 'Creating profile...' : 'Create profile'"
     cancel-label="Cancel"
     @cancel="closeCreateDialog"
@@ -425,6 +431,7 @@ onMounted(async () => {
 
   <OfxConfirmDialog
     :open="copyDialogOpen"
+    confirm-tone="copy"
     title="Copy demand execution profile"
     :description="draft ? `Create a new Community profile from ${draft.id} without changing the source profile.` : ''"
     :confirm-label="copying ? 'Copying profile...' : 'Copy profile'"
@@ -465,59 +472,6 @@ onMounted(async () => {
   border: 1px solid #9ad5b2;
   background: #f0fbf4;
   color: #146c43;
-}
-
-.primary-button,
-.secondary-button {
-  display: inline-flex;
-  height: 2.5rem;
-  align-items: center;
-  border: 1px solid var(--ofx-border);
-  border-radius: 10px;
-  background: var(--ofx-surface);
-  padding: 0 1rem;
-  color: var(--ofx-text);
-  font-size: .875rem;
-  font-weight: 600;
-  transition: border-color 150ms ease, background-color 150ms ease, opacity 150ms ease;
-}
-
-.secondary-button:hover:not(:disabled) {
-  border-color: var(--ofx-border-strong);
-  background: var(--ofx-surface-elevated);
-}
-
-.primary-button {
-  border-color: var(--ofx-primary);
-  background: var(--ofx-primary);
-  color: var(--ofx-primary-foreground);
-}
-
-.primary-button:disabled,
-.secondary-button:disabled {
-  cursor: not-allowed;
-  opacity: .5;
-}
-
-.summary-card {
-  border: 1px solid var(--ofx-border);
-  border-radius: 12px;
-  background: var(--ofx-surface);
-  padding: 1rem;
-}
-
-.summary-label {
-  color: var(--ofx-text-subtle);
-  font-size: .6875rem;
-  letter-spacing: .18em;
-  text-transform: uppercase;
-}
-
-.summary-value {
-  margin-top: .5rem;
-  color: var(--ofx-text);
-  font-size: .875rem;
-  font-weight: 600;
 }
 
 .auto-fit-pro-section :deep(.ofx-section-card__body) {

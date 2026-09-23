@@ -58,6 +58,12 @@ function formatDate(value: unknown, includeTime: boolean, emptyValueLabel = DEFA
   const options: Intl.DateTimeFormatOptions = includeTime
     ? { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }
     : { day: '2-digit', month: 'short', year: 'numeric' };
+  // ISO date-only values describe calendar days, not instants. Date parses them
+  // at UTC midnight; keep that calendar day when displaying a date column.
+  // Datetimes and actual Date objects retain their existing local-time display.
+  if (!includeTime && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    options.timeZone = 'UTC';
+  }
   return new Intl.DateTimeFormat('en-GB', options).format(date).replace(',', '');
 }
 

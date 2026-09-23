@@ -6,7 +6,7 @@ import OfxLockedControlIcon from './OfxLockedControlIcon.vue';
 const props = withDefaults(defineProps<{
   label: string;
   modelValue: string | number | undefined | null;
-  type?: 'text' | 'number' | 'password';
+  type?: 'text' | 'email' | 'number' | 'password';
   format?: 'plain' | 'fraction-percent';
   percentFractionDigits?: number;
   placeholder?: string;

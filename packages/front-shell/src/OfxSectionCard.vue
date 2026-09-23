@@ -13,12 +13,12 @@ const hasHeader = computed(() => Boolean(props.title || props.description || slo
 <template>
   <section class="ofx-section-card flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-[14px] border shadow-[var(--ofx-shadow-md)]">
     <header v-if="hasHeader" class="ofx-section-card__header shrink-0 border-b px-4 py-3 sm:px-5">
-      <div class="flex items-start justify-between gap-4">
+      <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 v-if="title" class="text-base font-semibold text-[color:var(--ofx-text)]">{{ title }}</h2>
           <p v-if="description" class="mt-1 text-sm leading-6 text-[color:var(--ofx-text-muted)]">{{ description }}</p>
         </div>
-        <slot name="actions" />
+        <div v-if="$slots.actions" class="ofx-section-card-actions"><slot name="actions" /></div>
       </div>
     </header>
     <div class="ofx-section-card__body flex min-h-0 min-w-0 flex-1 flex-col px-4 py-3 sm:px-5"><slot /></div>
@@ -30,4 +30,16 @@ const hasHeader = computed(() => Boolean(props.title || props.description || slo
 .ofx-section-card__header { border-color: rgb(43 55 77 / 0.9); background: linear-gradient(180deg, rgb(29 38 56 / 0.78), rgb(19 26 40 / 0.28)); }
 .ofx-section-card__body { background: linear-gradient(180deg, rgb(17 24 39 / 0.42), rgb(11 16 26 / 0)); }
 :global(:root[data-theme='light']) .ofx-section-card, :global(:root[data-theme='light']) .ofx-section-card__header, :global(:root[data-theme='light']) .ofx-section-card__body { border-color: var(--ofx-border); background: var(--ofx-surface); }
+
+/* Treat related actions as one header item; never distribute individual buttons across the page. */
+.ofx-section-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+.ofx-section-card-actions :deep(> *) { max-width: 100%; }
 </style>

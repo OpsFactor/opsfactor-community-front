@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref } from "vue";
 import {
   OfxSelectField,
@@ -486,8 +487,7 @@ async function confirmSave(): Promise<void> {
             always saved as false.
           </p>
         </div>
-        <button
-          class="primary-button"
+        <OfxButton variant="secondary" icon="refresh"
           type="button"
           :disabled="isBusy || editingClusterId !== null"
           @click="loadClusterParameters(clusterParameters !== null)"
@@ -499,7 +499,7 @@ async function confirmSave(): Promise<void> {
               ? "Refresh clusters"
               : "Load clusters"
           }}
-        </button>
+        </OfxButton>
       </header>
       <div v-if="clusterParameters" class="table-wrap">
         <table>
@@ -517,8 +517,7 @@ async function confirmSave(): Promise<void> {
               <td>{{ formatRawValue(parameter.clusterLocationsID) }}</td>
               <td>{{ formatRawValue(parameter.planejaDP) }}</td>
               <td>
-                <button
-                  class="secondary-button"
+                <OfxButton variant="secondary" icon="edit" size="table"
                   type="button"
                   :disabled="
                     isBusy ||
@@ -529,7 +528,7 @@ async function confirmSave(): Promise<void> {
                   @click="startClusterEditing(parameter)"
                 >
                   Edit
-                </button>
+                </OfxButton>
               </td>
             </tr>
           </tbody>
@@ -541,14 +540,13 @@ async function confirmSave(): Promise<void> {
       <section v-if="clusterDraft" class="editor-card">
         <div class="editor-heading">
           <h3>Edit Location Cluster parameter</h3>
-          <button
-            class="secondary-button"
+          <OfxButton variant="secondary" icon="close"
             type="button"
             :disabled="saving"
             @click="clearEditing"
           >
             Cancel
-          </button>
+          </OfxButton>
         </div>
         <div class="editor-grid">
           <label
@@ -568,14 +566,13 @@ async function confirmSave(): Promise<void> {
             Pricing is not shown or configurable; the saved payload fixes it
             as false.
           </p>
-          <button
-            class="primary-button"
+          <OfxButton variant="primary" icon="save"
             type="button"
             :disabled="saving"
             @click="requestClusterSaveConfirmation"
           >
             Review save
-          </button>
+          </OfxButton>
         </div>
       </section>
     </OfxSectionCard>
@@ -587,8 +584,7 @@ async function confirmSave(): Promise<void> {
           <h2>Basic material parameters</h2>
           <p>Only the fields persisted by this service are editable.</p>
         </div>
-        <button
-          class="primary-button"
+        <OfxButton variant="secondary" icon="refresh"
           type="button"
           :disabled="isBusy || editingMaterialId !== null"
           @click="loadMaterialParameters(materialParameters !== null)"
@@ -600,7 +596,7 @@ async function confirmSave(): Promise<void> {
               ? "Refresh materials"
               : "Load materials"
           }}
-        </button>
+        </OfxButton>
       </header>
       <div v-if="materialParameters" class="table-wrap">
         <table>
@@ -621,8 +617,7 @@ async function confirmSave(): Promise<void> {
               <td>{{ formatRawValue(parameter.descricao) }}</td>
               <td>{{ formatRawValue(parameter.ativo) }}</td>
               <td>
-                <button
-                  class="secondary-button"
+                <OfxButton variant="secondary" icon="edit" size="table"
                   type="button"
                   :disabled="
                     isBusy ||
@@ -633,7 +628,7 @@ async function confirmSave(): Promise<void> {
                   @click="startMaterialEditing(parameter)"
                 >
                   Edit
-                </button>
+                </OfxButton>
               </td>
             </tr>
           </tbody>
@@ -645,14 +640,13 @@ async function confirmSave(): Promise<void> {
       <section v-if="materialDraft" class="editor-card">
         <div class="editor-heading">
           <h3>Edit Material parameter</h3>
-          <button
-            class="secondary-button"
+          <OfxButton variant="secondary" icon="close"
             type="button"
             :disabled="saving"
             @click="clearEditing"
           >
             Cancel
-          </button>
+          </OfxButton>
         </div>
         <div class="editor-grid">
           <label
@@ -673,14 +667,13 @@ async function confirmSave(): Promise<void> {
             Lifecycle flags such as new and discontinued are not persisted by
             this parameter endpoint.
           </p>
-          <button
-            class="primary-button"
+          <OfxButton variant="primary" icon="save"
             type="button"
             :disabled="saving"
             @click="requestMaterialSaveConfirmation"
           >
             Review save
-          </button>
+          </OfxButton>
         </div>
       </section>
     </OfxSectionCard>
@@ -695,8 +688,7 @@ async function confirmSave(): Promise<void> {
             is not a global Material-Location catalog.
           </p>
         </div>
-        <button
-          class="primary-button"
+        <OfxButton variant="secondary" icon="refresh"
           type="button"
           :disabled="isBusy || editingMaterialLocationKey !== null"
           @click="loadLocations(locations !== null)"
@@ -708,7 +700,7 @@ async function confirmSave(): Promise<void> {
               ? "Refresh locations"
               : "Load locations"
           }}
-        </button>
+        </OfxButton>
       </header>
       <div v-if="locations" class="location-selection">
         <OfxSelectField
@@ -718,8 +710,7 @@ async function confirmSave(): Promise<void> {
           :disabled="isBusy || editingMaterialLocationKey !== null"
           @update:model-value="handleLocationSelectionChanged"
         />
-        <button
-          class="secondary-button"
+        <OfxButton variant="secondary" icon="open"
           type="button"
           :disabled="
             isBusy ||
@@ -735,7 +726,7 @@ async function confirmSave(): Promise<void> {
               ? "Loading parameters…"
               : "Load selected Location"
           }}
-        </button>
+        </OfxButton>
       </div>
       <div v-if="materialLocationParameters" class="table-wrap">
         <table>
@@ -767,8 +758,7 @@ async function confirmSave(): Promise<void> {
               <td>{{ formatRawValue(parameter.frozenHorizonDpInDays) }}</td>
               <td>{{ formatRawValue(parameter.defaultUomId) }}</td>
               <td>
-                <button
-                  class="secondary-button"
+                <OfxButton variant="secondary" icon="edit" size="table"
                   type="button"
                   :disabled="
                     isBusy ||
@@ -779,7 +769,7 @@ async function confirmSave(): Promise<void> {
                   @click="startMaterialLocationEditing(parameter)"
                 >
                   Edit
-                </button>
+                </OfxButton>
               </td>
             </tr>
           </tbody>
@@ -792,14 +782,13 @@ async function confirmSave(): Promise<void> {
       <section v-if="materialLocationDraft" class="editor-card">
         <div class="editor-heading">
           <h3>Edit Material-Location override</h3>
-          <button
-            class="secondary-button"
+          <OfxButton variant="secondary" icon="close"
             type="button"
             :disabled="saving"
             @click="clearEditing"
           >
             Cancel
-          </button>
+          </OfxButton>
         </div>
         <div class="editor-grid">
           <label
@@ -848,14 +837,13 @@ async function confirmSave(): Promise<void> {
         </div>
         <div class="editor-footer">
           <p>Blank numerical, date or UOM values remove the local override.</p>
-          <button
-            class="primary-button"
+          <OfxButton variant="primary" icon="save"
             type="button"
             :disabled="saving || loadingUnitOfMeasureIds"
             @click="requestMaterialLocationSaveConfirmation"
           >
             Review save
-          </button>
+          </OfxButton>
         </div>
       </section>
     </OfxSectionCard>
@@ -885,21 +873,18 @@ async function confirmSave(): Promise<void> {
         {{ pendingSave.request.materialID }}.
       </p>
       <div class="actions">
-        <button
-          class="secondary-button"
+        <OfxButton variant="secondary" icon="close"
           type="button"
           :disabled="saving"
           @click="pendingSave = null"
         >
-          Keep editing</button
-        ><button
-          class="primary-button"
-          type="button"
-          :disabled="saving"
-          @click="confirmSave"
-        >
+          Keep editing</OfxButton><OfxButton variant="primary" icon="save"
+                                    type="button"
+                                    :disabled="saving"
+                                    @click="confirmSave"
+                                  >
           {{ saving ? "Saving…" : "Save parameter" }}
-        </button>
+        </OfxButton>
       </div></OfxSectionCard
     >
   </TaskPageLayout>
@@ -945,25 +930,6 @@ async function confirmSave(): Promise<void> {
 }
 .location-selection select {
   min-width: min(30rem, 90vw);
-}
-.primary-button,
-.secondary-button {
-  border: 1px solid #c8d0de;
-  border-radius: 0.5rem;
-  background: white;
-  cursor: pointer;
-  padding: 0.65rem 0.9rem;
-  width: fit-content;
-}
-.primary-button {
-  border-color: var(--ofx-accent);
-  background: var(--ofx-accent);
-  color: white;
-}
-.primary-button:disabled,
-.secondary-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
 }
 .boundary-card p,
 .section-card p,
@@ -1039,4 +1005,7 @@ td {
 .compact-hero {
   margin-bottom: 1rem;
 }
+
+/* Commands stay together; section headings retain their own spacing. */
+.actions { align-items: center; justify-content: flex-end; gap: .5rem; flex-wrap: wrap; }
 </style>

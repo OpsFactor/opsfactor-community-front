@@ -479,10 +479,10 @@ onMounted(() => {
     >
       <template #actions>
         <div class="header-actions">
-          <OfxButton variant="secondary" :disabled="isBusy || !selectedUserId" @click="openCreateDialog">New View</OfxButton>
-          <OfxButton variant="secondary" :disabled="isBusy || !draft" @click="openCopyDialog">Copy To User</OfxButton>
-          <OfxButton variant="primary" :disabled="isBusy || !draft" @click="void saveView()">{{ saving ? 'Saving…' : 'Save View' }}</OfxButton>
-          <OfxButton variant="danger" :disabled="isBusy || !draft" @click="openDeleteDialog">Remove View</OfxButton>
+          <OfxButton variant="create" icon="new" :disabled="isBusy || !selectedUserId" @click="openCreateDialog">New View</OfxButton>
+          <OfxButton variant="copy" icon="copy" :disabled="isBusy || !draft" @click="openCopyDialog">Copy To User</OfxButton>
+          <OfxButton variant="primary" icon="save" :disabled="isBusy || !draft" @click="void saveView()">{{ saving ? 'Saving…' : 'Save View' }}</OfxButton>
+          <OfxButton variant="danger" icon="delete" :disabled="isBusy || !draft" @click="openDeleteDialog">Remove View</OfxButton>
         </div>
       </template>
     </OfxPageHeader>
@@ -491,7 +491,7 @@ onMounted(() => {
 
     <OfxLoadingState v-if="loading && users.length === 0" title="Loading user views" description="Loading users and Planning Book configuration catalogs." />
     <OfxEmptyState v-else-if="errorMessage && users.length === 0" title="User views could not be loaded" :description="errorMessage">
-      <OfxButton variant="secondary" :disabled="loading" @click="void bootstrapPage()">Retry</OfxButton>
+      <OfxButton variant="secondary" icon="refresh" :disabled="loading" @click="void bootstrapPage()">Retry</OfxButton>
     </OfxEmptyState>
     <template v-else>
       <p v-if="errorMessage" class="error-message" role="alert">{{ errorMessage }}</p>
@@ -534,7 +534,7 @@ onMounted(() => {
         title="No saved view selected"
         description="Choose an existing view or create a new one for the selected user and Planning Book."
       >
-        <OfxButton variant="primary" @click="openCreateDialog">Create First View</OfxButton>
+        <OfxButton variant="create" icon="new" @click="openCreateDialog">Create First View</OfxButton>
       </OfxEmptyState>
 
       <template v-else>
@@ -742,6 +742,7 @@ onMounted(() => {
 
     <OfxConfirmDialog
       :open="createDialogOpen"
+      confirm-tone="create"
       title="Create new View"
       :description="`Create a ${selectedViewType} view for ${selectedUserId || 'the selected user'}.`"
       confirm-label="Create view"
@@ -754,6 +755,7 @@ onMounted(() => {
 
     <OfxConfirmDialog
       :open="copyDialogOpen"
+      confirm-tone="copy"
       title="Copy View To User"
       :description="draft ? `Copy ${draft.viewName} without changing the original view.` : ''"
       confirm-label="Copy view"
@@ -792,8 +794,7 @@ onMounted(() => {
 .characteristic-heading span { color: var(--ofx-text-muted); font-size: .7rem; letter-spacing: .12em; margin-top: .25rem; text-transform: uppercase; }
 .characteristic-heading .filter-count { border: 1px solid var(--ofx-border); border-radius: 999px; margin: 0; padding: .3rem .65rem; }
 .characteristic-fields { display: grid; gap: 1rem; grid-template-columns: minmax(15rem,.9fr) minmax(22rem,1.4fr) minmax(15rem,.75fr); }
-.header-actions { align-items: center; display: grid; gap: .55rem; grid-template-columns: repeat(4, minmax(7.5rem, 1fr)); }
-.header-actions :deep(.ofx-button) { width: 100%; }
+.header-actions { align-items: center; display: flex; flex-wrap: wrap; gap: .5rem; justify-content: flex-end; }
 .summary-grid { display: grid; gap: .75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .summary-card { background: var(--ofx-surface); border: 1px solid var(--ofx-border); border-radius: .8rem; display: grid; gap: .45rem; min-height: 8.4rem; padding: 1rem; }
 .summary-card span { color: var(--ofx-text-muted); font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; }
@@ -821,7 +822,7 @@ onMounted(() => {
 }
 @media (max-width: 720px) {
   .selection-grid, .editor-grid, .summary-grid { grid-template-columns: 1fr; }
-  .header-actions { grid-template-columns: repeat(2, minmax(7.5rem, 1fr)); width: 100%; }
+  .header-actions { justify-content: flex-start; }
   .selection-grid > :last-child { grid-column: auto; }
   .key-figure-row { align-items: flex-start; flex-direction: column; }
 }

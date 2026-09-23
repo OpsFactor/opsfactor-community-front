@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import OfxButton from './OfxButton.vue';
 /**
  * Shared drawer frame for advanced filters. The edition host supplies the
  * filter controls through the slot and owns every mutation.
@@ -38,9 +39,9 @@ const emit = defineEmits<{
               <h2 class="text-lg font-semibold text-[color:var(--ofx-text)]">{{ props.title }}</h2>
               <p v-if="props.description" class="mt-1 text-sm text-[color:var(--ofx-text-muted)]">{{ props.description }}</p>
             </div>
-            <button class="rounded-md border border-[color:var(--ofx-border)] px-3 py-2 text-sm text-[color:var(--ofx-text)]" @click="emit('close')">
+            <OfxButton size="compact" @click="emit('close')">
               {{ props.cancelLabel }}
-            </button>
+            </OfxButton>
           </div>
         </header>
         <div class="flex-1 overflow-y-auto px-6 py-5">
@@ -48,11 +49,11 @@ const emit = defineEmits<{
             <slot />
           </div>
         </div>
-        <footer class="flex items-center justify-between border-t border-[color:var(--ofx-border)] px-6 py-4">
-          <button class="rounded-md px-3 py-2 text-sm text-[color:var(--ofx-text-muted)]" @click="emit('clear')">{{ props.clearLabel }}</button>
+        <footer class="flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--ofx-border)] px-6 py-4">
+          <OfxButton size="compact" @click="emit('clear')">{{ props.clearLabel }}</OfxButton>
           <div class="flex gap-3">
-            <button class="rounded-md border border-[color:var(--ofx-border)] px-4 py-2 text-sm text-[color:var(--ofx-text)]" @click="emit('close')">{{ props.cancelLabel }}</button>
-            <button class="rounded-md bg-[color:var(--ofx-primary)] px-4 py-2 text-sm font-medium text-[color:var(--ofx-primary-foreground)]" @click="emit('apply')">{{ props.applyLabel }}</button>
+            <OfxButton size="compact" @click="emit('close')">{{ props.cancelLabel }}</OfxButton>
+            <OfxButton size="compact" variant="filter" @click="emit('apply')">{{ props.applyLabel }}</OfxButton>
           </div>
         </footer>
       </aside>

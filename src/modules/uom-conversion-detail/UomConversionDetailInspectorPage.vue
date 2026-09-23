@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref } from 'vue';
 import { OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
 import OfxSelectField from '../../components/ofx/forms/OfxSelectField.vue';
@@ -108,7 +109,7 @@ onMounted(async () => {
         <OfxSelectField v-model="originUomId" label="Origin UOM" :options="originUomOptions" :disabled="loading || loadingOptions" />
         <OfxSelectField v-model="targetUomId" label="Target UOM" :options="targetUomOptions" :disabled="loading || loadingOptions" />
       </div>
-      <div class="actions"><button class="primary-button" :disabled="!canInspect" type="button" @click="inspectConversion">{{ loading ? 'Inspecting conversion…' : 'Inspect conversion path' }}</button></div>
+      <div class="actions"><OfxButton variant="secondary" icon="open" :disabled="!canInspect" type="button" @click="inspectConversion">{{ loading ? 'Inspecting conversion…' : 'Inspect conversion path' }}</OfxButton></div>
     </OfxSectionCard>
 
     <OfxSectionCard v-if="conversionDetail" class="result-card" title="Material-specific conversion" description="Raw server response.">
@@ -124,5 +125,5 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.boundary-card, .inspection-card, .result-card { display: grid; gap: 1rem; }.boundary-card p, .muted { color: var(--ofx-text-muted); }.input-grid, .detail-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }.actions { display: flex; flex-wrap: wrap; gap: 1rem; }.primary-button { border: 1px solid var(--ofx-accent); border-radius: .5rem; background: var(--ofx-accent); color: white; cursor: pointer; padding: .65rem .9rem; }.primary-button:disabled { cursor: not-allowed; opacity: .55; }.error { color: var(--ofx-text-danger); margin-bottom: 1rem; }.detail-grid dt { color: var(--ofx-text-muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; }.detail-grid dd { margin: .35rem 0 0; white-space: pre-wrap; }.detail-grid .full { grid-column: 1 / -1; }
+.boundary-card, .inspection-card, .result-card { display: grid; gap: 1rem; }.boundary-card p, .muted { color: var(--ofx-text-muted); }.input-grid, .detail-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }.actions { display: flex; flex-wrap: wrap; gap: 1rem; }.error { color: var(--ofx-text-danger); margin-bottom: 1rem; }.detail-grid dt { color: var(--ofx-text-muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; }.detail-grid dd { margin: .35rem 0 0; white-space: pre-wrap; }.detail-grid .full { grid-column: 1 / -1; }
 </style>

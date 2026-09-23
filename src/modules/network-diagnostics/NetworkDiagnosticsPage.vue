@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref } from 'vue';
 import { OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
 import OfxSelectField from '../../components/ofx/forms/OfxSelectField.vue';
@@ -86,9 +87,9 @@ onMounted(loadSupplyNetworkVersions);
       </div>
       <OfxSelectField v-model="supplyNetworkVersionId" label="Supply Network Version" :options="supplyNetworkVersionOptions" :disabled="isLoadingSelectors" />
       <div class="actions">
-        <button class="primary-button" :disabled="!canLoadDiagnostics || isLoadingDiagnostics" @click="loadCircularNetworkDiagnostics">
+        <OfxButton variant="primary" icon="run" :disabled="!canLoadDiagnostics || isLoadingDiagnostics" @click="loadCircularNetworkDiagnostics">
           {{ isLoadingDiagnostics ? 'Diagnosing…' : 'Diagnose circularity' }}
-        </button>
+        </OfxButton>
       </div>
     </OfxSectionCard>
 
@@ -132,6 +133,5 @@ onMounted(loadSupplyNetworkVersions);
 .section-header, .actions { display: flex; align-items: end; gap: 1rem; justify-content: space-between; }
 .section-header h2 { margin: .25rem 0; }
 .filters { display: grid; gap: 1rem; grid-template-columns: minmax(16rem, 28rem) auto; }.filters .section-header { grid-column: 1 / -1; }
-.primary-button { border: 1px solid var(--ofx-accent); border-radius: .5rem; background: var(--ofx-accent); color: white; cursor: pointer; padding: .65rem .9rem; }.primary-button:disabled { cursor: not-allowed; opacity: .5; }
 .table-scroll { overflow-x: auto; } table { width: 100%; border-collapse: collapse; text-align: left; } th, td { border-top: 1px solid var(--ofx-border); padding: .8rem .65rem; vertical-align: top; white-space: nowrap; } thead th { color: var(--ofx-text-muted); font-size: .75rem; text-transform: uppercase; }.muted, .section-header p { color: var(--ofx-text-muted); }.error { color: var(--ofx-text-danger); }
 </style>

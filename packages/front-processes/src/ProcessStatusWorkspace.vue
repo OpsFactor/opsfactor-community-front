@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import {
   OfxActiveFilterChips,
+  OfxButton,
   OfxConfirmDialog,
   OfxDataTable,
   OfxEmptyState,
@@ -345,7 +346,7 @@ onMounted(() => {
       <OfxEntityMultiSelect v-model="selectedStates" label="State" :options="stateOptions" placeholder="All states" />
       <OfxTextField v-model="searchTerm" label="Search" placeholder="Task id, instance, user, or error text" />
       <template #actions>
-        <button class="text-sm font-medium text-[color:var(--ofx-accent)]" @click="clearFilters">Reset filters</button>
+        <OfxButton variant="filter" icon="filter" size="compact" @click="clearFilters">Reset filters</OfxButton>
       </template>
     </OfxFilterBar>
 
@@ -359,12 +360,11 @@ onMounted(() => {
 
         <div v-else-if="loadError && !filteredExecutionRows.length && !filteredCronRows.length" class="space-y-4">
           <OfxEmptyState title="Process status unavailable" :description="loadError">
-            <button
-              class="rounded-md border border-[color:var(--ofx-border)] px-4 py-2 text-sm text-[color:var(--ofx-text)] transition hover:bg-white/[0.04]"
+            <OfxButton variant="secondary" icon="refresh"
               @click="loadTasks()"
             >
               Try again
-            </button>
+            </OfxButton>
           </OfxEmptyState>
         </div>
 
@@ -384,20 +384,18 @@ onMounted(() => {
             @download="handleExecutionExport"
           >
             <template #actions>
-              <button
-                class="rounded-md border border-[color:var(--ofx-border)] px-4 py-2 text-sm text-[color:var(--ofx-text)] transition hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
+              <OfxButton variant="secondary" icon="refresh"
                 :disabled="isLoading || isDeleting"
                 @click="loadTasks({ silent: true })"
               >
                 {{ isLoading ? 'Loading...' : 'Refresh list' }}
-              </button>
-              <button
-                class="rounded-md border border-[color:rgb(208_69_95_/_0.34)] bg-[color:rgb(208_69_95_/_0.12)] px-4 py-2 text-sm font-medium text-[color:var(--ofx-text-danger)] transition hover:bg-[color:rgb(208_69_95_/_0.18)] disabled:cursor-not-allowed disabled:opacity-50"
+              </OfxButton>
+              <OfxButton variant="danger" icon="delete"
                 :disabled="!selectedRows.length || isDeleting"
                 @click="confirmDeleteOpen = true"
               >
                 {{ isDeleting ? 'Deleting...' : `Delete selected${selectedRows.length ? ` (${selectedRows.length})` : ''}` }}
-              </button>
+              </OfxButton>
             </template>
           </OfxTableToolbar>
 

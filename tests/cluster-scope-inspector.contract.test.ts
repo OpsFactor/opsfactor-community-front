@@ -125,7 +125,7 @@ test('Clustering page exposes one scheme with material and location dimensions',
   assert.match(source, /OfxTextField v-model="materialDraft\.description" label="Description"/);
   assert.match(source, /OfxTextField v-model="materialDraft\.priority" label="Priority"/);
   assert.match(source, /: 'Save cluster'/);
-  assert.match(source, />Delete cluster<\/button>/);
+  assert.match(source, /<OfxButton[^>]*variant="danger"[^>]*>Delete cluster<\/OfxButton>/);
   assert.doesNotMatch(source, /process:\s*'DP'/);
   assert.doesNotMatch(source, /Demand Planning/);
   assert.doesNotMatch(source, /Pricing cluster/);

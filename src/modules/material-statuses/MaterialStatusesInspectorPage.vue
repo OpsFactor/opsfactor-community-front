@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, ref } from 'vue';
 import { OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
 import { httpClient } from '../../services/community-authentication.service';
@@ -46,7 +47,7 @@ async function loadStatuses(): Promise<void> {
 
     <OfxSectionCard class="boundary-card" title="Allowed values, not effective lifecycle">
       <p>This explicit GET returns only the allowed status names. It does not load materials, resolve a lifecycle status or expose a material list.</p>
-      <button v-if="!hasSnapshot" class="primary-button" type="button" :disabled="loading" @click="loadStatuses">{{ loading ? 'Loading catalog…' : 'Load Material Status Catalog' }}</button>
+      <OfxButton variant="secondary" icon="open" v-if="!hasSnapshot" type="button" :disabled="loading" @click="loadStatuses">{{ loading ? 'Loading catalog…' : 'Load Material Status Catalog' }}</OfxButton>
       <p v-else class="captured-message" role="status">Catalog captured. Refresh is intentionally unavailable on this page.</p>
     </OfxSectionCard>
 
@@ -66,5 +67,5 @@ async function loadStatuses(): Promise<void> {
 </template>
 
 <style scoped>
-.boundary-card, .catalog-card { display: grid; gap: 1rem; margin-bottom: 1rem; }.boundary-card h2, .catalog-card h2 { margin: 0; }.boundary-card p, .catalog-card p { margin: 0; }.boundary-card p, .muted, .empty-state { color: var(--ofx-muted); }.primary-button { border: 1px solid var(--ofx-accent); border-radius: .5rem; background: var(--ofx-accent); color: white; cursor: pointer; padding: .7rem 1rem; width: fit-content; }.primary-button:disabled { cursor: not-allowed; opacity: .55; }.captured-message { border-left: 3px solid #70b694; padding-left: .75rem; }.status-list { display: grid; gap: .65rem; list-style: none; margin: 0; padding: 0; }.status-list li { border-left: 3px solid #e7e2ff; font-family: monospace; font-weight: 700; overflow-wrap: anywhere; padding-left: .75rem; }.error { color: #b42318; }.empty-state { margin-bottom: 1rem; }.compact-hero { margin-bottom: 1rem; }
+.boundary-card, .catalog-card { display: grid; gap: 1rem; margin-bottom: 1rem; }.boundary-card h2, .catalog-card h2 { margin: 0; }.boundary-card p, .catalog-card p { margin: 0; }.boundary-card p, .muted, .empty-state { color: var(--ofx-muted); }.captured-message { border-left: 3px solid #70b694; padding-left: .75rem; }.status-list { display: grid; gap: .65rem; list-style: none; margin: 0; padding: 0; }.status-list li { border-left: 3px solid #e7e2ff; font-family: monospace; font-weight: 700; overflow-wrap: anywhere; padding-left: .75rem; }.error { color: #b42318; }.empty-state { margin-bottom: 1rem; }.compact-hero { margin-bottom: 1rem; }
 </style>

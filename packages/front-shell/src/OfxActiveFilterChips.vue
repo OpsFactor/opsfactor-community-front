@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import OfxButton from './OfxButton.vue';
 /**
  * Visual contract shared by every edition for the active filters of a workspace.
  * The host owns the filters and their mutations; this component only renders
@@ -30,6 +31,6 @@ const emit = defineEmits<{
       <span>{{ chip.label }}</span>
       <span class="text-[color:var(--ofx-text-subtle)]">x</span>
     </button>
-    <button class="px-1 text-sm font-medium text-[color:var(--ofx-accent)]" @click="emit('clear')">Clear all</button>
+    <OfxButton @click="emit('clear')" variant="filter" icon="close" size="compact">Clear all</OfxButton>
   </div>
 </template>

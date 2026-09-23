@@ -20,11 +20,13 @@ interface SupplyExecutionProfile {
 
 interface SupplyNetworkVersionOption {
   id: string;
+  calendarProfileId?: string | null;
   description?: string | null;
 }
 
 interface GeographicDivisionDto {
   id: string;
+  calendarProfileId?: string | null;
   description?: string | null;
   geographicHierarchyId?: string | null;
   geographicDivisionId?: string | null;
@@ -61,16 +63,19 @@ interface DemandExecutionProfileDto {
 
 interface PresetConstraintGroupDto {
   id: string;
+  calendarProfileId?: string | null;
   description?: string | null;
 }
 
 interface NamedOptionDto {
   id: string;
+  calendarProfileId?: string | null;
   description?: string | null;
 }
 
 interface InventoryOptimizationModelDto {
   id: string;
+  calendarProfileId?: string | null;
   description?: string | null;
   releasedDemandId?: string | number | null;
 }

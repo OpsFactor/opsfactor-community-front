@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref } from 'vue';
 import { TaskPageLayout, OfxPageHeader, OfxSectionCard, OfxSelectField, OfxTextField } from '@opsfactor/front-shell';
 import { fetchCalendarProfiles, saveCalendarProfile, type CalendarProfile } from './calendar-profiles.service';
@@ -83,15 +84,19 @@ onMounted(async () => {
 
 <template>
   <TaskPageLayout>
-    <OfxPageHeader title="Calendar profiles" subtitle="Configure reusable planning buckets and horizons. Execution profiles select a calendar by ID." />
+    <OfxPageHeader title="Calendar profiles" subtitle="Configure reusable planning buckets and horizons. Execution profiles select a calendar by ID.">
+      <template #actions>
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <OfxButton variant="create" icon="new" :disabled="busy" @click="createProfile">New calendar</OfxButton>
+          <OfxButton variant="copy" icon="copy" :disabled="busy || !draft.id" @click="copyProfile">Copy calendar</OfxButton>
+          <OfxButton variant="primary" icon="save" :disabled="busy" @click="save">Save calendar</OfxButton>
+        </div>
+      </template>
+    </OfxPageHeader>
     <p v-if="error" role="alert" class="text-red-500">{{ error }}</p>
     <p v-if="message" role="status">{{ message }}</p>
     <OfxSectionCard title="Calendar selection">
       <OfxSelectField :model-value="selectedId" label="Calendar profile" :options="options" :disabled="busy" @update:model-value="selectProfile(String($event))" />
-      <div class="mt-4 flex gap-4">
-        <button :disabled="busy" @click="createProfile">New calendar</button>
-        <button :disabled="busy || !draft.id" @click="copyProfile">Copy calendar</button>
-      </div>
     </OfxSectionCard>
     <OfxSectionCard title="Calendar parameters">
       <div class="grid gap-4 md:grid-cols-2">
@@ -100,7 +105,6 @@ onMounted(async () => {
         <OfxSelectField v-model="draft.baseBucketSize" label="Bucket size" :options="bucketOptions" :disabled="busy" />
         <OfxTextField v-model="draft.numberOfBasePeriods" label="Number of periods" type="number" :disabled="busy" />
       </div>
-      <button class="mt-4" :disabled="busy" @click="save">Save calendar</button>
     </OfxSectionCard>
   </TaskPageLayout>
 </template>

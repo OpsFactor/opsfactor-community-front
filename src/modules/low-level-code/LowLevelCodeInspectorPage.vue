@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref } from 'vue';
 import { OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
 import OfxSelectField from '../../components/ofx/forms/OfxSelectField.vue';
@@ -95,7 +96,7 @@ onMounted(async () => {
         <OfxSelectField v-model="supplyNetworkVersionId" label="Supply Network Version" :options="supplyNetworkVersionOptions" :disabled="loading || loadingOptions" />
         <OfxSelectField v-model="materialId" label="Material" :options="materialOptions" :disabled="loading || loadingOptions" />
       </div>
-      <div class="actions"><button class="primary-button" type="button" :disabled="!canLoad || loading" @click="void loadLowLevelCode()">{{ loading ? 'Loading…' : 'Load material path' }}</button></div>
+      <div class="actions"><OfxButton variant="secondary" icon="open" type="button" :disabled="!canLoad || loading" @click="void loadLowLevelCode()">{{ loading ? 'Loading…' : 'Load material path' }}</OfxButton></div>
     </OfxSectionCard>
 
     <template v-if="lowLevelCodeSnapshot">
@@ -112,5 +113,5 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.boundary-card, .selector-card, .result-card { display: grid; gap: 1rem; }.boundary-card p, .empty-state { color: var(--ofx-text-muted); }.field-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); }.actions { display: flex; justify-content: flex-end; }.primary-button { border: 1px solid var(--ofx-accent); border-radius: .5rem; background: var(--ofx-accent); color: white; cursor: pointer; padding: .65rem .9rem; width: fit-content; }.primary-button:disabled { cursor: not-allowed; opacity: .55; }.table-scroll { overflow-x: auto; }.table-scroll table { border-collapse: collapse; min-width: 52rem; width: 100%; }.table-scroll th, .table-scroll td { border-bottom: 1px solid var(--ofx-border); padding: .7rem; text-align: left; vertical-align: top; white-space: nowrap; }.table-scroll th { color: var(--ofx-text-muted); font-size: .75rem; text-transform: uppercase; }.error { color: var(--ofx-text-danger); }@media (max-width: 48rem) { .actions { justify-content: stretch; }.primary-button { width: 100%; } }
+.boundary-card, .selector-card, .result-card { display: grid; gap: 1rem; }.boundary-card p, .empty-state { color: var(--ofx-text-muted); }.field-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); }.actions { display: flex; justify-content: flex-end; }.table-scroll { overflow-x: auto; }.table-scroll table { border-collapse: collapse; min-width: 52rem; width: 100%; }.table-scroll th, .table-scroll td { border-bottom: 1px solid var(--ofx-border); padding: .7rem; text-align: left; vertical-align: top; white-space: nowrap; }.table-scroll th { color: var(--ofx-text-muted); font-size: .75rem; text-transform: uppercase; }.error { color: var(--ofx-text-danger); }@media (max-width: 48rem) { .actions { justify-content: stretch; }.ofx-button { width: 100%; } }
 </style>

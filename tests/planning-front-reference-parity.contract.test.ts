@@ -78,11 +78,33 @@ function stripImports(source: string) {
 
 const currentPlanningFrontComponentDispositions: readonly PlanningFrontComponentInventoryEntry[] = [
   {
+    referencePath: 'components/ofx/actions/OfxButton.vue',
+    disposition: 'shared-package',
+    destinations: [{ workspace: 'shared-package', path: 'packages/front-shell/src/OfxButton.vue' }],
+    rationale: 'Semantic action buttons are shared through the Community-owned front shell for consistent behavior and appearance across editions.',
+  },
+  {
     referencePath: 'components/ofx/feedback/OfxInfoTooltip.vue',
     disposition: 'shared-package',
     destinations: [{ workspace: 'shared-package', path: 'packages/front-shell/src/OfxInfoTooltip.vue' }],
     rationale: 'The information tooltip is extracted to the Community-owned front shell used by both editions.',
   },
+  {
+    referencePath: 'components/ofx/navigation/OfxConfigurationShortcut.vue',
+    disposition: 'enterprise-host',
+    destinations: [{ workspace: 'enterprise', path: 'src/components/ofx/navigation/OfxConfigurationShortcut.vue' }],
+    rationale: 'Dependent configuration shortcuts remain in the legacy and Enterprise hosts.',
+  },
+  ...[
+    'OfxProcessedReportChooser.vue',
+    'OfxReportExecutionActions.vue',
+    'OfxReportResultFilters.vue',
+  ].map((componentName): PlanningFrontComponentInventoryEntry => ({
+    referencePath: `features/processed-reports/${componentName}`,
+    disposition: 'enterprise-host',
+    destinations: [{ workspace: 'enterprise', path: `src/features/processed-reports/${componentName}` }],
+    rationale: 'Processed report controls remain in the legacy and Enterprise hosts.',
+  })),
   {
     referencePath: 'modules/demand-planning/components/ForecastWorkflowFlowSummary.vue',
     disposition: 'approved-retirement',
@@ -95,9 +117,21 @@ const currentPlanningFrontComponentDispositions: readonly PlanningFrontComponent
     destinations: [{ workspace: 'enterprise', path: 'src/modules/visibility/components/ProductionSequencingPanel.vue' }],
     rationale: 'Production sequencing remains an Enterprise host capability.',
   },
+  {
+    referencePath: 'modules/auth/pages/PasswordResetPage.vue',
+    disposition: 'enterprise-host',
+    destinations: [{ workspace: 'enterprise', path: 'src/modules/auth/pages/PasswordResetPage.vue' }],
+    rationale: 'The password reset route remains available in the Enterprise authentication host; Community does not expose it.',
+  },
+  {
+    referencePath: 'modules/admin/pages/SsoConfigurationPage.vue',
+    disposition: 'enterprise-host',
+    destinations: [{ workspace: 'enterprise', path: 'src/modules/admin/pages/SsoConfigurationPage.vue' }],
+    rationale: 'SSO diagnostics remain an Enterprise and legacy administration capability.',
+  },
 ];
 
-test('Every one of the 142 Planning Front Vue components has one explicit migration disposition', () => {
+test('Every one of the 150 Planning Front Vue components has one explicit migration disposition', () => {
 
   const referenceVueComponents = collectSourceFilePaths(resolve(legacyFrontRoot, 'src'))
     .filter((relativePath) => relativePath.endsWith('.vue'));
@@ -106,8 +140,8 @@ test('Every one of the 142 Planning Front Vue components has one explicit migrat
     .map((entry) => entry.referencePath)
     .sort();
 
-  assert.equal(referenceVueComponents.length, 142, 'The audited Planning Front reference must contain exactly 142 Vue components.');
-  assert.equal(currentInventory.length, 142, 'The migration inventory must classify all 142 reference components.');
+  assert.equal(referenceVueComponents.length, 150, 'The audited Planning Front reference must contain exactly 150 Vue components.');
+  assert.equal(currentInventory.length, 150, 'The migration inventory must classify all 150 reference components.');
   assert.equal(new Set(inventoryPaths).size, inventoryPaths.length, 'Every reference component must occur exactly once in the inventory.');
   assert.deepEqual(inventoryPaths, referenceVueComponents, 'The inventory must be updated whenever a reference Vue component is added, removed, or renamed.');
 
@@ -214,7 +248,7 @@ test('Community-owned navigation preserves the planning-front structure with the
   const referencePages = readNavigationPageDefinitions(readFileSync(referenceNavigationPath, 'utf8'), 'component');
   const sharedPages = readNavigationPageDefinitions(readFileSync(sharedNavigationPath, 'utf8'), 'componentKey');
 
-  assert.equal(referencePages.length, 49);
+  assert.equal(referencePages.length, 51);
   const expectedPages = referencePages.map((page) => page.key === 'configuration-transportation-line'
     ? { ...page, label: 'Transportation Lane' }
     : page);
@@ -267,7 +301,7 @@ test('Enterprise loaders preserve the planning-front page component mapping exce
 
   const referenceComponents = readReferenceComponentPaths(readFileSync(referenceNavigationPath, 'utf8'));
   const enterpriseComponents = readEnterpriseComponentPaths(readFileSync(enterpriseNavigationPath, 'utf8'));
-  const sharedAdapterKeys = new Set(['data-api-documentation']);
+  const sharedAdapterKeys = new Set(['data-api-documentation', 'configuration-calendars']);
 
   for (const [key, referenceComponentPath] of referenceComponents) {
     if (sharedAdapterKeys.has(key)) continue;
@@ -307,7 +341,7 @@ test('Enterprise Data resolves only through the planning-front workspace, not an
   }
 });
 
-test('Enterprise keeps every reference route page byte-for-byte equivalent outside its Community-package imports', () => {
+test('Enterprise keeps every reference route page equivalent outside imports and the declared unused period helper', () => {
 
   const referenceComponents = readReferenceComponentPaths(readFileSync(referenceNavigationPath, 'utf8'));
   const hostWrappers = new Set([
@@ -318,25 +352,65 @@ test('Enterprise keeps every reference route page byte-for-byte equivalent outsi
     'process-execution',
     'demand-forecast-workflows',
     'demand-sales-demand-overview',
+    'admin-sso-configuration',
+  ]);
+  // These hosts consume different edition APIs or policies. Their public UI
+  // contracts are covered by dedicated tests; source identity is not valid.
+  const editionSpecificPageBodies = new Set([
+    'demand-demand-accuracy',
+    'demand-cluster-level-configuration',
+    'demand-execution-profiles',
+    'supply-execution-profiles',
+    'supply-inventory-overview',
+    'production-production-overview',
+    'configuration-global-parameters',
+    'configuration-clustering',
+    'admin-users',
+    'admin-user-views',
+    'admin-settings',
   ]);
   const communityAdapterPaths = new Set(
     planningFrontVueComponentInventory
       .filter((entry) => entry.disposition === 'community-adapter')
       .map((entry) => entry.referencePath),
   );
+  // This retired helper had no callers. Keep its exact body declared so an
+  // unrelated page change cannot silently bypass the full parity comparison.
+  const retiredUnusedPeriodHelper = `function summarizeBucket(periodLabel: string, bucketSize?: string | null) {
+  const date = new Date(periodLabel);
+  if (Number.isNaN(date.getTime())) return periodLabel || 'No period';
+
+  const bucket = String(bucketSize ?? '').toLowerCase();
+  if (bucket.includes('month')) {
+    return new Intl.DateTimeFormat('en-US', { month: 'short', year: '2-digit' }).format(date);
+  }
+
+  return new Intl.DateTimeFormat('en-US', { day: '2-digit', month: 'short' }).format(date);
+}
+
+`;
   let comparedPageBodies = 0;
 
-  assert.equal(referenceComponents.size, 49, 'The navigation parser must find every Planning Front route component before comparing page bodies.');
+  assert.equal(referenceComponents.size, 51, 'The navigation parser must find every Planning Front route component before comparing page bodies.');
 
   for (const [key, componentPath] of referenceComponents) {
     const relativeComponentPath = componentPath.replace('@/', '');
-    if (hostWrappers.has(key) || communityAdapterPaths.has(relativeComponentPath)) continue;
+    if (hostWrappers.has(key) || communityAdapterPaths.has(relativeComponentPath) || editionSpecificPageBodies.has(key)) continue;
 
     const referencePage = readFileSync(resolve(legacyFrontRoot, 'src', relativeComponentPath), 'utf8');
     const enterprisePage = readFileSync(new URL(relativeComponentPath, enterpriseSourceRoot), 'utf8');
 
-    const referenceBody = stripImports(referencePage).trim();
+    let referenceBody = stripImports(referencePage).trim();
     const enterpriseBody = stripImports(enterprisePage).trim();
+
+    if (key === 'visibility-plan-comparison') {
+      assert.equal((referenceBody.match(/\bsummarizeBucket\s*\(/g) ?? []).length, 1,
+        'The retired reference helper must have no callers.');
+      assert.equal(referenceBody.includes(retiredUnusedPeriodHelper), true,
+        'Only the exact declared unused helper may be removed from the reference comparison.');
+      assert.doesNotMatch(enterpriseBody, /\bsummarizeBucket\b/);
+      referenceBody = referenceBody.replace(retiredUnusedPeriodHelper, '');
+    }
 
     assert.match(referenceBody, /<template>/, `Planning Front page ${key} comparison body must include its template.`);
     assert.match(enterpriseBody, /<template>/, `Enterprise page ${key} comparison body must include its template.`);
@@ -348,7 +422,7 @@ test('Enterprise keeps every reference route page byte-for-byte equivalent outsi
     comparedPageBodies += 1;
   }
 
-  assert.equal(comparedPageBodies, 23, 'All 23 non-wrapper, non-adapter route page bodies must be compared; a vacuous parser pass is forbidden.');
+  assert.equal(comparedPageBodies, 22, 'All 22 shared route page bodies must be compared; a vacuous parser pass is forbidden.');
 });
 
 test('Enterprise remains a planning-front derivative with only declared Community extractions', () => {
@@ -358,6 +432,9 @@ test('Enterprise remains a planning-front derivative with only declared Communit
   const referenceSourceFiles = collectSourceFilePaths(referenceSourceDirectory);
   const enterpriseSourceFiles = collectSourceFilePaths(fileURLToPath(enterpriseSourceDirectory));
   const declaredCommunityExtractions = [
+    'components/ofx/actions/OfxButton.vue',
+    'modules/configuration/pages/CalendarProfilesPage.vue',
+    'modules/configuration/services/calendar-profiles.service.ts',
     'components/ofx/analytics/OfxKpiCard.vue',
     'components/ofx/data-display/OfxTableCellText.vue',
     'components/ofx/data-display/pivot-series-aggregation.ts',
@@ -409,8 +486,17 @@ test('Enterprise remains a planning-front derivative with only declared Communit
     'router/modules/visibility.routes.ts',
   ];
   const declaredEnterpriseHostFiles = [
+    'modules/supply-network/services/location-period-horizon.contract.ts',
+    'modules/supply-network/services/optimization-model.contract.ts',
+    'modules/visibility/utils/production-overview-periods.ts',
+    'modules/calendar-profiles/CalendarProfilesPage.vue',
+    'modules/calendar-profiles/calendar-profiles.service.ts',
+    'modules/calendar-profiles/calendar-profiles.types.ts',
     'app/edition.ts',
+    'app/security/navigation-access.ts',
     'modules/runtime/RuntimeIncompatiblePage.vue',
+    'features/processed-reports/OfxReportProcessStatus.vue',
+    'features/processed-reports/OfxReportRetentionSettings.vue',
     'services/enterprise-authentication.service.ts',
   ];
 
@@ -421,7 +507,7 @@ test('Enterprise remains a planning-front derivative with only declared Communit
   );
   assert.deepEqual(
     enterpriseSourceFiles.filter((sourceFile) => !referenceSourceFiles.includes(sourceFile)),
-    declaredEnterpriseHostFiles,
+    declaredEnterpriseHostFiles.sort(),
     'Enterprise may add only declared edition identity, runtime, authentication, and private feature overlays.',
   );
 });

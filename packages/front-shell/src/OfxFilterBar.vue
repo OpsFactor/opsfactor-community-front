@@ -18,7 +18,7 @@ const props = withDefaults(
         <h2 class="text-sm font-semibold uppercase tracking-[0.14em] text-[color:var(--ofx-text-subtle)]">{{ props.title }}</h2>
         <p v-if="props.description" class="mt-1 text-sm text-[color:var(--ofx-text-muted)]">{{ props.description }}</p>
       </div>
-      <slot name="actions" />
+      <div v-if="$slots.actions" class="ofx-filter-bar-actions"><slot name="actions" /></div>
     </div>
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       <slot />
@@ -36,4 +36,16 @@ const props = withDefaults(
   border-color: var(--ofx-border);
   background: var(--ofx-surface);
 }
+
+/* Treat related actions as one header item; never distribute individual buttons across the page. */
+.ofx-filter-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+.ofx-filter-bar-actions :deep(> *) { max-width: 100%; }
 </style>

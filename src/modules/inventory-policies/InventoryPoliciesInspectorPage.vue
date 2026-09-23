@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref } from 'vue';
 import { OfxPageHeader, OfxSectionCard, OfxSelectField, TaskPageLayout } from '@opsfactor/front-shell';
 import { httpClient } from '../../services/community-authentication.service';
@@ -259,9 +260,9 @@ onMounted(async () => {
               placeholder-label="Select an Inventory Policy"
               :disabled="isBusy || editing || loadingOptions"
             />
-          <button class="primary-button" type="submit" :disabled="isBusy || editing || loadingOptions">
+          <OfxButton variant="secondary" icon="open" type="submit" :disabled="isBusy || editing || loadingOptions">
             {{ loading ? 'Loading policy…' : 'Load Inventory Policy' }}
-          </button>
+          </OfxButton>
         </div>
       </form>
       <p class="boundary-note">Optimization, replenishment frequency, simulations and reorder analysis are not available in the current edition.</p>
@@ -273,7 +274,7 @@ onMounted(async () => {
     <template v-if="hasSnapshot && inventoryPolicy">
       <div class="snapshot-heading">
         <p class="captured-message" role="status">Policy {{ capturedInventoryPolicyId }} is the current server snapshot. Edit is available only for this loaded policy.</p>
-        <button v-if="!editing" class="primary-button" type="button" :disabled="isBusy" @click="startEditing">Edit policy</button>
+        <OfxButton variant="secondary" icon="edit" v-if="!editing" type="button" :disabled="isBusy" @click="startEditing">Edit policy</OfxButton>
       </div>
 
       <OfxSectionCard v-if="!editing" class="policy-header">
@@ -319,7 +320,7 @@ onMounted(async () => {
 
         <div class="rules-editor-heading">
           <div><h3>Material/location rules</h3><p>Choose Material, Location and the supported planning models from their catalogs.</p></div>
-          <button class="secondary-button" type="button" :disabled="isBusy || saveConfirmationOpen" @click="addRule">Add rule</button>
+          <OfxButton variant="create" icon="add" type="button" :disabled="isBusy || saveConfirmationOpen" @click="addRule">Add rule</OfxButton>
         </div>
         <div v-if="draft.materialLocationList.length === 0" class="empty-state">No rules will remain after the confirmed replacement.</div>
         <div v-else class="table-wrap">
@@ -334,14 +335,14 @@ onMounted(async () => {
                 <td><OfxSelectField v-model="rule.calculoSafetyStock" label="Safety-stock calculation" :options="safetyStockCalculationOptions" :disabled="isBusy || saveConfirmationOpen" :show-placeholder-option="false" compact /></td>
                 <td><input v-model="rule.estoqueSegurancaDrpOuTargetKanban" :disabled="isBusy || saveConfirmationOpen" step="any" type="number"></td>
                 <td><input v-model="rule.estoqueMaximoDrp" :disabled="isBusy || saveConfirmationOpen" step="any" type="number"></td>
-                <td><button class="danger-button compact-button" type="button" :disabled="isBusy || saveConfirmationOpen" @click="removeRule(index)">Remove</button></td>
+                <td><OfxButton variant="danger" icon="delete" size="table" type="button" :disabled="isBusy || saveConfirmationOpen" @click="removeRule(index)">Remove</OfxButton></td>
               </tr>
             </tbody>
           </table>
         </div>
         <div class="editor-actions">
-          <button class="secondary-button" type="button" :disabled="isBusy || saveConfirmationOpen" @click="cancelEditing">Discard draft</button>
-          <button class="primary-button" type="button" :disabled="isBusy || saveConfirmationOpen" @click="requestSaveConfirmation">Review replacement</button>
+          <OfxButton variant="secondary" icon="close" type="button" :disabled="isBusy || saveConfirmationOpen" @click="cancelEditing">Discard draft</OfxButton>
+          <OfxButton variant="primary" icon="save" type="button" :disabled="isBusy || saveConfirmationOpen" @click="requestSaveConfirmation">Review replacement</OfxButton>
         </div>
       </OfxSectionCard>
     </template>
@@ -355,13 +356,15 @@ onMounted(async () => {
       <p>You are about to replace the complete snapshot of policy <strong>{{ pendingSaveSnapshot.id }}</strong>, including all {{ pendingSaveSnapshot.materialLocationList.length }} material/location rule{{ pendingSaveSnapshot.materialLocationList.length === 1 ? '' : 's' }}.</p>
       <p class="replacement-warning">The backend removes existing rules and persists this confirmed list transactionally. This is not a partial row update.</p>
       <div class="editor-actions">
-        <button class="secondary-button" type="button" :disabled="saving" @click="cancelSaveConfirmation">Keep editing</button>
-        <button class="danger-button" type="button" :disabled="saving" @click="confirmSave">{{ saving ? 'Saving policy…' : 'Replace policy snapshot' }}</button>
+        <OfxButton variant="secondary" icon="close" type="button" :disabled="saving" @click="cancelSaveConfirmation">Keep editing</OfxButton>
+        <OfxButton variant="danger" icon="save" type="button" :disabled="saving" @click="confirmSave">{{ saving ? 'Saving policy…' : 'Replace policy snapshot' }}</OfxButton>
       </div>
     </OfxSectionCard>
   </TaskPageLayout>
 </template>
 
 <style scoped>
-.boundary-card, .policy-header, .rules-card, .editor-card, .confirmation { display: grid; gap: 1rem; margin-bottom: 1rem; }.boundary-card h2, .policy-header h2, .rules-card h2, .editor-card h2, .editor-card h3, .confirmation h2, .boundary-card p, .rules-card p, .editor-card p, .confirmation p { margin: 0; }.lookup-form { display: grid; gap: .45rem; max-width: 38rem; }.lookup-form label, .header-form label { font-weight: 700; }.lookup-controls, .snapshot-heading, .rules-editor-heading, .editor-actions, .section-heading { display: flex; flex-wrap: wrap; gap: .75rem; justify-content: space-between; }.lookup-controls select { border: 1px solid #b8c2d9; border-radius: .5rem; flex: 1 1 16rem; min-width: 0; padding: .65rem .75rem; }.primary-button, .secondary-button, .danger-button { border: 1px solid #c8d0de; border-radius: .5rem; background: white; cursor: pointer; padding: .7rem 1rem; }.primary-button { border-color: var(--ofx-accent); background: var(--ofx-accent); color: white; }.danger-button { border-color: #b42318; background: #b42318; color: white; }.primary-button:disabled, .secondary-button:disabled, .danger-button:disabled { cursor: not-allowed; opacity: .55; }.boundary-note, .rules-card p, .empty-state, .rules-editor-heading p { color: var(--ofx-muted); }.captured-message { border-left: 3px solid #70b694; margin: 0; padding-left: .75rem; }.success-message { border: 1px solid #70b694; border-radius: .5rem; background: #ebf8ef; color: #146c43; margin-bottom: 1rem; padding: .8rem 1rem; }.error { color: #b42318; }.policy-header dl, .header-form { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin: 0; }.policy-header dl div { border-left: 3px solid #e7e2ff; padding-left: .75rem; }.policy-header dt { color: var(--ofx-muted); font-size: .78rem; }.policy-header dd { font-weight: 700; margin: .2rem 0 0; overflow-wrap: anywhere; }.header-form label { display: grid; gap: .35rem; font-size: .85rem; }.header-form input, .editor-table input, .editor-table select { border: 1px solid #b8c2d9; border-radius: .4rem; min-width: 8rem; padding: .55rem; width: 100%; }.table-wrap { overflow-x: auto; }table { border-collapse: collapse; min-width: 75rem; width: 100%; }th, td { border-bottom: 1px solid #e2e7f0; padding: .65rem; text-align: left; vertical-align: top; }th { background: #f7f9fc; color: var(--ofx-muted); font-size: .78rem; }td { overflow-wrap: anywhere; }.editor-table { min-width: 105rem; }.editor-table td { min-width: 10rem; }.compact-button { padding: .45rem .65rem; }.section-heading, .rules-editor-heading { align-items: start; }.replacement-warning { border-left: 3px solid #f79009; color: #7a4200; max-width: 46rem; padding-left: .75rem; }.confirmation { border: 1px solid #f0b7b2; border-radius: 1rem; background: #fff8f7; max-width: 48rem; padding: 1.5rem; }.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }.compact-hero { margin-bottom: 1rem; }
+.boundary-card, .policy-header, .rules-card, .editor-card, .confirmation { display: grid; gap: 1rem; margin-bottom: 1rem; }.boundary-card h2, .policy-header h2, .rules-card h2, .editor-card h2, .editor-card h3, .confirmation h2, .boundary-card p, .rules-card p, .editor-card p, .confirmation p { margin: 0; }.lookup-form { display: grid; gap: .45rem; max-width: 38rem; }.lookup-form label, .header-form label { font-weight: 700; }.lookup-controls, .snapshot-heading, .rules-editor-heading, .editor-actions, .section-heading { display: flex; flex-wrap: wrap; gap: .75rem; justify-content: space-between; }.lookup-controls select { border: 1px solid #b8c2d9; border-radius: .5rem; flex: 1 1 16rem; min-width: 0; padding: .65rem .75rem; }.boundary-note, .rules-card p, .empty-state, .rules-editor-heading p { color: var(--ofx-muted); }.captured-message { border-left: 3px solid #70b694; margin: 0; padding-left: .75rem; }.success-message { border: 1px solid #70b694; border-radius: .5rem; background: #ebf8ef; color: #146c43; margin-bottom: 1rem; padding: .8rem 1rem; }.error { color: #b42318; }.policy-header dl, .header-form { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin: 0; }.policy-header dl div { border-left: 3px solid #e7e2ff; padding-left: .75rem; }.policy-header dt { color: var(--ofx-muted); font-size: .78rem; }.policy-header dd { font-weight: 700; margin: .2rem 0 0; overflow-wrap: anywhere; }.header-form label { display: grid; gap: .35rem; font-size: .85rem; }.header-form input, .editor-table input, .editor-table select { border: 1px solid #b8c2d9; border-radius: .4rem; min-width: 8rem; padding: .55rem; width: 100%; }.table-wrap { overflow-x: auto; }table { border-collapse: collapse; min-width: 75rem; width: 100%; }th, td { border-bottom: 1px solid #e2e7f0; padding: .65rem; text-align: left; vertical-align: top; }th { background: #f7f9fc; color: var(--ofx-muted); font-size: .78rem; }td { overflow-wrap: anywhere; }.editor-table { min-width: 105rem; }.editor-table td { min-width: 10rem; }.section-heading, .rules-editor-heading { align-items: start; }.replacement-warning { border-left: 3px solid #f79009; color: #7a4200; max-width: 46rem; padding-left: .75rem; }.confirmation { border: 1px solid #f0b7b2; border-radius: 1rem; background: #fff8f7; max-width: 48rem; padding: 1.5rem; }.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }.compact-hero { margin-bottom: 1rem; }
+
+.editor-actions { justify-content: flex-end; align-items: center; gap: .5rem; }
 </style>

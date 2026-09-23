@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import OfxButton from './OfxButton.vue';
 import { computed } from 'vue';
 import OfxDateField from './OfxDateField.vue';
 
@@ -205,14 +206,9 @@ function formatDateLabel(date: Date | null) {
     <div class="flex flex-wrap items-center justify-between gap-3">
       <span v-if="props.helpText" :class="['text-xs', helpTextClass]">{{ props.helpText }}</span>
 
-      <button
-        v-if="hasAnyDate"
-        type="button"
-        :class="['inline-flex items-center rounded-[10px] border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition', clearButtonClass]"
-        @click="clearRange"
-      >
+      <OfxButton v-if="hasAnyDate" type="button" @click="clearRange" variant="filter" icon="close" size="compact">
         Clear range
-      </button>
+      </OfxButton>
     </div>
   </div>
 </template>

@@ -809,14 +809,14 @@ onMounted(() => {
           </div>
 
           <div class="flex flex-wrap items-center gap-3">
-            <button
+            <OfxButton variant="secondary" icon="open"
               type="button"
-              class="inline-flex h-11 items-center rounded-[10px] bg-[color:var(--ofx-primary)] px-4 text-sm font-semibold text-[color:var(--ofx-primary-foreground)] disabled:cursor-not-allowed disabled:opacity-50"
+
               :disabled="!canOpenOverview || isLoadingOverview"
               @click="openOverview"
             >
               {{ isLoadingOverview ? 'Loading overview...' : 'Open overview' }}
-            </button>
+            </OfxButton>
 
             <p class="text-sm text-white/46">
               {{ hasDemandPlanContext
@@ -862,13 +862,13 @@ onMounted(() => {
               </span>
             </div>
 
-            <button
+            <OfxButton variant="filter" icon="filter"
               type="button"
-              class="inline-flex h-10 items-center rounded-[10px] border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-white/82 transition hover:border-white/16 hover:bg-white/[0.05]"
+
               @click="reopenSelection"
             >
               Change initial selection
-            </button>
+            </OfxButton>
           </div>
         </OfxSectionCard>
 
@@ -877,7 +877,7 @@ onMounted(() => {
           description="These filters run locally on the dataset already loaded, using only values that exist in the returned base."
         >
           <template #actions>
-            <OfxButton variant="ghost" size="compact" :disabled="!hasActiveLocalFilters" @click="clearLocalFilters">
+            <OfxButton variant="filter" icon="close" size="compact" :disabled="!hasActiveLocalFilters" @click="clearLocalFilters">
               Clear filters
             </OfxButton>
           </template>

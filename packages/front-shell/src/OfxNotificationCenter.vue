@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { RouterLink } from 'vue-router';
 
 /**
  * Shared rendering surface for application notifications. The host owns their
@@ -10,6 +11,8 @@ interface OfxNotificationItem {
   tone: 'success' | 'error' | 'info';
   title: string;
   description?: string;
+  /** Optional in-app next step supplied by the host notification store. */
+  action?: { label: string; to: string };
 }
 
 const props = defineProps<{
@@ -63,6 +66,12 @@ function notificationRole(tone: OfxNotificationItem['tone']) {
           <p v-if="item.description" :class="['mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap break-words pr-1 text-[13px] leading-5', descriptionClass]">
             {{ item.description }}
           </p>
+          <RouterLink
+            v-if="item.action"
+            :to="item.action.to"
+            :class="['mt-2 inline-block text-[13px] font-semibold underline underline-offset-2 focus:outline-none focus:ring-2 focus:ring-[color:rgb(108_142_255_/_0.48)]', titleClass]"
+            @click="emit('dismiss', item.id)"
+          >{{ item.action.label }}</RouterLink>
         </div>
         <button
           type="button"

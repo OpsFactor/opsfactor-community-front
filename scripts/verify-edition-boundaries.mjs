@@ -511,6 +511,15 @@ async function verifySharedPagePrimitives() {
   const moduleWorkspacePageRelativePath = path.join('layouts', 'page', 'ModuleWorkspacePage.vue');
   const legacyScreenPageRelativePath = path.join('components', 'ofx', 'navigation', 'OfxLegacyScreenPage.vue');
 
+  const sharedNotificationPath = path.join(workspaceDirectory, 'opsfactor-community-front', 'packages', 'front-shell', 'src', 'OfxNotificationCenter.vue');
+  const sharedNotificationSource = await readFile(sharedNotificationPath, 'utf8');
+  if (!sharedNotificationSource.includes('fixed right-9 top-9')
+      || !sharedNotificationSource.includes('v-for="item in props.items"')
+      || !sharedNotificationSource.includes(':class="toneClasses(item.tone)"')
+      || sharedNotificationSource.includes('aria-modal=')) {
+    violations.push(`${path.relative(workspaceDirectory, sharedNotificationPath)} must render color-coded global notices in the upper-right corner without a modal.`);
+  }
+
   for (const application of applications) {
     const copiedApiDocumentationPage = path.join(application.applicationDirectory, 'src', apiDocumentationPageRelativePath);
     try {
@@ -603,21 +612,25 @@ async function verifySharedPagePrimitives() {
       }
     }
 
-    // Community keeps the shared notification surface; Enterprise owns the
-    // acknowledged popup required by its operational feedback contract.
+    // Both hosts keep global feedback in the Community-owned corner cards.
+    // A workflow may mount its own dialog, but it must not replace this adapter.
     const notificationAdapterPath = path.join(
       application.applicationDirectory, 'src', 'components', 'ofx', 'feedback', 'OfxNotificationCenter.vue',
     );
     const notificationAdapterSource = await readFile(notificationAdapterPath, 'utf8');
-    if (application.edition === 'community') {
-      if (!notificationAdapterSource.includes("import { OfxNotificationCenter } from '@opsfactor/front-shell';")
-          || !notificationAdapterSource.includes(':items="items"')) {
-        violations.push(`${path.relative(workspaceDirectory, notificationAdapterPath)} must consume the Community-owned notification surface.`);
-      }
-    } else if (!notificationAdapterSource.includes('import OfxMessageDialog')
-        || !notificationAdapterSource.includes(':open="Boolean(activeNotification)"')
-        || !notificationAdapterSource.includes('@close="dismissActiveNotification"')) {
-      violations.push(`${path.relative(workspaceDirectory, notificationAdapterPath)} must present Enterprise notices as acknowledged dialogs.`);
+    if (!notificationAdapterSource.includes("import { OfxNotificationCenter } from '@opsfactor/front-shell';")
+        || !notificationAdapterSource.includes(':items="items"')
+        || !notificationAdapterSource.includes(':theme-mode="themeStore.mode"')
+        || !notificationAdapterSource.includes('@dismiss="notificationsStore.dismiss"')
+        || notificationAdapterSource.includes('OfxMessageDialog')) {
+      violations.push(`${path.relative(workspaceDirectory, notificationAdapterPath)} must keep global notices on the Community-owned, non-modal notification surface.`);
+    }
+    const messageDialogPath = path.join(application.applicationDirectory, 'src', 'components', 'ofx', 'feedback', 'OfxMessageDialog.vue');
+    try {
+      await readFile(messageDialogPath, 'utf8');
+      violations.push(`${path.relative(workspaceDirectory, messageDialogPath)} must not reintroduce a modal surface for operational notices.`);
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
     }
 
     const navigationConfigPath = path.join(application.applicationDirectory, 'src', 'app', 'navigation.config.ts');

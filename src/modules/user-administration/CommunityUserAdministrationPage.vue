@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import {
   OfxConfirmDialog,
@@ -225,25 +226,33 @@ onMounted(() => {
       description="Create users, edit identity and access, and maintain active accounts in one workspace."
     >
       <template #actions>
-        <div class="flex flex-wrap items-center gap-3">
-          <button
+        <div class="flex flex-wrap items-center gap-2">
+          <OfxButton variant="create" icon="new"
             type="button"
-            class="locked-action secondary-button"
+            :disabled="isBootstrapping || !!loadError"
+            @click="createDialogOpen = true"
+          >
+            New User
+          </OfxButton>
+
+          <OfxButton variant="primary" icon="save"
+            type="button"
+            :disabled="!draft || isSaving"
+            @click="handleSaveUser"
+          >
+            {{ isSaving ? 'Saving...' : 'Save User' }}
+          </OfxButton>
+
+          <OfxButton variant="secondary" icon="open"
+            type="button"
+            class="locked-action"
             disabled
             aria-disabled="true"
           >
             Unlock All Blocked IPs
             <OfxEditionAvailabilityMark edition-label="Pro / Enterprise" theme-mode="light" :size="12" />
-          </button>
+          </OfxButton>
 
-          <button
-            type="button"
-            class="primary-button"
-            :disabled="!draft || isSaving"
-            @click="handleSaveUser"
-          >
-            {{ isSaving ? 'Saving...' : 'Save User' }}
-          </button>
         </div>
       </template>
     </OfxPageHeader>
@@ -254,34 +263,24 @@ onMounted(() => {
 
     <template v-else-if="loadError">
       <OfxEmptyState title="Users could not be loaded" :description="loadError">
-        <button
+        <OfxButton variant="secondary" icon="refresh"
           type="button"
-          class="secondary-button mt-3"
+          class="mt-3"
           @click="bootstrapPage"
         >
           Retry
-        </button>
+        </OfxButton>
       </OfxEmptyState>
     </template>
 
     <template v-else>
       <OfxSectionCard title="User Selection">
-        <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-          <OfxSelectField
-            v-model="selectedUserId"
-            label="User"
-            :options="userOptions"
-            :help-text="isLoadingUsers ? 'Refreshing users from the backend...' : 'Users are loaded from the secured administration endpoint.'"
-          />
-
-          <button
-            type="button"
-            class="secondary-button lg:mt-[29px]"
-            @click="createDialogOpen = true"
-          >
-            New User
-          </button>
-        </div>
+        <OfxSelectField
+          v-model="selectedUserId"
+          label="User"
+          :options="userOptions"
+          :help-text="isLoadingUsers ? 'Refreshing users from the backend...' : 'Users are loaded from the secured administration endpoint.'"
+        />
       </OfxSectionCard>
 
       <template v-if="!selectedUserId">
@@ -296,13 +295,13 @@ onMounted(() => {
           title="Selected user could not be prepared"
           description="The selected account is no longer available in the current backend response. Refresh the page state and try again."
         >
-          <button
+          <OfxButton variant="secondary" icon="refresh"
             type="button"
-            class="secondary-button mt-3"
+            class="mt-3"
             @click="loadUsers(selectedUserId)"
           >
             Refresh user list
-          </button>
+          </OfxButton>
         </OfxEmptyState>
       </template>
 
@@ -363,6 +362,7 @@ onMounted(() => {
 
     <OfxConfirmDialog
       :open="createDialogOpen"
+      confirm-tone="create"
       title="Create new User"
       description="Create the user first, then continue access configuration in the same workspace."
       confirm-label="Create user"
@@ -397,39 +397,6 @@ onMounted(() => {
 .locked-action {
   cursor: not-allowed;
   opacity: 0.72;
-}
-
-.primary-button,
-.secondary-button {
-  display: inline-flex;
-  min-height: 2.5rem;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--ofx-border);
-  border-radius: 12px;
-  background: var(--ofx-surface);
-  padding: .45rem .9rem;
-  color: var(--ofx-text);
-  font-size: .875rem;
-  font-weight: 600;
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
-}
-
-.primary-button {
-  border-color: var(--ofx-primary);
-  background: var(--ofx-primary);
-  color: var(--ofx-primary-foreground);
-}
-
-.secondary-button:hover:not(:disabled) {
-  border-color: var(--ofx-primary);
-  color: var(--ofx-primary);
-}
-
-.primary-button:disabled,
-.secondary-button:disabled {
-  cursor: not-allowed;
-  opacity: .5;
 }
 
 .readonly-user-card,

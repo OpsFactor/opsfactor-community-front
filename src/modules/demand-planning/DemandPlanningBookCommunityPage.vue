@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref } from 'vue';
 import {
   LegacyPlanningBookGrid,
@@ -233,13 +234,13 @@ onMounted(loadOptions);
       title="Planning Book metadata unavailable"
       :description="errorMessage"
     >
-      <button class="secondary-button" @click="loadOptions">Try again</button>
+      <OfxButton variant="secondary" icon="refresh" @click="loadOptions">Try again</OfxButton>
     </OfxEmptyState>
 
     <template v-else>
       <OfxPageHeader v-if="!planningBook" eyebrow="Demand Planning" title="Planning Book">
         <template #actions>
-          <button class="secondary-button" :disabled="isLoadingOptions" @click="loadOptions">Refresh options</button>
+          <OfxButton variant="secondary" icon="refresh" :disabled="isLoadingOptions" @click="loadOptions">Refresh options</OfxButton>
         </template>
       </OfxPageHeader>
 
@@ -283,9 +284,9 @@ onMounted(loadOptions);
           </div>
 
           <template #actions>
-            <button class="primary-button" :disabled="!canOpenPlanningBook || isLoadingBook" @click="openPlanningBook">
+            <OfxButton variant="secondary" icon="open" :disabled="!canOpenPlanningBook || isLoadingBook" @click="openPlanningBook">
               {{ isLoadingBook ? 'Opening...' : 'Open Planning Book' }}
-            </button>
+            </OfxButton>
           </template>
         </OfxSectionCard>
       </div>
@@ -303,7 +304,7 @@ onMounted(loadOptions);
           <div class="planning-book-workspace-eyebrow">Demand Planning Workspace</div>
           <div class="planning-book-workspace-meta">{{ planningBook.viewName }} <span>•</span> {{ selectedPlanId }}</div>
         </div>
-        <button class="secondary-button" type="button" :disabled="isSaving || isExporting" @click="leavePlanningBook">Reopen selection</button>
+        <OfxButton variant="filter" icon="filter" type="button" :disabled="isSaving || isExporting" @click="leavePlanningBook">Reopen selection</OfxButton>
       </section>
 
       <div v-if="planningBook" class="planning-book-workspace-body">
@@ -319,22 +320,21 @@ onMounted(loadOptions);
           @unavailable-edit="handleUnavailableEdit"
         >
           <template #header-actions>
-            <button type="button" class="grid-action" @click="logDialogOpen = true">Log</button>
-            <button type="button" class="grid-action" :disabled="!canExportPlanningBook" @click="exportOpenedPlanningBook">
+            <OfxButton variant="secondary" icon="open" size="compact" type="button" @click="logDialogOpen = true">Log</OfxButton>
+            <OfxButton variant="secondary" icon="download" size="compact" type="button" :disabled="!canExportPlanningBook" @click="exportOpenedPlanningBook">
               {{ isExporting ? 'Exporting...' : 'Export XLSX' }}
-            </button>
-            <button type="button" class="grid-action" :disabled="isLoadingBook || isSaving || isExporting" @click="requestReload">
+            </OfxButton>
+            <OfxButton variant="secondary" icon="refresh" size="compact" type="button" :disabled="isLoadingBook || isSaving || isExporting" @click="requestReload">
               {{ pendingCells.size ? 'Discard local changes' : 'Reload workbook' }}
-            </button>
-            <button
+            </OfxButton>
+            <OfxButton variant="primary" icon="save" size="compact"
               v-if="!planningBook.autoSubmitChanges"
               type="button"
-              class="grid-action grid-action--primary"
               :disabled="!pendingCells.size || isSaving || isExporting"
               @click="savePendingChanges()"
             >
               {{ isSaving ? 'Saving...' : `Save in batch${pendingCells.size ? ` (${pendingCells.size})` : ''}` }}
-            </button>
+            </OfxButton>
           </template>
         </LegacyPlanningBookGrid>
       </div>
@@ -454,60 +454,10 @@ onMounted(loadOptions);
   line-height: 1.35;
 }
 
-.primary-button,
-.secondary-button {
-  display: inline-flex;
-  height: 2.5rem;
-  align-items: center;
-  border: 1px solid var(--ofx-border);
-  border-radius: 12px;
-  background: var(--ofx-surface);
-  padding: 0 1rem;
-  color: var(--ofx-text);
-  font-size: .875rem;
-  font-weight: 600;
-}
-
-.primary-button {
-  border-color: var(--ofx-primary);
-  background: var(--ofx-primary);
-  color: var(--ofx-primary-foreground);
-}
-
-.primary-button:disabled,
-.secondary-button:disabled {
-  cursor: not-allowed;
-  opacity: .5;
-}
-
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: .75rem;
-}
-
-.grid-action {
-  display: inline-flex;
-  height: 2.25rem;
-  align-items: center;
-  border: 1px solid var(--ofx-border);
-  border-radius: 999px;
-  background: var(--ofx-surface);
-  padding: 0 .75rem;
-  color: var(--ofx-text);
-  font-size: .75rem;
-  font-weight: 600;
-}
-
-.grid-action--primary {
-  border-color: var(--ofx-primary);
-  background: var(--ofx-primary);
-  color: var(--ofx-primary-foreground);
-}
-
-.grid-action:disabled {
-  cursor: not-allowed;
-  opacity: .5;
 }
 
 .log-entry {

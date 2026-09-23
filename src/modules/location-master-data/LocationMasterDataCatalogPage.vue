@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, ref } from 'vue';
 import { OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
 import { httpClient } from '../../services/community-authentication.service';
@@ -58,9 +59,9 @@ async function loadLocations(): Promise<void> {
           <p v-if="locations !== null" class="muted">{{ locationCountLabel }} returned by the authoritative snapshot.</p>
           <p v-else class="muted">The catalog remains unloaded until requested.</p>
         </div>
-        <button class="primary-button" type="button" :disabled="isLoading" @click="void loadLocations()">
+        <OfxButton variant="secondary" icon="refresh" type="button" :disabled="isLoading" @click="void loadLocations()">
           {{ isLoading ? 'Loading…' : locations === null ? 'Load locations' : 'Reload locations' }}
-        </button>
+        </OfxButton>
       </div>
 
       <div v-if="locations !== null" class="table-scroll">
@@ -92,11 +93,9 @@ async function loadLocations(): Promise<void> {
 .boundary-card, .catalog-card { display: grid; gap: 1rem; }
 .section-heading { align-items: start; display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; }
 .muted, .empty-state, .boundary-card p { color: var(--ofx-text-muted); }
-.primary-button { border: 1px solid var(--ofx-accent); border-radius: .5rem; background: var(--ofx-accent); color: white; cursor: pointer; padding: .65rem .8rem; }
-.primary-button:disabled { cursor: not-allowed; opacity: .55; }
 .table-scroll { overflow: auto; }
 .table-scroll table { border-collapse: collapse; min-width: 105rem; width: 100%; }
 .table-scroll th, .table-scroll td { border-bottom: 1px solid var(--ofx-border); padding: .7rem; text-align: left; vertical-align: top; white-space: nowrap; }
 .table-scroll th { color: var(--ofx-text-muted); font-size: .72rem; text-transform: uppercase; }
-@media (max-width: 56rem) { .section-heading { align-items: stretch; flex-direction: column; }.primary-button { width: 100%; } }
+@media (max-width: 56rem) { .section-heading { align-items: stretch; flex-direction: column; }.ofx-button { width: 100%; } }
 </style>

@@ -1706,10 +1706,17 @@ onBeforeUnmount(async () => {
   <div class="ofx-perspective-native">
     <div v-if="props.showActions" class="ofx-perspective-actions">
       <button v-if="props.showCopyAction" type="button" class="ofx-perspective-action-button" @click="copyView">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V4H4v12h4" /></svg>
         {{ copyFeedback === 'done' ? 'Copied' : 'Copy' }}
       </button>
-      <button v-if="props.showExportActions" type="button" class="ofx-perspective-action-button" @click="downloadView('xlsx')">Export XLSX</button>
-      <button v-if="props.showExportActions" type="button" class="ofx-perspective-action-button" @click="downloadView('csv')">Export CSV</button>
+      <button v-if="props.showExportActions" type="button" class="ofx-perspective-action-button" @click="downloadView('xlsx')">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5" /></svg>
+        Export XLSX
+      </button>
+      <button v-if="props.showExportActions" type="button" class="ofx-perspective-action-button" @click="downloadView('csv')">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5" /></svg>
+        Export CSV
+      </button>
     </div>
 
     <div

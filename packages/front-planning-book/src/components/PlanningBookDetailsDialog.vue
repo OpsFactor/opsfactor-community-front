@@ -8,7 +8,7 @@ import {
   type GridReadyEvent,
   type ValueParserParams,
 } from 'ag-grid-community';
-import { OfxLoadingState, OfxModalDialog } from '@opsfactor/front-shell';
+import { OfxButton, OfxLoadingState, OfxModalDialog } from '@opsfactor/front-shell';
 
 /** Neutral column metadata supplied by either edition's Planning Book DTO. */
 type PlanningBookCellDetailColumnDef = {
@@ -120,11 +120,6 @@ const emptyClass = computed(() => (
     ? 'border-[color:var(--ofx-border)] text-[color:var(--ofx-text-muted)]'
     : 'border-white/10 text-white/56'
 ));
-const closeButtonClass = computed(() => (
-  isLightTheme.value
-    ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface-elevated)] text-[color:var(--ofx-text-muted)] hover:border-[color:var(--ofx-border-strong)] hover:text-[color:var(--ofx-text)]'
-    : 'border-white/10 bg-white/[0.04] text-white/84 hover:bg-white/[0.08]'
-));
 
 function handleGridReady(event: GridReadyEvent<Record<string, unknown>>) {
 
@@ -174,23 +169,21 @@ function submitDetails() {
     </div>
 
     <template #footer>
-      <div class="flex justify-end gap-3">
-        <button
-          type="button"
-          :class="['inline-flex h-11 items-center rounded-[10px] border px-4 text-sm font-medium transition', closeButtonClass]"
+      <div class="flex flex-wrap justify-end gap-3">
+        <OfxButton variant="secondary" icon="close"
           @click="emit('close')"
         >
           Close
-        </button>
-        <button
+        </OfxButton>
+        <OfxButton
           v-if="hasEditableDetailColumns"
-          type="button"
-          class="inline-flex h-11 items-center rounded-[10px] bg-[color:var(--ofx-primary)] px-4 text-sm font-semibold text-[color:var(--ofx-primary-foreground)] disabled:cursor-not-allowed disabled:opacity-50"
+          variant="primary"
+          icon="save"
           :disabled="props.isLoading || props.isSubmitting || !editableDetails"
           @click="submitDetails"
         >
           {{ props.isSubmitting ? 'Submitting...' : 'Submit changes' }}
-        </button>
+        </OfxButton>
       </div>
     </template>
   </OfxModalDialog>

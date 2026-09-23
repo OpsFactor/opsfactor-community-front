@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import OfxButton from './OfxButton.vue';
 import OfxActionLabel from './OfxActionLabel.vue';
 
 const props = withDefaults(
@@ -8,7 +9,7 @@ const props = withDefaults(
     description?: string;
     confirmLabel?: string;
     cancelLabel?: string;
-    confirmTone?: 'primary' | 'danger';
+    confirmTone?: 'primary' | 'create' | 'copy' | 'danger';
     processing?: boolean;
   }>(),
   {
@@ -24,6 +25,13 @@ const emit = defineEmits<{
   cancel: [];
   confirm: [];
 }>();
+
+const confirmIcons = {
+  primary: 'check',
+  create: 'new',
+  copy: 'copy',
+  danger: 'delete',
+} as const;
 </script>
 
 <template>
@@ -35,22 +43,9 @@ const emit = defineEmits<{
         <div v-if="$slots.default" class="mt-4">
           <slot />
         </div>
-        <div class="mt-6 flex justify-end gap-3">
-          <button class="rounded-md border border-[color:var(--ofx-border)] px-4 py-2 text-sm text-[color:var(--ofx-text)] disabled:cursor-not-allowed disabled:opacity-55" :disabled="props.processing" @click="emit('cancel')">
-            {{ props.cancelLabel }}
-          </button>
-          <button
-            class="rounded-md px-4 py-2 text-sm font-medium transition disabled:cursor-wait disabled:opacity-55"
-            :class="
-              props.confirmTone === 'danger'
-                ? 'border border-[color:rgb(208_69_95_/_0.34)] bg-[color:rgb(208_69_95_/_0.12)] text-[color:var(--ofx-text-danger)] hover:bg-[color:rgb(208_69_95_/_0.18)]'
-                : 'bg-[color:var(--ofx-primary)] text-[color:var(--ofx-primary-foreground)] hover:opacity-95'
-            "
-            :disabled="props.processing"
-            @click="emit('confirm')"
-          >
-            <OfxActionLabel :label="props.confirmLabel" :processing="props.processing" />
-          </button>
+        <div class="mt-6 flex flex-wrap justify-end gap-2">
+          <OfxButton :disabled="props.processing" @click="emit('cancel')" variant="secondary" icon="close" size="compact">{{ props.cancelLabel }}</OfxButton>
+          <OfxButton :disabled="props.processing" @click="emit('confirm')" :variant="props.confirmTone" :icon="confirmIcons[props.confirmTone]" size="compact"><OfxActionLabel :label="props.confirmLabel" :processing="props.processing" /></OfxButton>
         </div>
       </div>
     </div>

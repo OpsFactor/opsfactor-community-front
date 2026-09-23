@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref } from "vue";
 import {
   OfxPageHeader,
@@ -374,22 +375,19 @@ onMounted(async () => {
           <h2 id="production-master-data-title">{{ activeTab.label }}</h2>
         </div>
         <div class="actions">
-          <button
+          <OfxButton variant="create" icon="new"
             v-if="isProductionResourcesTab"
-            class="secondary-button"
             type="button"
             :disabled="isBusy || !productionResourceRowsLoaded"
             @click="startProductionResourceCreation"
           >
-            New production resource</button
-          ><button
-            class="primary-button"
-            type="button"
-            :disabled="isBusy"
-            @click="void loadActiveTab()"
-          >
+            New production resource</OfxButton><OfxButton variant="secondary" icon="refresh"
+                                                 type="button"
+                                                 :disabled="isBusy"
+                                                 @click="void loadActiveTab()"
+                                               >
             {{ activeTabIsLoading ? "Loading…" : activeTab.loadLabel }}
-          </button>
+          </OfxButton>
         </div>
       </div>
       <div
@@ -439,18 +437,17 @@ onMounted(async () => {
                   {{ formatValue(row[column.key]) }}
                 </td>
                 <td v-if="isProductionResourcesTab">
-                  <button
-                    class="secondary-button"
+                  <OfxButton variant="secondary" icon="edit" size="table"
                     type="button"
                     :disabled="isBusy"
                     @click="
                       startProductionResourceEditing(
-                        row as unknown as CommunityProductionResource
+                      row as unknown as CommunityProductionResource
                       )
                     "
                   >
                     Edit
-                  </button>
+                  </OfxButton>
                 </td>
               </tr>
             </tbody>
@@ -477,14 +474,13 @@ onMounted(async () => {
               }}
             </h3>
           </div>
-          <button
-            class="secondary-button"
+          <OfxButton variant="secondary" icon="close"
             type="button"
             :disabled="savingProductionResource"
             @click="productionResourceDraft = null"
           >
             Cancel
-          </button>
+          </OfxButton>
         </div>
         <div class="field-grid">
           <label
@@ -528,14 +524,13 @@ onMounted(async () => {
             Production Resources snapshot. There is no delete or
             dependent-record reconciliation in this page.
           </p>
-          <button
-            class="primary-button"
+          <OfxButton variant="primary" icon="save"
             type="button"
             :disabled="savingProductionResource || loadingLocations"
             @click="requestProductionResourceSave"
           >
             Review production resource save
-          </button>
+          </OfxButton>
         </div>
       </section>
     </OfxSectionCard>
@@ -555,23 +550,20 @@ onMounted(async () => {
         only record in this mutation.
       </p>
       <div class="actions">
-        <button
-          class="secondary-button"
+        <OfxButton variant="secondary" icon="close"
           type="button"
           :disabled="savingProductionResource"
           @click="pendingProductionResourceSave = null"
         >
-          Keep editing</button
-        ><button
-          class="primary-button"
-          type="button"
-          :disabled="savingProductionResource"
-          @click="void confirmProductionResourceSave()"
-        >
+          Keep editing</OfxButton><OfxButton variant="primary" icon="save"
+                                    type="button"
+                                    :disabled="savingProductionResource"
+                                    @click="void confirmProductionResourceSave()"
+                                  >
           {{
             savingProductionResource ? "Saving…" : "Save production resource"
           }}
-        </button>
+        </OfxButton>
       </div></OfxSectionCard
     >
   </TaskPageLayout>
@@ -618,9 +610,7 @@ onMounted(async () => {
   flex-wrap: wrap;
   gap: 0.5rem;
 }
-.tab-button,
-.primary-button,
-.secondary-button {
+.tab-button {
   border: 1px solid #c8d0de;
   border-radius: 0.5rem;
   background: #fff;
@@ -632,14 +622,7 @@ onMounted(async () => {
   color: var(--ofx-accent);
   font-weight: 700;
 }
-.primary-button {
-  border-color: var(--ofx-accent);
-  background: var(--ofx-accent);
-  color: white;
-}
-.tab-button:disabled,
-.primary-button:disabled,
-.secondary-button:disabled {
+.tab-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -727,8 +710,7 @@ onMounted(async () => {
   .actions button {
     width: 100%;
   }
-  .primary-button,
-  .secondary-button {
+  .ofx-button {
     width: 100%;
   }
 }

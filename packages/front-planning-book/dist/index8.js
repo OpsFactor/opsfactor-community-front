@@ -1,9 +1,9 @@
-import { defineComponent as Ve, computed as i, ref as m, reactive as ze, watch as P, nextTick as Y, onMounted as Ie, onBeforeUnmount as We, openBlock as w, createElementBlock as k, withModifiers as He, normalizeStyle as J, normalizeClass as f, createElementVNode as d, renderSlot as Q, toDisplayString as _, createCommentVNode as T, withDirectives as $e, Fragment as je, renderList as Ge, vModelSelect as qe, createVNode as Ue, unref as Xe } from "vue";
+import { defineComponent as Te, computed as i, ref as m, reactive as ze, watch as M, nextTick as Y, onMounted as Ie, onBeforeUnmount as We, openBlock as w, createElementBlock as k, withModifiers as He, normalizeStyle as J, normalizeClass as f, createElementVNode as d, renderSlot as Q, toDisplayString as _, createCommentVNode as A, withDirectives as $e, Fragment as je, renderList as Ge, vModelSelect as qe, createVNode as Ue, unref as Xe } from "vue";
 import { AgGridVue as Ye } from "ag-grid-vue3";
 import { ModuleRegistry as Je, AllCommunityModule as Qe } from "ag-grid-community";
 import Ze from "./index4.js";
 import { normalizePlanningBook as et, getPlanningBookPeriodField as tt, selectPlanningBookSubtotalContributors as nt, aggregatePlanningBookSubtotalField as at } from "./index9.js";
-const lt = { class: "flex flex-wrap items-center justify-between gap-3" }, ot = { key: 1 }, it = { class: "flex flex-wrap items-center justify-end gap-2" }, rt = ["value"], st = { class: "ofx-ag-grid ag-theme-quartz ofx-planning-book-grid min-h-0 flex-1" }, ut = 30, dt = 32, bt = /* @__PURE__ */ Ve({
+const lt = { class: "flex flex-wrap items-center justify-between gap-3" }, ot = { key: 1 }, it = { class: "flex flex-wrap items-center justify-end gap-2" }, rt = ["value"], st = { class: "ofx-ag-grid ag-theme-quartz ofx-planning-book-grid min-h-0 flex-1" }, ut = 30, dt = 32, bt = /* @__PURE__ */ Te({
   __name: "LegacyPlanningBookGrid",
   props: {
     planningBook: {},
@@ -21,20 +21,20 @@ const lt = { class: "flex flex-wrap items-center justify-between gap-3" }, ot = 
   emits: ["edit", "unavailable-edit", "request-details"],
   setup(Z, { emit: ee }) {
     Je.registerModules([Qe]);
-    const l = Z, B = ee, r = i(() => l.themeMode === "light"), g = m(null), E = m(null), A = m(null), p = ze({}), h = m(""), F = m([]), b = m(null), L = m(!1), M = m(!1), te = ["Constrained Plan", "Unconstrained Plan", "Working Plan"], ne = /* @__PURE__ */ new Set([
+    const l = Z, B = ee, r = i(() => l.themeMode === "light"), g = m(null), E = m(null), L = m(null), p = ze({}), h = m(""), F = m([]), b = m(null), O = m(!1), D = m(!1), te = ["Constrained Plan", "Unconstrained Plan", "Working Plan"], ne = /* @__PURE__ */ new Set([
       "Planned Inbound",
       "Inbound Orders",
       "Planned Production",
       "Production Orders"
     ]), ae = /* @__PURE__ */ new Set([
       "Indirect Demand"
-    ]), c = i(() => et(l.planningBook)), D = i(() => {
+    ]), c = i(() => et(l.planningBook)), P = i(() => {
       var e;
       return new Set(
         (((e = l.planningBook.additionalParameters) == null ? void 0 : e.directDemandAdjustmentKeyFigures) ?? "").split(/[|,]/).map((t) => t.trim()).filter(Boolean)
       );
     });
-    function O(e) {
+    function V(e) {
       const t = `-${e.keyFigure}`, n = e.rowKey.lastIndexOf(t);
       return n >= 0 ? e.rowKey.slice(0, n) : e.rowKey;
     }
@@ -50,23 +50,23 @@ const lt = { class: "flex flex-wrap items-center justify-between gap-3" }, ot = 
       var e;
       c.value.rows.forEach((t) => {
         t.lockedCells = void 0;
-      }), !(l.planningBook.autoSubmitChanges || !D.value.size) && (l.pendingEdits.forEach((t) => {
-        if (!D.value.has(t.keyFigure)) return;
+      }), !(l.planningBook.autoSubmitChanges || !P.value.size) && (l.pendingEdits.forEach((t) => {
+        if (!P.value.has(t.keyFigure)) return;
         const n = tt(l.planningBook, t.period);
         c.value.rows.filter((o) => le(o, t)).forEach((o) => {
-          const u = O(o);
+          const u = V(o);
           c.value.rows.forEach((s) => {
-            s.rowKey === o.rowKey || O(s) !== u || !D.value.has(s.keyFigure) || (s.lockedCells ?? (s.lockedCells = {}), s.lockedCells[n] = "This cell is locked because an unsaved Gross/Net or Direct Demand quantity adjustment exists for this level and period.");
+            s.rowKey === o.rowKey || V(s) !== u || !P.value.has(s.keyFigure) || (s.lockedCells ?? (s.lockedCells = {}), s.lockedCells[n] = "This cell is locked because an unsaved Gross/Net or Direct Demand quantity adjustment exists for this level and period.");
           });
         });
       }), (e = g.value) == null || e.refreshCells({ force: !0 }));
     }
-    P(
-      [c, () => l.pendingEdits, D],
+    M(
+      [c, () => l.pendingEdits, P],
       () => oe(),
       { immediate: !0 }
     );
-    const V = i(() => {
+    const T = i(() => {
       const e = new Map(l.planningBook.columnDefs.map((a) => [a.field, a])), t = l.orderedFields.map((a) => e.get(a)).filter((a) => !!a), n = new Set(t.map((a) => a.field));
       return [
         ...t,
@@ -76,16 +76,16 @@ const lt = { class: "flex flex-wrap items-center justify-between gap-3" }, ot = 
       ...l.planningBook.columnDefs.filter((e) => e.pinnedLeft).map((e) => e.field),
       ...l.pinnedFields
     ]));
-    P(
+    M(
       c,
       (e) => {
         const t = new Set(e.rows.map((n) => n.rowKey));
         if (Object.keys(p).forEach((n) => {
           t.has(n) || delete p[n];
-        }), !L.value) {
+        }), !O.value) {
           e.rows.forEach((n) => {
             n.hasChildren && n.isPrimaryKeyFigureRow && (p[n.rowKey] = !1);
-          }), L.value = !0;
+          }), O.value = !0;
           return;
         }
         e.rows.forEach((n) => {
@@ -93,7 +93,7 @@ const lt = { class: "flex flex-wrap items-center justify-between gap-3" }, ot = 
         });
       },
       { immediate: !0 }
-    ), P(
+    ), M(
       () => l.planningBook.keyFigures,
       (e) => {
         if (!e.length) {
@@ -106,8 +106,8 @@ const lt = { class: "flex flex-wrap items-center justify-between gap-3" }, ot = 
     );
     const ie = i(
       () => c.value.rows.filter((e) => e.ancestorKeys.every((t) => p[t] !== !1))
-    ), R = i(() => M.value ? c.value.rows : ie.value);
-    P(
+    ), R = i(() => D.value ? c.value.rows : ie.value);
+    M(
       R,
       async (e) => {
         if (!g.value) {
@@ -193,7 +193,7 @@ const lt = { class: "flex flex-wrap items-center justify-between gap-3" }, ot = 
         c.value.rows,
         F.value,
         h.value,
-        !M.value
+        !D.value
       );
       return c.value.periodFields.forEach((n) => {
         const a = at(
@@ -223,7 +223,7 @@ const lt = { class: "flex flex-wrap items-center justify-between gap-3" }, ot = 
     }
     function $() {
       if (!g.value) return;
-      const e = V.value.filter((t) => !t.dataColumn).map((t) => t.field);
+      const e = T.value.filter((t) => !t.dataColumn).map((t) => t.field);
       if (e.length)
         try {
           g.value.autoSizeColumns(["__hierarchy__", ...e], !0);
@@ -251,7 +251,7 @@ const lt = { class: "flex flex-wrap items-center justify-between gap-3" }, ot = 
         headerClass: ["ofx-ag-grid-header-cell", "ofx-planning-book-hierarchy-header"],
         cellClass: ce
       },
-      ...V.value.map((e) => ({
+      ...T.value.map((e) => ({
         colId: e.field,
         field: e.field,
         headerName: e.name,
@@ -290,23 +290,22 @@ const lt = { class: "flex flex-wrap items-center justify-between gap-3" }, ot = 
       alwaysShowHorizontalScroll: !0,
       columnMenu: "new",
       defaultColDef: {
-        suppressMovable: !1,
-        menuTabs: ["generalMenuTab", "filterMenuTab", "columnsMenuTab"]
+        suppressMovable: !1
       },
       context: {
         toggleRow: Se,
         isRowExpanded: (e) => e ? p[e] !== !1 : !0
       }
     }));
-    function Me(e) {
-      g.value = e.api, M.value = e.api.isAnyFilterPresent(), C();
-    }
     function De(e) {
-      $(), C();
+      g.value = e.api, D.value = e.api.isAnyFilterPresent(), C();
     }
     function Pe(e) {
+      $(), C();
+    }
+    function Me(e) {
       var t;
-      M.value = ((t = g.value) == null ? void 0 : t.isAnyFilterPresent()) ?? !1, C();
+      D.value = ((t = g.value) == null ? void 0 : t.isAnyFilterPresent()) ?? !1, C();
     }
     function Be(e) {
       C();
@@ -328,7 +327,7 @@ const lt = { class: "flex flex-wrap items-center justify-between gap-3" }, ot = 
     function Ke(e, t) {
       return !l.detailsEnabled || e.rowKey === "__subtotal__" || !c.value.periodFields.includes(t) ? !1 : l.mode === "supply" ? Ne(e) : G(e);
     }
-    function Te(e) {
+    function Ae(e) {
       var S;
       const t = String(e.colDef.field ?? ""), n = e.data, a = e.event instanceof MouseEvent ? e.event : null;
       if (a == null || a.preventDefault(), a == null || a.stopPropagation(), !n || !Ke(n, t)) {
@@ -345,18 +344,18 @@ const lt = { class: "flex flex-wrap items-center justify-between gap-3" }, ot = 
         field: t
       };
     }
-    function Ae(e) {
+    function Le(e) {
       var o;
       const t = e.data, n = String(e.colDef.field ?? ""), a = (o = t == null ? void 0 : t.unavailableReasons) == null ? void 0 : o[n];
       a && B("unavailable-edit", { reason: a });
     }
-    function Le() {
+    function Oe() {
       b.value && (B("request-details", {
         row: b.value.row,
         field: b.value.field
       }), v());
     }
-    function Oe(e) {
+    function Ve(e) {
       var o, u, s;
       const t = String(e.colDef.field ?? ""), n = typeof e.oldValue == "number" ? e.oldValue : H(e.oldValue), a = H(e.newValue);
       if (t.length === 0 || Number.isNaN(a) || n === a) {
@@ -384,7 +383,7 @@ const lt = { class: "flex flex-wrap items-center justify-between gap-3" }, ot = 
         v();
         return;
       }
-      (n = A.value) != null && n.contains(t) || v();
+      (n = L.value) != null && n.contains(t) || v();
     }
     function U(e) {
       e.preventDefault();
@@ -423,8 +422,8 @@ const lt = { class: "flex flex-wrap items-center justify-between gap-3" }, ot = 
             l.pendingEditCount ? (w(), k("span", {
               key: 0,
               class: f(["h-1 w-1 rounded-full", K.value])
-            }, null, 2)) : T("", !0),
-            l.pendingEditCount ? (w(), k("span", ot, _(l.pendingEditCount) + " pending edits", 1)) : T("", !0)
+            }, null, 2)) : A("", !0),
+            l.pendingEditCount ? (w(), k("span", ot, _(l.pendingEditCount) + " pending edits", 1)) : A("", !0)
           ], 2),
           d("div", it, [
             Q(e.$slots, "header-actions"),
@@ -463,30 +462,30 @@ const lt = { class: "flex flex-wrap items-center justify-between gap-3" }, ot = 
             return String(((a = n.data) == null ? void 0 : a.rowKey) ?? "");
           },
           theme: "legacy",
-          onGridReady: Me,
-          onFirstDataRendered: De,
-          onFilterChanged: Pe,
+          onGridReady: De,
+          onFirstDataRendered: Pe,
+          onFilterChanged: Me,
           onSortChanged: Be,
-          onCellClicked: Ae,
-          onCellContextMenu: Te,
-          onCellValueChanged: Oe
+          onCellClicked: Le,
+          onCellContextMenu: Ae,
+          onCellValueChanged: Ve
         }, null, 8, ["row-data", "column-defs", "grid-options", "components", "pinned-bottom-row-data", "get-row-id"])
       ]),
       b.value ? (w(), k("div", {
         key: 0,
         ref_key: "contextMenuElement",
-        ref: A,
+        ref: L,
         class: f(["absolute z-20 min-w-[10.75rem] overflow-hidden rounded-[12px] border shadow-[var(--ofx-shadow-lg)] backdrop-blur-xl", ke.value]),
         style: J({ left: `${b.value.x}px`, top: `${b.value.y}px` })
       }, [
         d("button", {
           type: "button",
           class: f(["flex w-full items-center px-3 py-2.5 text-left text-sm font-medium transition", Fe.value]),
-          onClick: Le
+          onClick: Oe
         }, [...t[2] || (t[2] = [
           d("span", null, "Show details", -1)
         ])], 2)
-      ], 6)) : T("", !0)
+      ], 6)) : A("", !0)
     ], 38));
   }
 });

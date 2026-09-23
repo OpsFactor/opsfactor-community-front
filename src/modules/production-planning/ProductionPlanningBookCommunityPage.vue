@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref } from 'vue';
 import { PlanningBookVirtualGrid, type PlanningBookVirtualGridColumn } from '@opsfactor/front-planning-book';
 import { OfxPageHeader, OfxSectionCard } from '@opsfactor/front-shell';
@@ -180,7 +181,7 @@ onMounted(loadSelectors);
 <template>
   <DashboardPageLayout class="production-planning-book-page">
     <OfxPageHeader v-if="!planningBook" eyebrow="Production" title="Planning Book" description="Aggregate resource capacity in hours and Working Plan planned production.">
-      <template #actions><button class="secondary-button" :disabled="isLoadingSelectors || isSaving" @click="loadSelectors">Refresh selectors</button></template>
+      <template #actions><OfxButton variant="secondary" icon="refresh" :disabled="isLoadingSelectors || isSaving" @click="loadSelectors">Refresh selectors</OfxButton></template>
     </OfxPageHeader>
 
     <p v-if="errorMessage" class="message message-error" role="alert">{{ errorMessage }}</p>
@@ -189,7 +190,7 @@ onMounted(loadSelectors);
       <div class="selection-grid">
       <OfxSelectField v-model.number="selectedSupplyPlanId" label="Supply Plan" :options="supplyPlanOptions" :disabled="isLoadingSelectors || isSaving" />
       <OfxSelectField v-model="selectedLocationId" label="Production location" :options="locationOptions" :disabled="isLoadingSelectors || isSaving" />
-      <div class="selection-open"><button class="primary-button" :disabled="!canOpenPlanningBook || isLoadingBook || isSaving" @click="openPlanningBook">{{ isLoadingBook ? 'Loading…' : 'Open Planning Book' }}</button></div>
+      <div class="selection-open"><OfxButton variant="secondary" icon="open" :disabled="!canOpenPlanningBook || isLoadingBook || isSaving" @click="openPlanningBook">{{ isLoadingBook ? 'Loading…' : 'Open Planning Book' }}</OfxButton></div>
       </div>
     </OfxSectionCard>
 
@@ -197,7 +198,7 @@ onMounted(loadSelectors);
 
     <section v-if="planningBook" class="planning-book-workspace-header">
       <div><div class="planning-book-workspace-eyebrow">Production Planning Workspace</div><div class="planning-book-workspace-meta">Supply Plan #{{ planningBook.supplyPlanId }} <span>•</span> {{ planningBook.locationId }}</div></div>
-      <button class="secondary-button" type="button" :disabled="isSaving" @click="leavePlanningBook">Reopen selection</button>
+      <OfxButton variant="filter" icon="filter" type="button" :disabled="isSaving" @click="leavePlanningBook">Reopen selection</OfxButton>
     </section>
 
     <OfxSectionCard v-if="planningBook" class="mt-5" :title="`${planningBook.locationId} · Supply Plan #${planningBook.supplyPlanId}`" description="Capacity is always hours. Only planned production can be edited.">
@@ -223,11 +224,11 @@ onMounted(loadSelectors);
           <span v-else>{{ value }}</span>
         </template>
       </PlanningBookVirtualGrid>
-      <template #actions><button class="secondary-button" :disabled="isLoadingBook || isSaving" @click="openPlanningBook">Reload</button></template>
+      <template #actions><OfxButton variant="secondary" icon="refresh" :disabled="isLoadingBook || isSaving" @click="openPlanningBook">Reload</OfxButton></template>
     </OfxSectionCard>
   </DashboardPageLayout>
 </template>
 
 <style scoped>
-.selection-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }.selection-open { align-self: end; display: flex; min-height: 2.5rem; }.selection-open .primary-button { width: 100%; justify-content: center; }.field-label { display: grid; gap: .5rem; color: var(--ofx-text); font-size: 13px; font-weight: 500; }.field-label select, input { border: 1px solid var(--ofx-border); border-radius: 12px; background: var(--ofx-surface); padding: .55rem .75rem; color: var(--ofx-text); }.primary-button, .secondary-button { display: inline-flex; min-height: 2.5rem; align-items: center; border: 1px solid var(--ofx-border); border-radius: 12px; background: var(--ofx-surface); padding: .45rem .9rem; color: var(--ofx-text); font-size: .875rem; font-weight: 600; }.primary-button { border-color: var(--ofx-primary); background: var(--ofx-primary); color: var(--ofx-primary-foreground); }.primary-button:disabled, .secondary-button:disabled { cursor: not-allowed; opacity: .5; }.community-planning-book-rich-grid :deep(input) { min-width: 7rem; width: 7rem; }.planning-book-workspace-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1.25rem 0; border: 1px solid var(--ofx-border); border-radius: 14px; background: var(--ofx-surface-elevated); padding: 1rem 1.25rem; }.planning-book-workspace-eyebrow { color: var(--ofx-text-muted); font-size: .6875rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }.planning-book-workspace-meta { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .35rem; color: var(--ofx-text); font-size: .8125rem; font-weight: 600; }.planning-book-workspace-meta span { color: var(--ofx-text-muted); }.muted { color: var(--ofx-text-muted); }.message { margin-top: 1.25rem; border-radius: 14px; padding: .85rem 1rem; font-size: .875rem; }.message-error { border: 1px solid #f0b7b2; background: #fff8f7; color: #b42318; }
+.selection-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }.selection-open { align-self: end; display: flex; min-height: 2.5rem; }.selection-open .ofx-button { width: 100%; justify-content: center; }.field-label { display: grid; gap: .5rem; color: var(--ofx-text); font-size: 13px; font-weight: 500; }.field-label select, input { border: 1px solid var(--ofx-border); border-radius: 12px; background: var(--ofx-surface); padding: .55rem .75rem; color: var(--ofx-text); }.community-planning-book-rich-grid :deep(input) { min-width: 7rem; width: 7rem; }.planning-book-workspace-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1.25rem 0; border: 1px solid var(--ofx-border); border-radius: 14px; background: var(--ofx-surface-elevated); padding: 1rem 1.25rem; }.planning-book-workspace-eyebrow { color: var(--ofx-text-muted); font-size: .6875rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }.planning-book-workspace-meta { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .35rem; color: var(--ofx-text); font-size: .8125rem; font-weight: 600; }.planning-book-workspace-meta span { color: var(--ofx-text-muted); }.muted { color: var(--ofx-text-muted); }.message { margin-top: 1.25rem; border-radius: 14px; padding: .85rem 1rem; font-size: .875rem; }.message-error { border: 1px solid #f0b7b2; background: #fff8f7; color: #b42318; }
 </style>

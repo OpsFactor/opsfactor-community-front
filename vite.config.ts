@@ -42,6 +42,8 @@ function getSharedPackageSourceAliases(command: string) {
   }
 
   return [
+    // Resolve CSS subpaths before the broader source aliases used by the development server.
+    { find: '@opsfactor/front-planning-book/style.css', replacement: fileURLToPath(new URL('./packages/front-planning-book/dist/index.css', import.meta.url)) },
     // Keep the generated Tailwind stylesheet as the package's public style entry.
     { find: '@opsfactor/front-shell/styles.css', replacement: fileURLToPath(new URL('./packages/front-shell/dist/index.css', import.meta.url)) },
     { find: '@opsfactor/front-core', replacement: fileURLToPath(new URL('./packages/front-core/src', import.meta.url)) },

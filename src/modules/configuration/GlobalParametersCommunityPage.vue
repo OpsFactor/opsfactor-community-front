@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { onMounted, ref } from 'vue';
 import DashboardPageLayout from '@/layouts/page/DashboardPageLayout.vue';
 import OfxSelectField from '@/components/ofx/forms/OfxSelectField.vue';
@@ -129,8 +130,8 @@ onMounted(loadParameters);
     >
       <template #actions>
         <div class="flex flex-wrap items-center justify-end gap-2">
-          <button type="button" class="secondary-button" :disabled="isLoading || isSaving" @click="loadParameters">Refresh</button>
-          <button type="button" class="primary-button" :disabled="isLoading || isSaving" @click="saveParameters">{{ isSaving ? 'Saving...' : 'Save Parameters' }}</button>
+          <OfxButton variant="secondary" icon="refresh" type="button" :disabled="isLoading || isSaving" @click="loadParameters">Refresh</OfxButton>
+          <OfxButton variant="primary" icon="save" type="button" :disabled="isLoading || isSaving" @click="saveParameters">{{ isSaving ? 'Saving...' : 'Save Parameters' }}</OfxButton>
         </div>
       </template>
     </OfxPageHeader>
@@ -200,10 +201,6 @@ onMounted(loadParameters);
 </template>
 
 <style scoped>
-.primary-button, .secondary-button { display: inline-flex; height: 2.5rem; align-items: center; border: 1px solid var(--ofx-border); border-radius: 10px; padding: 0 1rem; font-size: .875rem; font-weight: 600; transition: .15s ease; }
-.primary-button { border-color: var(--ofx-primary); background: var(--ofx-primary); color: var(--ofx-primary-foreground); box-shadow: 0 12px 28px rgb(49 72 108 / .16); }
-.secondary-button { background: var(--ofx-surface); color: var(--ofx-text-muted); }
-.primary-button:disabled, .secondary-button:disabled { cursor: not-allowed; opacity: .45; }
 .error-panel, .success-panel { border: 1px solid; border-radius: 14px; padding: 1rem 1.25rem; font-size: .875rem; }
 .error-panel { border-color: rgb(208 69 95 / .35); background: rgb(255 236 240 / .9); color: rgb(125 31 49); }
 .success-panel { border-color: rgb(52 145 94 / .35); background: rgb(232 248 238 / .9); color: rgb(27 97 58); }

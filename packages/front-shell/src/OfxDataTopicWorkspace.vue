@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import OfxButton from './OfxButton.vue';
 import { computed } from 'vue';
 import OfxActionLabel from './OfxActionLabel.vue';
 import OfxOperationPanel, { type OfxOperationPanelOption } from './OfxOperationPanel.vue';
@@ -73,21 +74,6 @@ const missingFiltersClass = computed(() => (
     : 'border-amber-500/28 bg-amber-500/10 text-amber-100/88'
 ));
 
-const importButtonClass = computed(() => (
-  isLightTheme.value
-    ? 'inline-flex h-[38px] items-center justify-center rounded-[12px] border border-[color:rgb(31_135_93_/_0.36)] bg-[color:rgb(31_135_93)] px-4 text-sm font-semibold text-white transition hover:bg-[color:rgb(22_98_65)] disabled:cursor-not-allowed disabled:opacity-45'
-    : 'inline-flex h-[38px] items-center justify-center rounded-[12px] border border-emerald-400/34 bg-[linear-gradient(180deg,rgb(20_104_85_/_0.78),rgb(12_68_55_/_0.74))] px-4 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45'
-));
-
-const dangerButtonClass = computed(() =>
-  isLightTheme.value
-    ? props.warningTone === 'danger'
-      ? 'inline-flex h-[38px] items-center justify-center rounded-[12px] border border-[color:rgb(208_69_102_/_0.36)] bg-[color:rgb(190_45_77)] px-4 text-sm font-semibold text-white transition hover:bg-[color:rgb(158_41_67)] disabled:cursor-not-allowed disabled:opacity-45'
-      : 'inline-flex h-[38px] items-center justify-center rounded-[12px] border border-[color:rgb(211_155_42_/_0.36)] bg-[color:rgb(177_121_29)] px-4 text-sm font-semibold text-white transition hover:bg-[color:rgb(138_97_24)] disabled:cursor-not-allowed disabled:opacity-45'
-    : props.warningTone === 'danger'
-      ? 'inline-flex h-[38px] items-center justify-center rounded-[12px] border border-red-400/42 bg-[linear-gradient(180deg,rgb(144_44_54_/_0.78),rgb(106_31_38_/_0.74))] px-4 text-sm font-semibold text-red-50 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45'
-      : 'inline-flex h-[38px] items-center justify-center rounded-[12px] border border-amber-400/38 bg-[linear-gradient(180deg,rgb(154_102_31_/_0.78),rgb(111_71_21_/_0.74))] px-4 text-sm font-semibold text-amber-50 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45',
-);
 
 function warningCardClass() {
   if (isLightTheme.value) {
@@ -144,12 +130,10 @@ function warningCardClass() {
         </div>
 
         <div v-else-if="props.importVisible" class="flex flex-wrap items-center gap-2">
-          <button type="button" :class="importButtonClass" :disabled="props.importDisabled || props.importProcessing" @click="emit('import')">
-            <OfxActionLabel
+          <OfxButton type="button" :disabled="props.importDisabled || props.importProcessing" @click="emit('import')" variant="primary" icon="upload" size="compact"><OfxActionLabel
               :label="props.importLabel ?? 'Import file'"
               :processing="props.importProcessing"
-            />
-          </button>
+            /></OfxButton>
         </div>
 
         <template v-else-if="props.dangerVisible">
@@ -159,18 +143,11 @@ function warningCardClass() {
           </div>
 
           <div class="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              :class="dangerButtonClass"
-              :disabled="props.dangerDisabled || props.dangerProcessing"
-              @click="emit('danger')"
-            >
-              <OfxActionLabel
+            <OfxButton type="button" :disabled="props.dangerDisabled || props.dangerProcessing" @click="emit('danger')" variant="danger" icon="delete" size="compact"><OfxActionLabel
                 :label="props.dangerLabel ?? ''"
                 :processing="props.dangerProcessing"
                 :processing-label="props.processingLabel ?? 'Processing…'"
-              />
-            </button>
+              /></OfxButton>
           </div>
         </template>
       </div>

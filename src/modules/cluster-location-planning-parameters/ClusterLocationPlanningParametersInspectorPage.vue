@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, ref } from 'vue';
 import { OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
 import { httpClient } from '../../services/community-authentication.service';
@@ -45,9 +46,9 @@ async function loadParameters(): Promise<void> {
 
     <OfxSectionCard class="boundary-card" title="Read-only administrative snapshot">
       <p>This explicit GET returns the complete administrative list and is not paginated. It is not a list of members, DFUs, or currently eligible records.</p>
-      <button v-if="!hasSnapshot" class="primary-button" type="button" :disabled="loading" @click="loadParameters">
+      <OfxButton variant="secondary" icon="open" v-if="!hasSnapshot" type="button" :disabled="loading" @click="loadParameters">
         {{ loading ? 'Loading parameters…' : 'Load Location Cluster Parameters' }}
-      </button>
+      </OfxButton>
       <p v-else class="captured-message" role="status">Administrative snapshot captured. Refresh is intentionally unavailable on this page.</p>
       <p class="boundary-note">Pricing is not editable in this view. The published value is shown as returned by the service.</p>
     </OfxSectionCard>
@@ -99,5 +100,5 @@ async function loadParameters(): Promise<void> {
 </template>
 
 <style scoped>
-.boundary-card, .results-card { display: grid; gap: 1rem; }.boundary-card h2, .results-card h2, .boundary-card p, .results-card p { margin: 0; }.primary-button { border: 1px solid var(--ofx-accent); border-radius: .5rem; background: var(--ofx-accent); color: white; cursor: pointer; padding: .7rem 1rem; width: fit-content; }.primary-button:disabled { cursor: not-allowed; opacity: .55; }.boundary-note, .results-card p, .empty-state { color: var(--ofx-text-muted); }.captured-message { border-left: 3px solid #70b694; padding-left: .75rem; }.error { color: var(--ofx-text-danger); }.results-header { align-items: start; display: flex; gap: 1rem; justify-content: space-between; }.results-header span { color: var(--ofx-text-muted); white-space: nowrap; }.table-wrap { overflow-x: auto; }table { border-collapse: collapse; min-width: 55rem; width: 100%; }th, td { border-bottom: 1px solid var(--ofx-border); padding: .65rem; text-align: left; vertical-align: top; }th { background: var(--ofx-surface-muted); color: var(--ofx-text-muted); font-size: .78rem; }td { overflow-wrap: anywhere; }
+.boundary-card, .results-card { display: grid; gap: 1rem; }.boundary-card h2, .results-card h2, .boundary-card p, .results-card p { margin: 0; }.boundary-note, .results-card p, .empty-state { color: var(--ofx-text-muted); }.captured-message { border-left: 3px solid #70b694; padding-left: .75rem; }.error { color: var(--ofx-text-danger); }.results-header { align-items: start; display: flex; gap: 1rem; justify-content: space-between; }.results-header span { color: var(--ofx-text-muted); white-space: nowrap; }.table-wrap { overflow-x: auto; }table { border-collapse: collapse; min-width: 55rem; width: 100%; }th, td { border-bottom: 1px solid var(--ofx-border); padding: .65rem; text-align: left; vertical-align: top; }th { background: var(--ofx-surface-muted); color: var(--ofx-text-muted); font-size: .78rem; }td { overflow-wrap: anywhere; }
 </style>

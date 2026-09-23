@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref, watch } from 'vue';
 import { TaskPageLayout } from '@opsfactor/front-shell';
 import { OfxPageHeader } from '@opsfactor/front-shell';
@@ -230,21 +231,9 @@ const temporalSplitCurves = ref<NamedOptionDto[]>([]);
 const logisticsCurves = ref<NamedOptionDto[]>([]);
 const uomIds = ref<string[]>([]);
 const isLightTheme = computed(() => themeStore.mode === 'light');
-const successActionButtonClass = computed(() => [
-  'inline-flex h-10 items-center justify-center rounded-[12px] border px-4 text-sm font-semibold transition',
-  isLightTheme.value
-    ? 'border-[color:rgb(31_135_93_/_0.35)] bg-[color:rgb(226_247_239_/_0.96)] text-[color:rgb(22_98_65)] shadow-[0_10px_24px_rgb(49_72_108_/_0.1)] hover:bg-[color:rgb(209_241_229_/_0.98)]'
-    : 'border-[color:rgb(73_144_109_/_0.5)] bg-[linear-gradient(135deg,rgb(41_104_66_/_0.94),rgb(60_158_95_/_0.72))] text-white shadow-[0_12px_28px_rgb(17_61_33_/_0.28)] hover:brightness-110',
-]);
 const createPanelClass = computed(() => [
   'mt-5 rounded-[12px] border px-5 py-5',
   isLightTheme.value ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface-elevated)]' : 'border-white/8 bg-white/[0.03]',
-]);
-const createProfileButtonClass = computed(() => [
-  'h-11 rounded-[10px] border px-4 text-sm font-medium transition disabled:cursor-not-allowed',
-  isLightTheme.value
-    ? 'border-[color:rgb(31_135_93_/_0.35)] bg-[color:rgb(226_247_239_/_0.96)] text-[color:rgb(22_98_65)] hover:bg-[color:rgb(209_241_229_/_0.98)] disabled:border-[color:var(--ofx-border-strong)] disabled:bg-[color:var(--ofx-surface-strong)] disabled:text-[color:var(--ofx-text-muted)]'
-    : 'border-[color:rgb(47_155_113_/_0.34)] bg-[color:rgb(47_155_113_/_0.16)] text-white/88 hover:bg-[color:rgb(47_155_113_/_0.22)] disabled:opacity-50',
 ]);
 
 const reconciliationValues = [
@@ -521,6 +510,7 @@ function payloadProductionResourceConfigurations(
 }
 
 const current = computed(() => draft.value);
+const selectedCalendar = computed(() => calendars.value.find((calendar) => calendar.id === current.value?.calendarProfileId));
 const isOptimizer = computed(() => current.value?.executionModel === 'Optimizer');
 const isHeuristic = computed(() => current.value?.executionModel === 'Heuristic');
 const isProcessChain = computed(() => current.value?.executionModel === 'Process Chain');
@@ -1314,30 +1304,27 @@ onMounted(loadPage);
 
     <OfxSectionCard title="Profile selection">
       <template #actions>
-        <div class="flex flex-wrap items-center gap-3">
-          <button
+        <div class="flex flex-wrap items-center gap-2">
+          <OfxButton :variant="isCreateProfilePanelOpen ? 'secondary' : 'create'" :icon="isCreateProfilePanelOpen ? 'close' : 'new'"
             type="button"
-            :class="successActionButtonClass"
             @click="isCreateProfilePanelOpen = !isCreateProfilePanelOpen"
           >
             {{ isCreateProfilePanelOpen ? 'Close new profile' : 'New profile' }}
-          </button>
-          <button
+          </OfxButton>
+          <OfxButton variant="copy" icon="copy"
             type="button"
-            class="rounded-[10px] border border-[color:var(--ofx-border)] px-4 py-2 text-sm font-medium text-[color:var(--ofx-text)] transition hover:border-[color:var(--ofx-border-strong)] disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="!current || isSaving || isCopyingProfile"
             @click="openCopyProfileDialog"
           >
             Copy profile
-          </button>
-          <button
+          </OfxButton>
+          <OfxButton variant="primary" icon="save"
             type="button"
-            class="rounded-[10px] bg-[color:var(--ofx-primary)] px-4 py-2 text-sm font-medium text-[color:var(--ofx-primary-foreground)] disabled:opacity-50"
             :disabled="!current || isSaving"
             @click="handleSave"
           >
             {{ isSaving ? 'Saving...' : 'Save profile' }}
-          </button>
+          </OfxButton>
         </div>
       </template>
 
@@ -1353,19 +1340,18 @@ onMounted(loadPage);
       </div>
 
       <div v-if="isCreateProfilePanelOpen" :class="createPanelClass">
-        <div class="grid gap-4 lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)_auto]">
+        <div class="grid gap-4 md:grid-cols-2">
           <OfxTextField v-model="newProfileId" label="Profile id" placeholder="SNP_EXECUTION_PROFILE_ID" />
           <OfxTextField v-model="newProfileDescription" label="Profile description" placeholder="Execution profile description" />
-        <OfxSelectField v-model="newCalendarProfileId" label="Calendar profile" :options="calendarOptions" />
-          <div class="flex items-end">
-            <button
+          <OfxSelectField v-model="newCalendarProfileId" label="Calendar profile" :options="calendarOptions" />
+          <div class="flex items-end justify-end">
+            <OfxButton variant="create" icon="new"
               type="button"
-              :class="createProfileButtonClass"
               :disabled="isSaving"
               @click="handleCreateProfile"
             >
               {{ isSaving ? 'Creating...' : 'Create profile' }}
-            </button>
+            </OfxButton>
           </div>
         </div>
       </div>
@@ -1438,11 +1424,10 @@ onMounted(loadPage);
       </section>
 
       <section v-if="selectedSection === 'general'" class="grid gap-4 xl:grid-cols-2">
-        <OfxSectionCard title="Identity and planning scope" description="Core profile identity, planning horizon, work version, and filter scope.">
+        <OfxSectionCard title="Identity and planning scope" description="Profile identity, work version, and material scope.">
           <div class="grid gap-4 md:grid-cols-2">
+            <OfxTextField :model-value="current.id" label="Profile id" disabled />
             <OfxTextField v-model="current.description" label="Profile description" />
-            <OfxSelectField v-model="current.calendarProfileId" label="Calendar profile" :options="calendarOptions" />
-            <p v-if="!current.calendarProfileId">Configure or migrate this execution profile calendar before running Supply Planning.</p>
             <OfxSelectField v-if="!isProcessChain" v-model="current.planTypeForWorkVersion" label="Work version source" :options="workVersionOptions" />
             <OfxSelectField
               v-model="current.productFilterId"
@@ -1452,6 +1437,26 @@ onMounted(loadPage);
               locked-label="Pro / Enterprise"
               help-text="Material-filter scope is available in Pro."
             />
+          </div>
+        </OfxSectionCard>
+
+        <OfxSectionCard title="Planning calendar" description="The selected calendar defines the time buckets and planning horizon.">
+          <template #actions>
+            <RouterLink to="/configuration/calendars" class="text-sm font-medium text-[color:var(--ofx-text)] underline underline-offset-4">Configure calendars</RouterLink>
+          </template>
+          <div class="space-y-4">
+            <OfxSelectField v-model="current.calendarProfileId" label="Calendar profile" :options="calendarOptions" />
+            <dl v-if="selectedCalendar" class="grid grid-cols-2 gap-4 rounded-[10px] border border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface)] p-4">
+              <div>
+                <dt class="text-xs text-[color:var(--ofx-text-muted)]">Time bucket</dt>
+                <dd class="mt-1 text-sm font-semibold text-[color:var(--ofx-text)]">{{ selectedCalendar.baseBucketSize }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs text-[color:var(--ofx-text-muted)]">Planning horizon</dt>
+                <dd class="mt-1 text-sm font-semibold text-[color:var(--ofx-text)]">{{ selectedCalendar.numberOfBasePeriods == null ? 'Not configured' : `${selectedCalendar.numberOfBasePeriods} periods` }}</dd>
+              </div>
+            </dl>
+            <p v-if="!selectedCalendar" class="text-sm text-[color:var(--ofx-text-muted)]">Select a simple calendar before saving or running this profile.</p>
           </div>
         </OfxSectionCard>
 
@@ -1968,14 +1973,13 @@ onMounted(loadPage);
           description="Resources not listed remain active by default and have no hard occupation target."
         >
           <template #actions>
-            <button
+            <OfxButton variant="secondary" icon="add"
               type="button"
-              class="inline-flex items-center gap-2 rounded-[10px] border border-[color:rgb(90_128_255_/_0.38)] bg-[color:rgb(90_128_255_/_0.12)] px-4 py-2 text-sm font-medium text-white/88 opacity-70"
               disabled
             >
               <span>Add resources</span>
               <OfxEditionAvailabilityMark edition-label="Pro / Enterprise" theme-mode="dark" :size="12" />
-            </button>
+            </OfxButton>
           </template>
 
           <div class="mb-4 flex items-center gap-2 text-sm text-[color:var(--ofx-text-muted)]">
@@ -2023,14 +2027,13 @@ onMounted(loadPage);
               </div>
             </template>
             <template #cell-removeAction="{ row }">
-              <button
+              <OfxButton variant="danger" icon="delete" size="table"
                 type="button"
-                class="rounded-[8px] border border-[color:rgb(255_116_116_/_0.34)] px-3 py-1 text-xs text-[color:rgb(255_176_176_/_0.9)] transition hover:bg-[color:rgb(255_116_116_/_0.08)]"
                 :aria-label="`Remove ${(row as SupplyExecutionProfileProductionResourceConfiguration).productionResourceId} exception`"
                 @click="removeProductionResourceConfiguration(row as SupplyExecutionProfileProductionResourceConfiguration)"
               >
                 Remove
-              </button>
+              </OfxButton>
             </template>
           </OfxDataTable>
 
@@ -2041,22 +2044,20 @@ onMounted(loadPage);
               :options="availableProductionResourceSelectOptions"
               placeholder="Select resources that need an explicit profile exception"
             />
-            <div class="mt-4 flex justify-end gap-3">
-              <button
+            <div class="mt-4 flex justify-end gap-2 flex-wrap items-center">
+              <OfxButton variant="secondary" icon="close"
                 type="button"
-                class="rounded-[10px] border border-white/10 px-4 py-2 text-sm text-white/78"
                 @click="isAddingProductionResources = false"
               >
                 Cancel
-              </button>
-              <button
+              </OfxButton>
+              <OfxButton variant="create" icon="add"
                 type="button"
-                class="rounded-[10px] bg-[color:var(--ofx-primary)] px-4 py-2 text-sm font-medium text-[color:var(--ofx-primary-foreground)] disabled:opacity-50"
                 :disabled="selectedProductionResourceIds.length === 0"
                 @click="addSelectedProductionResources"
               >
                 Add selected resources
-              </button>
+              </OfxButton>
             </div>
           </div>
         </OfxSectionCard>
@@ -2219,13 +2220,12 @@ onMounted(loadPage);
       <section v-if="selectedSection === 'operations' && isProcessChain" class="space-y-4">
         <OfxSectionCard title="Process chain steps" description="Full-width process-chain orchestration table.">
           <template #actions>
-            <button
+            <OfxButton variant="create" icon="new"
               type="button"
-              class="rounded-[10px] border border-[color:rgb(90_128_255_/_0.38)] bg-[color:rgb(90_128_255_/_0.12)] px-4 py-2 text-sm font-medium text-white/88 transition hover:bg-[color:rgb(90_128_255_/_0.18)]"
               @click="startNewProcessChainStep"
             >
               New step
-            </button>
+            </OfxButton>
           </template>
 
           <OfxDataTable
@@ -2235,13 +2235,12 @@ onMounted(loadPage);
             :page-size="8"
           >
             <template #cell-editAction="{ row }">
-              <button
+              <OfxButton variant="secondary" icon="edit" size="table"
                 type="button"
-                class="rounded-[8px] border border-white/10 px-3 py-1 text-xs text-white/78 transition hover:bg-white/[0.06]"
                 @click="editProcessChainStep(row as SupplyExecutionProfileProcessChainStep)"
               >
                 Edit
-              </button>
+              </OfxButton>
             </template>
           </OfxDataTable>
         </OfxSectionCard>
@@ -2263,22 +2262,20 @@ onMounted(loadPage);
               v-model="selectedProcessChainStep.considerPreviousStepPlannedProductionOrders"
               label="Consider previous-step planned production"
             />
-            <div class="md:col-span-2 flex justify-end gap-3">
-              <button
+            <div class="md:col-span-2 flex justify-end gap-2 flex-wrap items-center">
+              <OfxButton variant="secondary" icon="close"
                 type="button"
-                class="rounded-[10px] border border-white/10 px-4 py-2 text-sm text-white/78"
                 @click="selectedProcessChainStep = null"
               >
                 Cancel
-              </button>
-              <button
+              </OfxButton>
+              <OfxButton variant="primary" icon="save"
                 type="button"
-                class="rounded-[10px] bg-[color:var(--ofx-primary)] px-4 py-2 text-sm font-medium text-[color:var(--ofx-primary-foreground)] disabled:opacity-50"
                 :disabled="isSavingProcessChain"
                 @click="handleSaveProcessChainStep"
               >
                 {{ isSavingProcessChain ? 'Saving step...' : 'Save process-chain step' }}
-              </button>
+              </OfxButton>
             </div>
           </div>
         </OfxSectionCard>
@@ -2287,14 +2284,13 @@ onMounted(loadPage);
       <section v-if="selectedSection === 'location' && !isProcessChain" class="space-y-4">
         <OfxSectionCard title="Location-level configuration" description="Use the full horizontal space to scan and edit location overrides.">
           <template #actions>
-            <button
+            <OfxButton variant="secondary" icon="new"
               type="button"
-              class="inline-flex items-center gap-2 rounded-[10px] border border-[color:rgb(90_128_255_/_0.38)] bg-[color:rgb(90_128_255_/_0.12)] px-4 py-2 text-sm font-medium text-white/88 opacity-70"
               disabled
             >
               <span>New location</span>
               <OfxEditionAvailabilityMark edition-label="Pro / Enterprise" theme-mode="dark" :size="12" />
-            </button>
+            </OfxButton>
           </template>
 
           <div class="mb-4 flex items-center gap-2 text-sm text-[color:var(--ofx-text-muted)]">
@@ -2309,23 +2305,21 @@ onMounted(loadPage);
             :page-size="10"
           >
             <template #cell-editAction="{ row }">
-              <button
+              <OfxButton variant="secondary" icon="edit" size="table"
                 type="button"
-                class="rounded-[8px] border border-white/10 px-3 py-1 text-xs text-white/78 transition hover:bg-white/[0.06]"
                 @click="editLocationOverride(row as SupplyExecutionProfileLocation)"
               >
                 Edit
-              </button>
+              </OfxButton>
             </template>
             <template #cell-removeAction="{ row }">
-              <button
+              <OfxButton variant="danger" icon="delete" size="table"
                 type="button"
-                class="rounded-[8px] border border-[color:rgb(255_116_116_/_0.34)] px-3 py-1 text-xs text-[color:rgb(255_176_176_/_0.9)] transition hover:bg-[color:rgb(255_116_116_/_0.08)]"
                 :disabled="isSavingLocation"
                 @click="handleRemoveLocationOverride(row as SupplyExecutionProfileLocation)"
               >
                 Remove
-              </button>
+              </OfxButton>
             </template>
           </OfxDataTable>
         </OfxSectionCard>
@@ -2384,22 +2378,20 @@ onMounted(loadPage);
               label="Greenfield activation cost"
               type="number"
             />
-            <div class="md:col-span-2 flex justify-end gap-3">
-              <button
+            <div class="md:col-span-2 flex justify-end gap-2 flex-wrap items-center">
+              <OfxButton variant="secondary" icon="close"
                 type="button"
-                class="rounded-[10px] border border-white/10 px-4 py-2 text-sm text-white/78"
                 @click="selectedLocationOverride = null"
               >
                 Cancel
-              </button>
-              <button
+              </OfxButton>
+              <OfxButton variant="primary" icon="save"
                 type="button"
-                class="rounded-[10px] bg-[color:var(--ofx-primary)] px-4 py-2 text-sm font-medium text-[color:var(--ofx-primary-foreground)] disabled:opacity-50"
                 :disabled="isSavingLocation"
                 @click="handleSaveLocationOverride"
               >
                 {{ isSavingLocation ? 'Saving location...' : 'Save location override' }}
-              </button>
+              </OfxButton>
             </div>
           </div>
         </OfxSectionCard>
@@ -2433,23 +2425,21 @@ onMounted(loadPage);
     </div>
 
     <template #footer>
-      <div class="flex justify-end gap-3">
-        <button
+      <div class="flex justify-end gap-2 flex-wrap items-center">
+        <OfxButton variant="secondary" icon="close"
           type="button"
-          class="rounded-[10px] border border-[color:var(--ofx-border)] px-4 py-2 text-sm font-medium text-[color:var(--ofx-text)] transition hover:border-[color:var(--ofx-border-strong)]"
           :disabled="isCopyingProfile"
           @click="closeCopyProfileDialog"
         >
           Cancel
-        </button>
-        <button
+        </OfxButton>
+        <OfxButton variant="copy" icon="copy"
           type="button"
-          class="rounded-[10px] bg-[color:var(--ofx-primary)] px-4 py-2 text-sm font-medium text-[color:var(--ofx-primary-foreground)] disabled:opacity-50"
           :disabled="isCopyingProfile"
           @click="handleCopyProfile"
         >
           {{ isCopyingProfile ? 'Copying...' : 'Copy profile' }}
-        </button>
+        </OfxButton>
       </div>
     </template>
   </OfxModalDialog>
@@ -2492,13 +2482,12 @@ onMounted(loadPage);
 
     <template #footer>
       <div class="flex justify-end">
-        <button
+        <OfxButton variant="secondary" icon="close"
           type="button"
-          class="rounded-[10px] bg-[color:var(--ofx-primary)] px-4 py-2 text-sm font-medium text-[color:var(--ofx-primary-foreground)]"
           @click="isCpSatPrecisionInfoOpen = false"
         >
           Close
-        </button>
+        </OfxButton>
       </div>
     </template>
   </OfxModalDialog>

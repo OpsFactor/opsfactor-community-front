@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, ref, watch } from 'vue';
 import { ApiRequestError } from '@opsfactor/front-core';
 import { useSessionStore } from '@/stores/app/session.store';
@@ -112,9 +113,9 @@ async function handleLoginSubmit(event: Event) {
           </div>
 
           <div class="flex items-center justify-between gap-3 pt-2">
-            <button type="submit" class="inline-flex h-12 items-center justify-center rounded-[12px] bg-[color:var(--ofx-primary)] px-5 text-sm font-medium text-[color:var(--ofx-primary-foreground)]" :disabled="isSubmitting || !username.trim() || !password">
+            <OfxButton variant="primary" icon="run" type="submit" :disabled="isSubmitting || !username.trim() || !password">
               {{ isSubmitting ? 'Signing in...' : 'Sign in' }}
-            </button>
+            </OfxButton>
           </div>
         </form>
       </section>

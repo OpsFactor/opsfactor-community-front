@@ -60,7 +60,7 @@ test('Community Sales/Demand Overview reuses the canonical local-filter layout f
   assert.match(pageSource, /<template #location-characteristics>/);
   assert.match(pageSource, /OfxMaterialCharacteristicsFilter/);
   assert.match(pageSource, /OfxLocationCharacteristicsFilter/);
-  assert.match(pageSource, /<OfxButton variant="ghost" size="compact" :disabled="!hasActiveLocalFilters" @click="clearLocalFilters">/);
+  assert.match(pageSource, /<OfxButton variant="filter" icon="close" size="compact" :disabled="!hasActiveLocalFilters" @click="clearLocalFilters">/);
   assert.match(pageSource, /Clear filters/);
   assert.doesNotMatch(pageSource, /Clear local filters/);
 });

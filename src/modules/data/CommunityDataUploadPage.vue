@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref, watch } from 'vue';
 import {
   OfxDataTopicWorkspace,
@@ -642,7 +643,7 @@ async function runDelete(): Promise<void> {
             <button v-for="selection in downloadSelectionChips" :key="selection.key" type="button" class="selection-chip" :disabled="busy" @click="clearDownloadSelection(selection.key)">
               {{ selection.label }} <span aria-hidden="true">×</span>
             </button>
-            <button type="button" class="clear-selection-button" :disabled="busy" @click="clearDownloadSelections">Clear all</button>
+            <OfxButton variant="filter" icon="close" size="compact" type="button" :disabled="busy" @click="clearDownloadSelections">Clear all</OfxButton>
           </div>
         </template>
       </OfxDataTopicWorkspace>
@@ -694,11 +695,10 @@ async function runDelete(): Promise<void> {
 .input-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
 .plan-download-fields { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
 .download-selection-summary { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
-.selection-chip, .clear-selection-button { border: 1px solid var(--ofx-border); border-radius: 999px; background: var(--ofx-surface); color: var(--ofx-text); font-size: .8125rem; font-weight: 600; line-height: 1.25; padding: .42rem .7rem; }
+.selection-chip { border: 1px solid var(--ofx-border); border-radius: 999px; background: var(--ofx-surface); color: var(--ofx-text); font-size: .8125rem; font-weight: 600; line-height: 1.25; padding: .42rem .7rem; }
 .selection-chip { border-color: var(--ofx-primary); color: var(--ofx-primary-strong); }
 .selection-chip span { margin-left: .3rem; }
-.clear-selection-button { color: var(--ofx-primary-strong); }
-.selection-chip:disabled, .clear-selection-button:disabled { cursor: not-allowed; opacity: .55; }
+.selection-chip:disabled { cursor: not-allowed; opacity: .55; }
 .input-grid label { display: grid; gap: .4rem; color: var(--ofx-text); font-size: .875rem; font-weight: 600; }
 .hidden-file-input { display: none; }
 .locked-workspace { display: flex; align-items: center; gap: .65rem; border: 1px dashed var(--ofx-border-strong); border-radius: 12px; background: var(--ofx-muted); padding: .9rem 1rem; color: var(--ofx-text-muted); font-size: .8125rem; line-height: 1.45; }

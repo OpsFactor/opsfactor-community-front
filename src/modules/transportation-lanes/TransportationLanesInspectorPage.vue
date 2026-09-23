@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref } from "vue";
 import {
   OfxPageHeader,
@@ -558,21 +559,18 @@ onMounted(async () => {
           <p>Version deletion is not available in this screen.</p>
         </div>
         <div class="actions">
-          <button
-            class="secondary-button"
+          <OfxButton variant="secondary" icon="refresh"
             type="button"
             :disabled="isBusy"
             @click="void loadSupplyNetworkVersions(true)"
           >
-            {{ loadingVersions ? "Loading…" : "Refresh versions" }}</button
-          ><button
-            class="primary-button"
-            type="button"
-            :disabled="isBusy"
-            @click="startNewVersion"
-          >
+            {{ loadingVersions ? "Loading…" : "Refresh versions" }}</OfxButton><OfxButton variant="create" icon="new"
+                                                                                 type="button"
+                                                                                 :disabled="isBusy"
+                                                                                 @click="startNewVersion"
+                                                                               >
             New version
-          </button>
+          </OfxButton>
         </div>
       </div>
       <OfxSelectField
@@ -596,14 +594,13 @@ onMounted(async () => {
               }}
             </h3>
           </div>
-          <button
-            class="secondary-button"
+          <OfxButton variant="secondary" icon="close"
             type="button"
             :disabled="saving"
             @click="cancelVersionEditing"
           >
             Cancel
-          </button>
+          </OfxButton>
         </div>
         <div class="field-grid">
           <label
@@ -637,14 +634,13 @@ onMounted(async () => {
             lanes and material overrides are loaded separately after selecting a
             persisted version.
           </p>
-          <button
-            class="primary-button"
+          <OfxButton variant="primary" icon="save"
             type="button"
             :disabled="saving || loadingEditorCatalogs"
             @click="requestVersionSave"
           >
             Review version save
-          </button>
+          </OfxButton>
         </div>
       </section>
     </OfxSectionCard>
@@ -679,8 +675,7 @@ onMounted(async () => {
             </p>
           </div>
           <div class="actions">
-            <button
-              class="secondary-button"
+            <OfxButton variant="secondary" icon="refresh"
               type="button"
               :disabled="isBusy"
               @click="void loadBaseLanes(true)"
@@ -691,15 +686,13 @@ onMounted(async () => {
                   : baseLanes === null
                   ? "Load base lanes"
                   : "Refresh base lanes"
-              }}</button
-            ><button
-              class="primary-button"
-              type="button"
-              :disabled="isBusy || baseLanes === null"
-              @click="startBaseLaneCreation"
-            >
+              }}</OfxButton><OfxButton variant="create" icon="new"
+                              type="button"
+                              :disabled="isBusy || baseLanes === null"
+                              @click="startBaseLaneCreation"
+                            >
               New base lane
-            </button>
+            </OfxButton>
           </div>
         </div>
         <div v-if="baseLanes" class="table-wrap">
@@ -734,21 +727,18 @@ onMounted(async () => {
                 <td>{{ lane.active === false ? "Inactive" : "Active" }}</td>
                 <td>
                   <div class="row-actions">
-                    <button
-                      class="secondary-button"
+                    <OfxButton variant="secondary" icon="edit" size="table"
                       type="button"
                       :disabled="isBusy"
                       @click="startBaseLaneEditing(lane)"
                     >
-                      Edit</button
-                    ><button
-                      class="danger-button"
-                      type="button"
-                      :disabled="isBusy"
-                      @click="requestBaseLaneDeletion(lane)"
-                    >
+                      Edit</OfxButton><OfxButton variant="danger" icon="delete" size="table"
+                                        type="button"
+                                        :disabled="isBusy"
+                                        @click="requestBaseLaneDeletion(lane)"
+                                      >
                       Delete
-                    </button>
+                    </OfxButton>
                   </div>
                 </td>
               </tr>
@@ -773,14 +763,13 @@ onMounted(async () => {
                 }}
               </h3>
             </div>
-            <button
-              class="secondary-button"
+            <OfxButton variant="secondary" icon="close"
               type="button"
               :disabled="saving"
               @click="baseLaneDraft = null"
             >
               Cancel
-            </button>
+            </OfxButton>
           </div>
           <div class="field-grid">
             <label
@@ -837,14 +826,13 @@ onMounted(async () => {
               changes one base lane and then reloads only the base-lane
               snapshot.
             </p>
-            <button
-              class="primary-button"
+            <OfxButton variant="primary" icon="save"
               type="button"
               :disabled="saving || loadingEditorCatalogs"
               @click="requestBaseLaneSave"
             >
               Review base lane save
-            </button>
+            </OfxButton>
           </div>
         </section>
       </section>
@@ -859,8 +847,7 @@ onMounted(async () => {
             </p>
           </div>
           <div class="actions">
-            <button
-              class="secondary-button"
+            <OfxButton variant="secondary" icon="refresh"
               type="button"
               :disabled="isBusy"
               @click="void loadMaterialOverrides(true)"
@@ -871,15 +858,13 @@ onMounted(async () => {
                   : materialOverrides === null
                   ? "Load material overrides"
                   : "Refresh material overrides"
-              }}</button
-            ><button
-              class="primary-button"
-              type="button"
-              :disabled="isBusy || materialOverrides === null"
-              @click="startMaterialOverrideCreation"
-            >
+              }}</OfxButton><OfxButton variant="create" icon="new"
+                              type="button"
+                              :disabled="isBusy || materialOverrides === null"
+                              @click="startMaterialOverrideCreation"
+                            >
               New material override
-            </button>
+            </OfxButton>
           </div>
         </div>
         <div v-if="materialOverrides" class="table-wrap">
@@ -918,21 +903,18 @@ onMounted(async () => {
                 <td>{{ override.active === false ? "Inactive" : "Active" }}</td>
                 <td>
                   <div class="row-actions">
-                    <button
-                      class="secondary-button"
+                    <OfxButton variant="secondary" icon="edit" size="table"
                       type="button"
                       :disabled="isBusy"
                       @click="startMaterialOverrideEditing(override)"
                     >
-                      Edit</button
-                    ><button
-                      class="danger-button"
-                      type="button"
-                      :disabled="isBusy"
-                      @click="requestMaterialOverrideDeletion(override)"
-                    >
+                      Edit</OfxButton><OfxButton variant="danger" icon="delete" size="table"
+                                        type="button"
+                                        :disabled="isBusy"
+                                        @click="requestMaterialOverrideDeletion(override)"
+                                      >
                       Delete
-                    </button>
+                    </OfxButton>
                   </div>
                 </td>
               </tr>
@@ -952,14 +934,13 @@ onMounted(async () => {
                 }}
               </h3>
             </div>
-            <button
-              class="secondary-button"
+            <OfxButton variant="secondary" icon="close"
               type="button"
               :disabled="saving"
               @click="materialOverrideDraft = null"
             >
               Cancel
-            </button>
+            </OfxButton>
           </div>
           <div class="field-grid">
             <label
@@ -1016,14 +997,13 @@ onMounted(async () => {
               This is an explicit override for one selected material. Save
               reloads only the material-override snapshot.
             </p>
-            <button
-              class="primary-button"
+            <OfxButton variant="primary" icon="save"
               type="button"
               :disabled="saving || loadingEditorCatalogs"
               @click="requestMaterialOverrideSave"
             >
               Review material override save
-            </button>
+            </OfxButton>
           </div>
         </section>
       </section>
@@ -1041,21 +1021,18 @@ onMounted(async () => {
         Version deletion is not available in this screen.
       </p>
       <div class="actions">
-        <button
-          class="secondary-button"
+        <OfxButton variant="secondary" icon="close"
           type="button"
           :disabled="saving"
           @click="pendingVersionSave = null"
         >
-          Keep editing</button
-        ><button
-          class="primary-button"
-          type="button"
-          :disabled="saving"
-          @click="void confirmVersionSave()"
-        >
+          Keep editing</OfxButton><OfxButton variant="primary" icon="save"
+                                    type="button"
+                                    :disabled="saving"
+                                    @click="void confirmVersionSave()"
+                                  >
           {{ saving ? "Saving…" : "Save version" }}
-        </button>
+        </OfxButton>
       </div>
     </section>
     <section
@@ -1073,21 +1050,18 @@ onMounted(async () => {
         is the only base-lane row in this save.
       </p>
       <div class="actions">
-        <button
-          class="secondary-button"
+        <OfxButton variant="secondary" icon="close"
           type="button"
           :disabled="saving"
           @click="pendingBaseSave = null"
         >
-          Keep editing</button
-        ><button
-          class="primary-button"
-          type="button"
-          :disabled="saving"
-          @click="void confirmBaseLaneSave()"
-        >
+          Keep editing</OfxButton><OfxButton variant="primary" icon="save"
+                                    type="button"
+                                    :disabled="saving"
+                                    @click="void confirmBaseLaneSave()"
+                                  >
           {{ saving ? "Saving…" : "Save base lane" }}
-        </button>
+        </OfxButton>
       </div>
     </section>
     <section
@@ -1102,21 +1076,18 @@ onMounted(async () => {
         the only material override in this save.
       </p>
       <div class="actions">
-        <button
-          class="secondary-button"
+        <OfxButton variant="secondary" icon="close"
           type="button"
           :disabled="saving"
           @click="pendingMaterialSave = null"
         >
-          Keep editing</button
-        ><button
-          class="primary-button"
-          type="button"
-          :disabled="saving"
-          @click="void confirmMaterialOverrideSave()"
-        >
+          Keep editing</OfxButton><OfxButton variant="primary" icon="save"
+                                    type="button"
+                                    :disabled="saving"
+                                    @click="void confirmMaterialOverrideSave()"
+                                  >
           {{ saving ? "Saving…" : "Save material override" }}
-        </button>
+        </OfxButton>
       </div>
     </section>
     <section
@@ -1137,21 +1108,18 @@ onMounted(async () => {
         records.
       </p>
       <div class="actions">
-        <button
-          class="secondary-button"
+        <OfxButton variant="secondary" icon="close"
           type="button"
           :disabled="deleting"
           @click="pendingDeletion = null"
         >
-          Keep row</button
-        ><button
-          class="danger-button"
-          type="button"
-          :disabled="deleting"
-          @click="void confirmDeletion()"
-        >
+          Keep row</OfxButton><OfxButton variant="danger" icon="delete"
+                                type="button"
+                                :disabled="deleting"
+                                @click="void confirmDeletion()"
+                              >
           {{ deleting ? "Deleting…" : "Delete selected row" }}
-        </button>
+        </OfxButton>
       </div>
     </section>
   </TaskPageLayout>
@@ -1198,9 +1166,6 @@ onMounted(async () => {
   align-items: center;
   justify-content: flex-end;
 }
-.primary-button,
-.secondary-button,
-.danger-button,
 .tab-button {
   border: 1px solid #c8d0de;
   border-radius: 0.5rem;
@@ -1209,19 +1174,6 @@ onMounted(async () => {
   padding: 0.65rem 0.9rem;
   width: fit-content;
 }
-.primary-button {
-  border-color: var(--ofx-accent);
-  background: var(--ofx-accent);
-  color: white;
-}
-.danger-button {
-  border-color: #c93c32;
-  background: #fff7f6;
-  color: #9d2019;
-}
-.primary-button:disabled,
-.secondary-button:disabled,
-.danger-button:disabled,
 .tab-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;

@@ -53,34 +53,13 @@ const isLightTheme = computed(() => props.themeMode === 'light');
 
 const transitionClass = 'min-h-[38px] transition-colors duration-150';
 
-const actionButtonClass = computed(() => {
-  const radiusClass = props.selectorVisible ? 'rounded-l-[10px]' : 'rounded-[10px]';
-  const baseClass = `${transitionClass} border px-3 text-sm font-semibold ${radiusClass}`;
-
-  if (isLightTheme.value) {
-    if (props.actionVariant === 'accent') {
-      return `${baseClass} border-[color:var(--ofx-primary)] bg-[color:var(--ofx-primary)] text-[color:var(--ofx-primary-foreground)] shadow-[0_8px_18px_rgb(15_23_42_/_0.06)] hover:bg-[color:var(--ofx-primary-hover)] disabled:cursor-not-allowed disabled:border-[color:var(--ofx-border-strong)] disabled:bg-[color:var(--ofx-surface-strong)] disabled:text-[color:var(--ofx-text-muted)] disabled:shadow-none`;
-    }
-
-    return `${baseClass} border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface)] text-[color:var(--ofx-text)] shadow-[0_8px_18px_rgb(15_23_42_/_0.06)] hover:border-[color:var(--ofx-border-strong)] hover:bg-[color:var(--ofx-muted)] disabled:cursor-not-allowed disabled:border-[color:var(--ofx-border-strong)] disabled:bg-[color:var(--ofx-surface-strong)] disabled:text-[color:var(--ofx-text-muted)] disabled:shadow-none`;
-  }
-
-  if (props.actionVariant === 'accent') {
-    return `${baseClass} border-[color:rgb(112_148_255_/_0.46)] bg-[linear-gradient(180deg,rgb(59_88_156_/_0.78),rgb(41_63_116_/_0.72))] text-white hover:border-[color:rgb(94_110_140_/_0.96)] hover:bg-[linear-gradient(180deg,rgb(45_57_78_/_0.98),rgb(33_43_60_/_0.98))] disabled:cursor-not-allowed disabled:opacity-45`;
-  }
-
-  return `${baseClass} border-[color:rgb(78_92_118_/_0.9)] bg-[linear-gradient(180deg,rgb(38_48_66_/_0.98),rgb(28_37_52_/_0.98))] text-[color:rgb(255_255_255_/_0.94)] hover:border-[color:rgb(94_110_140_/_0.96)] hover:bg-[linear-gradient(180deg,rgb(45_57_78_/_0.98),rgb(33_43_60_/_0.98))] disabled:cursor-not-allowed disabled:opacity-45`;
-});
-
-const selectorButtonClass = computed(() => {
-  const baseClass = `${transitionClass} rounded-r-[10px] border border-l-0 px-3 text-sm`;
-
-  if (isLightTheme.value) {
-    return `${baseClass} border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface-elevated)] text-[color:var(--ofx-text-muted)] shadow-[0_8px_18px_rgb(15_23_42_/_0.05)] hover:border-[color:var(--ofx-border-strong)] hover:bg-[color:var(--ofx-muted)] hover:text-[color:var(--ofx-text)] disabled:cursor-not-allowed disabled:border-[color:var(--ofx-border-strong)] disabled:bg-[color:var(--ofx-surface-strong)] disabled:text-[color:var(--ofx-text-muted)] disabled:shadow-none`;
-  }
-
-  return `${baseClass} border-[color:rgb(55_67_88_/_0.88)] bg-[linear-gradient(180deg,rgb(9_14_22_/_0.98),rgb(6_10_17_/_0.98))] text-[color:rgb(255_255_255_/_0.88)] hover:border-[color:rgb(94_110_140_/_0.96)] hover:bg-[linear-gradient(180deg,rgb(45_57_78_/_0.98),rgb(33_43_60_/_0.98))] disabled:cursor-not-allowed disabled:opacity-45`;
-});
+/** Keep the action and format selector visibly connected in either theme. */
+const actionButtonClass = computed(() => [
+  'ofx-download-command',
+  props.selectorVisible ? 'rounded-l-lg' : 'rounded-lg',
+  props.actionVariant === 'accent' ? 'is-primary' : '',
+]);
+const selectorButtonClass = computed(() => 'ofx-download-command ofx-download-selector rounded-r-lg');
 
 const menuClass = computed(() => {
   if (isLightTheme.value) {
@@ -219,3 +198,20 @@ watch(() => props.processing, (isProcessing) => {
     </Teleport>
   </div>
 </template>
+
+<style scoped>
+.ofx-download-command {
+  min-height: 2.5rem;
+  padding: .5rem .875rem;
+  border: 1px solid var(--ofx-border-strong);
+  background: color-mix(in srgb, var(--ofx-text) 12%, var(--ofx-surface-elevated));
+  color: var(--ofx-text);
+  font-size: .875rem;
+  font-weight: 600;
+}
+.ofx-download-selector { border-left: 0; }
+.ofx-download-command.is-primary { background: color-mix(in srgb, var(--ofx-primary) 75%, #16357a); color: white; }
+.ofx-download-command:hover:not(:disabled) { filter: brightness(1.1); }
+.ofx-download-command:focus-visible { outline: 2px solid var(--ofx-accent); outline-offset: 2px; }
+.ofx-download-command:disabled { opacity: .6; cursor: not-allowed; }
+</style>

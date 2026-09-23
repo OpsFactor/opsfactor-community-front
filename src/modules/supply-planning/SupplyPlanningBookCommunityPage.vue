@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRuntimeInfoStore } from '@opsfactor/front-core';
 import { LegacyPlanningBookGrid, type PlanningBookRow as CanonicalPlanningBookRow } from '@opsfactor/front-planning-book';
@@ -350,20 +351,20 @@ watch(
 <template>
   <DashboardPageLayout class="supply-planning-book-page">
     <OfxPageHeader v-if="!planningBook" eyebrow="Supply Planning" title="Planning Book" description="Material/location adjustments in the current Working Plan.">
-      <template #actions><button class="secondary-button" :disabled="isLoadingOptions" @click="loadOptions">Refresh options</button></template>
+      <template #actions><OfxButton variant="secondary" icon="refresh" :disabled="isLoadingOptions" @click="loadOptions">Refresh options</OfxButton></template>
     </OfxPageHeader>
 
     <p v-if="errorMessage" class="message message-error" role="alert">{{ errorMessage }}</p>
 
     <OfxSectionCard v-if="!planningBook" title="Workbook Selection" description="Select the Working Plan, planning location and configured view.">
-      <div class="selection-grid"><OfxSelectField v-model="selectedPlanId" label="Supply Plan" :options="supplyPlanOptions" :disabled="isLoadingOptions || isSaving" /><OfxSelectField v-model="selectedLocationId" label="Planning location" :options="locationOptions" :disabled="isLoadingOptions || isSaving" /><OfxSelectField v-model="selectedViewName" label="User view" :options="planningBookViewOptions" :disabled="isLoadingOptions || isSaving" /><div class="selection-open"><button class="primary-button" :disabled="!canOpenPlanningBook || isLoadingBook || isSaving" @click="openPlanningBook">{{ isLoadingBook ? 'Opening…' : 'Open Planning Book' }}</button></div></div>
+      <div class="selection-grid"><OfxSelectField v-model="selectedPlanId" label="Supply Plan" :options="supplyPlanOptions" :disabled="isLoadingOptions || isSaving" /><OfxSelectField v-model="selectedLocationId" label="Planning location" :options="locationOptions" :disabled="isLoadingOptions || isSaving" /><OfxSelectField v-model="selectedViewName" label="User view" :options="planningBookViewOptions" :disabled="isLoadingOptions || isSaving" /><div class="selection-open"><OfxButton variant="secondary" icon="open" :disabled="!canOpenPlanningBook || isLoadingBook || isSaving" @click="openPlanningBook">{{ isLoadingBook ? 'Opening…' : 'Open Planning Book' }}</OfxButton></div></div>
     </OfxSectionCard>
 
     <p v-if="!planningBook && !isLoadingOptions && !planningBookViews.length" class="muted">No Supply Planning Book view is assigned to this account. Ask an administrator to configure one before opening the workbook.</p>
 
     <section v-if="planningBook" class="planning-book-workspace-header">
       <div><div class="planning-book-workspace-eyebrow">Supply Planning Workspace</div><div class="planning-book-workspace-meta">{{ planningBook.viewName }} <span>•</span> {{ selectedPlanId }} <span>•</span> {{ selectedLocationId }}</div></div>
-      <button class="secondary-button" type="button" :disabled="isSaving || isLoadingDetails || isSavingDetails" @click="leavePlanningBook">Reopen selection</button>
+      <OfxButton variant="filter" icon="filter" type="button" :disabled="isSaving || isLoadingDetails || isSavingDetails" @click="leavePlanningBook">Reopen selection</OfxButton>
     </section>
 
     <div v-if="planningBook" class="planning-book-workspace-body">
@@ -381,31 +382,30 @@ watch(
         @request-details="openCellDetails"
       >
         <template #header-actions>
-          <button class="secondary-button" :disabled="isLoadingBook || isSaving || isLoadingDetails || isSavingDetails" @click="openPlanningBook">Reload</button>
-          <button
+          <OfxButton variant="secondary" icon="refresh" :disabled="isLoadingBook || isSaving || isLoadingDetails || isSavingDetails" @click="openPlanningBook">Reload</OfxButton>
+          <OfxButton variant="primary" icon="save"
             v-if="!planningBook.autoSubmitChanges"
-            class="primary-button"
             :disabled="pendingCells.size === 0 || isSaving || isLoadingDetails || isSavingDetails"
             @click="savePendingCells()"
           >
             {{ isSaving ? 'Saving…' : `Save in batch${pendingCells.size ? ` (${pendingCells.size})` : ''}` }}
-          </button>
+          </OfxButton>
         </template>
       </LegacyPlanningBookGrid>
     </div>
 
     <div v-if="cellDetails && detailSelection" class="drawer-backdrop" @click.self="closeCellDetails">
       <aside class="detail-drawer" aria-label="Supply Planning Book cell details">
-        <header class="section-header"><div><p class="eyebrow">Cell details</p><h2>{{ detailSelection.keyFigure }}</h2><p class="muted">{{ detailSelection.materialDescriptionCols.materialId }} · {{ detailSelection.locationId }} · {{ detailSelection.period }}</p></div><button class="secondary-button" :disabled="isSavingDetails" @click="closeCellDetails">Close</button></header>
+        <header class="section-header"><div><p class="eyebrow">Cell details</p><h2>{{ detailSelection.keyFigure }}</h2><p class="muted">{{ detailSelection.materialDescriptionCols.materialId }} · {{ detailSelection.locationId }} · {{ detailSelection.period }}</p></div><OfxButton variant="secondary" icon="close" :disabled="isSavingDetails" @click="closeCellDetails">Close</OfxButton></header>
         <p v-if="detailSelection.keyFigure.startsWith('Indirect Demand-')" class="muted">Indirect Demand is read-only.</p>
         <p v-else-if="!canSaveDetails" class="muted">This detail is read-only in the current edition.</p>
         <div class="table-scroll"><table><thead><tr><th v-for="column in cellDetails.columnDefs" :key="column.field">{{ column.headerName }}</th></tr></thead><tbody><tr v-for="(detailLine, detailLineIndex) in cellDetails.detailLines" :key="detailLineIndex"><td v-for="column in cellDetails.columnDefs" :key="column.field"><input v-if="column.field === 'Quantity' && isSupplyPlanningBookDetailQuantityEditable(detailSelection.keyFigure, detailLine)" :value="detailLine[column.field]" type="number" min="0" step="any" :disabled="isSavingDetails" @change="setDetailQuantity(detailLineIndex, ($event.target as HTMLInputElement).value)" /><span v-else>{{ detailLine[column.field] ?? '—' }}</span></td></tr></tbody></table></div>
-        <footer v-if="canSaveDetails" class="drawer-actions"><button class="primary-button" :disabled="isSavingDetails" @click="submitCellDetails">{{ isSavingDetails ? 'Saving…' : 'Save quantities' }}</button></footer>
+        <footer v-if="canSaveDetails" class="drawer-actions"><OfxButton variant="primary" icon="save" :disabled="isSavingDetails" @click="submitCellDetails">{{ isSavingDetails ? 'Saving…' : 'Save quantities' }}</OfxButton></footer>
       </aside>
     </div>
   </DashboardPageLayout>
 </template>
 
 <style scoped>
-.selection-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }.selection-open { align-self: end; display: flex; min-height: 2.5rem; }.selection-open .primary-button { width: 100%; justify-content: center; }.field-label { display: grid; gap: .5rem; color: var(--ofx-text); font-size: 13px; font-weight: 500; }.field-label select, input { border: 1px solid var(--ofx-border); border-radius: 12px; background: var(--ofx-surface); padding: .55rem .75rem; color: var(--ofx-text); }.primary-button, .secondary-button { display: inline-flex; min-height: 2.5rem; align-items: center; border: 1px solid var(--ofx-border); border-radius: 12px; background: var(--ofx-surface); padding: .45rem .9rem; color: var(--ofx-text); font-size: .875rem; font-weight: 600; }.primary-button { border-color: var(--ofx-primary); background: var(--ofx-primary); color: var(--ofx-primary-foreground); }.primary-button:disabled, .secondary-button:disabled { cursor: not-allowed; opacity: .5; }.section-header { display: flex; align-items: start; gap: 1rem; justify-content: space-between; }.table-scroll { overflow: auto; }.drawer-backdrop { position: fixed; inset: 0; z-index: 20; display: flex; justify-content: end; background: rgb(15 23 42 / .3); }.detail-drawer { width: min(52rem, 94vw); height: 100%; overflow: auto; background: var(--ofx-surface); box-shadow: -12px 0 32px rgb(15 23 42 / .2); padding: 1.5rem; color: var(--ofx-text); }.drawer-actions { display: flex; justify-content: end; margin-top: 1rem; }.planning-book-workspace-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1.25rem 0; border: 1px solid var(--ofx-border); border-radius: 14px; background: var(--ofx-surface-elevated); padding: 1rem 1.25rem; }.planning-book-workspace-eyebrow { color: var(--ofx-text-muted); font-size: .6875rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }.planning-book-workspace-meta { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .35rem; color: var(--ofx-text); font-size: .8125rem; font-weight: 600; }.planning-book-workspace-meta span { color: var(--ofx-text-muted); }.planning-book-workspace-body { height: calc(100vh - 13.5rem); min-height: 32rem; overflow: hidden; }.muted { color: var(--ofx-text-muted); }.message { margin-top: 1.25rem; border-radius: 14px; padding: .85rem 1rem; font-size: .875rem; }.message-error { border: 1px solid #f0b7b2; background: #fff8f7; color: #b42318; }
+.selection-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }.selection-open { align-self: end; display: flex; min-height: 2.5rem; }.selection-open .ofx-button { width: 100%; justify-content: center; }.field-label { display: grid; gap: .5rem; color: var(--ofx-text); font-size: 13px; font-weight: 500; }.field-label select, input { border: 1px solid var(--ofx-border); border-radius: 12px; background: var(--ofx-surface); padding: .55rem .75rem; color: var(--ofx-text); }.section-header { display: flex; align-items: start; gap: 1rem; justify-content: space-between; }.table-scroll { overflow: auto; }.drawer-backdrop { position: fixed; inset: 0; z-index: 20; display: flex; justify-content: end; background: rgb(15 23 42 / .3); }.detail-drawer { width: min(52rem, 94vw); height: 100%; overflow: auto; background: var(--ofx-surface); box-shadow: -12px 0 32px rgb(15 23 42 / .2); padding: 1.5rem; color: var(--ofx-text); }.drawer-actions { display: flex; justify-content: end; margin-top: 1rem; }.planning-book-workspace-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1.25rem 0; border: 1px solid var(--ofx-border); border-radius: 14px; background: var(--ofx-surface-elevated); padding: 1rem 1.25rem; }.planning-book-workspace-eyebrow { color: var(--ofx-text-muted); font-size: .6875rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }.planning-book-workspace-meta { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .35rem; color: var(--ofx-text); font-size: .8125rem; font-weight: 600; }.planning-book-workspace-meta span { color: var(--ofx-text-muted); }.planning-book-workspace-body { height: calc(100vh - 13.5rem); min-height: 32rem; overflow: hidden; }.muted { color: var(--ofx-text-muted); }.message { margin-top: 1.25rem; border-radius: 14px; padding: .85rem 1rem; font-size: .875rem; }.message-error { border: 1px solid #f0b7b2; background: #fff8f7; color: #b42318; }
 </style>

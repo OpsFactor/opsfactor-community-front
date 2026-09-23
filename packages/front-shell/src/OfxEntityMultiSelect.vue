@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import OfxButton from './OfxButton.vue';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { OfxSelectOption } from './OfxSelectOption';
 import OfxEditionAvailabilityMark from './OfxEditionAvailabilityMark.vue';
@@ -273,15 +274,9 @@ watch(
           {{ summaryText }}
         </div>
         <div class="flex items-center gap-2 text-xs">
-          <button
-            v-if="selectedOptions.length && !props.disabled"
-            type="button"
-            class="rounded px-1.5 py-0.5"
-            :class="clearButtonClass"
-            @click.stop="clearSelection"
-          >
+          <OfxButton v-if="selectedOptions.length && !props.disabled" type="button" @click.stop="clearSelection" variant="filter" icon="close" size="compact">
             Clear
-          </button>
+          </OfxButton>
           <span
             v-if="isEditionLocked"
             class="-my-px -mr-3.5 flex h-10 w-10 items-center justify-center rounded-r-[11px] border-l border-[color:var(--ofx-border-strong)] bg-[color:var(--ofx-muted)]"

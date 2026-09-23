@@ -36,7 +36,7 @@ const downloadOptions = computed<OfxDownloadOption[]>(() => [
     :class="hasResultsLabel ? 'flex-col gap-2 py-3 lg:justify-between' : 'justify-end py-2'"
   >
     <p v-if="hasResultsLabel" class="text-sm text-[color:var(--ofx-text-muted)]">{{ props.resultsLabel }}</p>
-    <div class="flex items-center gap-2">
+    <div class="flex min-w-0 flex-wrap items-center gap-2">
       <slot name="actions" />
       <OfxDownloadSplitButton
         :model-value="props.downloadFormat"

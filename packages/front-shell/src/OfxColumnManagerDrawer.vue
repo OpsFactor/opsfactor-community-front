@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import OfxButton from './OfxButton.vue';
 import { computed } from 'vue';
 
 export interface OfxColumnManagerItem {
@@ -29,12 +30,6 @@ const emit = defineEmits<{
 }>();
 
 const isLightTheme = computed(() => props.themeMode === 'light');
-const closeButtonClass = computed(() => (
-  isLightTheme.value
-    ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface-elevated)] text-[color:var(--ofx-text-muted)] hover:border-[color:var(--ofx-border-strong)] hover:text-[color:var(--ofx-text)]'
-    : 'border-white/10 bg-white/[0.03] text-[color:var(--ofx-text)] hover:border-white/16 hover:bg-white/[0.06]'
-));
-const closeIconClass = computed(() => (isLightTheme.value ? 'text-[color:var(--ofx-text-muted)]' : 'text-white/70'));
 const itemClass = computed(() => (
   isLightTheme.value
     ? 'border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface)]'
@@ -62,16 +57,7 @@ const iconButtonClass = computed(() => (
               <h2 class="text-lg font-semibold text-[color:var(--ofx-text)]">{{ props.title }}</h2>
               <p v-if="props.description" class="mt-1 text-sm text-[color:var(--ofx-text-muted)]">{{ props.description }}</p>
             </div>
-            <button
-              type="button"
-              :class="['inline-flex h-10 items-center gap-2 rounded-[10px] border px-4 text-sm font-medium transition', closeButtonClass]"
-              @click="emit('close')"
-            >
-              <svg :class="['h-4 w-4', closeIconClass]" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-              </svg>
-              Close
-            </button>
+            <OfxButton type="button" @click="emit('close')" variant="secondary" icon="close" size="compact">Close</OfxButton>
           </div>
         </header>
 

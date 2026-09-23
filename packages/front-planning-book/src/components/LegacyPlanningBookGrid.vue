@@ -581,7 +581,6 @@ const gridOptions = computed<GridOptions<PlanningBookRow>>(() => ({
   columnMenu: 'new',
   defaultColDef: {
     suppressMovable: false,
-    menuTabs: ['generalMenuTab', 'filterMenuTab', 'columnsMenuTab'],
   },
   context: {
     toggleRow,

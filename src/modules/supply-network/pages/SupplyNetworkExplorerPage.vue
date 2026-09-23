@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref } from 'vue';
 import { TaskPageLayout } from '@opsfactor/front-shell';
 import OfxDataTable from '@/components/ofx/data-display/OfxDataTable.vue';
@@ -396,22 +397,24 @@ onMounted(() => {
     >
       <template #actions>
         <div class="flex flex-wrap items-center gap-3">
-          <button
+          <OfxButton
+            variant="secondary"
+            icon="refresh"
             type="button"
-            class="inline-flex h-11 items-center justify-center rounded-[12px] border border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface)] px-4 text-sm font-medium text-[color:var(--ofx-text-muted)] transition hover:border-[color:var(--ofx-border-strong)] hover:bg-[color:var(--ofx-surface-elevated)] hover:text-[color:var(--ofx-text)] disabled:cursor-not-allowed disabled:opacity-55"
             :disabled="isGenerating"
             @click="bootstrapFilters"
           >
             Refresh filters
-          </button>
-          <button
+          </OfxButton>
+          <OfxButton
+            variant="primary"
+            icon="run"
             type="button"
-            class="inline-flex h-11 items-center justify-center rounded-[12px] border border-[color:var(--ofx-primary)] bg-[color:var(--ofx-primary)] px-4 text-sm font-semibold text-[color:var(--ofx-primary-foreground)] shadow-[0_14px_30px_rgb(33_71_160_/_0.18)] transition hover:bg-[color:var(--ofx-primary-hover)] disabled:cursor-not-allowed disabled:border-[color:var(--ofx-border-strong)] disabled:bg-[color:var(--ofx-surface-strong)] disabled:text-[color:var(--ofx-text-muted)] disabled:shadow-none"
             :disabled="!canGenerate"
             @click="generateNetwork"
           >
             {{ isGenerating ? 'Generating…' : 'Generate graph' }}
-          </button>
+          </OfxButton>
         </div>
       </template>
     </OfxPageHeader>
@@ -591,13 +594,15 @@ onMounted(() => {
         </template>
 
         <template #cell-inspectAction="{ row }">
-          <button
+          <OfxButton
+            variant="secondary"
+            icon="open"
+            size="table"
             type="button"
-            class="inline-flex items-center justify-center rounded-[10px] border border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--ofx-text-muted)] transition hover:border-[color:var(--ofx-border-strong)] hover:text-[color:var(--ofx-text)]"
             @click="inspectRow(String(row.id))"
           >
             Inspect
-          </button>
+          </OfxButton>
         </template>
       </OfxDataTable>
     </OfxSectionCard>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref } from 'vue';
 import { OfxPageHeader, OfxSectionCard, TaskPageLayout } from '@opsfactor/front-shell';
 import OfxSelectField from '../../components/ofx/forms/OfxSelectField.vue';
@@ -179,7 +180,7 @@ onMounted(loadSelectors);
 <template>
   <TaskPageLayout class="deployment-operational-page">
     <OfxPageHeader eyebrow="Supply Planning" title="Deployment" description="Review and replace planned inbound for one current Working Plan route.">
-      <template #actions><button class="secondary-button" :disabled="isLoadingSelectors || isLoadingLine || isUpdating" @click="loadSelectors">Refresh selectors</button></template>
+      <template #actions><OfxButton variant="secondary" icon="refresh" :disabled="isLoadingSelectors || isLoadingLine || isUpdating" @click="loadSelectors">Refresh selectors</OfxButton></template>
     </OfxPageHeader>
 
     <p v-if="resultMessage" class="success-message" role="status">{{ resultMessage }}</p>
@@ -196,7 +197,7 @@ onMounted(loadSelectors);
       <OfxSelectField v-model="originLocationId" label="Origin" help-text="Required" :options="originLocationOptions" :disabled="isLoadingSelectors" />
       <OfxSelectField v-model="destinationLocationId" label="Destination" help-text="Required" :options="destinationLocationOptions" :disabled="isLoadingSelectors" />
       <OfxSelectField v-model="materialId" label="Material" help-text="Required" :options="materialOptions" :disabled="isLoadingSelectors" />
-      <div class="actions"><button class="primary-button" :disabled="!canLoadLine || isLoadingLine || isUpdating" @click="loadDeployment">{{ isLoadingLine ? 'Loading…' : 'Load route' }}</button></div>
+      <div class="actions"><OfxButton variant="secondary" icon="open" :disabled="!canLoadLine || isLoadingLine || isUpdating" @click="loadDeployment">{{ isLoadingLine ? 'Loading…' : 'Load route' }}</OfxButton></div>
     </OfxSectionCard>
 
     <OfxSectionCard v-if="deployment" aria-labelledby="deployment-result-title">
@@ -213,7 +214,7 @@ onMounted(loadSelectors);
       </dl>
       <label class="quantity-input">Planned inbound quantity <small>must be zero or greater; {{ deployment.unitOfMeasureId }}</small><input v-model.number="plannedInboundQuantity" type="number" min="0" step="any" :disabled="isUpdating" /></label>
       <p v-if="plannedInboundQuantity !== null && !canUpdate" class="validation-message">Enter a finite planned inbound quantity that is zero or greater.</p>
-      <div class="actions"><button class="primary-button" :disabled="!canUpdate || isUpdating" @click="confirmationOpen = true">Update planned inbound</button></div>
+      <div class="actions"><OfxButton variant="primary" icon="save" :disabled="!canUpdate || isUpdating" @click="confirmationOpen = true">Update planned inbound</OfxButton></div>
     </OfxSectionCard>
 
     <OfxSectionCard v-if="confirmationOpen && deployment" class="confirmation" role="dialog" aria-modal="true" aria-labelledby="deployment-confirmation-title">
@@ -221,13 +222,16 @@ onMounted(loadSelectors);
       <p>This replaces the planned inbound quantity for {{ originLocationId }} → {{ destinationLocationId }}, material {{ materialId }}, in the current Working Plan.</p>
       <p class="muted">New quantity: {{ plannedInboundQuantity === null ? '—' : formatQuantity(plannedInboundQuantity) }} {{ deployment.unitOfMeasureId }}</p>
       <div class="actions">
-        <button class="secondary-button" :disabled="isUpdating" @click="confirmationOpen = false">Cancel</button>
-        <button class="primary-button" :disabled="!canUpdate || isUpdating" @click="confirmUpdate">{{ isUpdating ? 'Updating…' : 'Confirm update' }}</button>
+        <OfxButton variant="secondary" icon="close" :disabled="isUpdating" @click="confirmationOpen = false">Cancel</OfxButton>
+        <OfxButton variant="primary" icon="save" :disabled="!canUpdate || isUpdating" @click="confirmUpdate">{{ isUpdating ? 'Updating…' : 'Confirm update' }}</OfxButton>
       </div>
     </OfxSectionCard>
   </TaskPageLayout>
 </template>
 
 <style scoped>
-.section-header, .actions { display: flex; align-items: end; gap: 1rem; justify-content: space-between; }.section-header h2 { margin: .25rem 0; }.actions { flex-wrap: wrap; }.filters { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }.filters .section-header, .filters .actions { grid-column: 1 / -1; }.filters label, .quantity-input { display: grid; gap: .35rem; font-size: .85rem; font-weight: 700; }.filters select, .quantity-input input { min-height: 2.5rem; border: 1px solid var(--ofx-border); border-radius: .5rem; background: var(--ofx-surface); color: var(--ofx-text); padding: .55rem; }.primary-button, .secondary-button { border: 1px solid var(--ofx-border); border-radius: .5rem; background: var(--ofx-surface); color: var(--ofx-text); cursor: pointer; padding: .65rem .9rem; }.primary-button { border-color: var(--ofx-accent); background: var(--ofx-accent); color: white; }.primary-button:disabled, .secondary-button:disabled { cursor: not-allowed; opacity: .5; }.details { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); margin: 1rem 0 1.5rem; }.details div { border: 1px solid var(--ofx-border); border-radius: .5rem; padding: .7rem; }.details dt, .muted, .section-header p, .filters small, .quantity-input small { color: var(--ofx-text-muted); }.details dt { font-size: .75rem; text-transform: uppercase; }.details dd { margin: .25rem 0 0; font-weight: 700; }.quantity-input { max-width: 22rem; margin-bottom: 1rem; }.error, .validation-message { color: var(--ofx-text-danger); }.success-message { border: 1px solid #70b694; border-radius: .5rem; background: #ebf8ef; color: #146c43; padding: .8rem 1rem; }.confirmation { max-width: 42rem; border: 1px solid #f0b7b2; border-radius: 1rem; background: #fff8f7; padding: 1.5rem; }.confirmation h2 { margin-top: 0; }
+.section-header, .actions { display: flex; align-items: end; gap: 1rem; justify-content: space-between; }.section-header h2 { margin: .25rem 0; }.actions { flex-wrap: wrap; }.filters { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }.filters .section-header, .filters .actions { grid-column: 1 / -1; }.filters label, .quantity-input { display: grid; gap: .35rem; font-size: .85rem; font-weight: 700; }.filters select, .quantity-input input { min-height: 2.5rem; border: 1px solid var(--ofx-border); border-radius: .5rem; background: var(--ofx-surface); color: var(--ofx-text); padding: .55rem; }.details { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); margin: 1rem 0 1.5rem; }.details div { border: 1px solid var(--ofx-border); border-radius: .5rem; padding: .7rem; }.details dt, .muted, .section-header p, .filters small, .quantity-input small { color: var(--ofx-text-muted); }.details dt { font-size: .75rem; text-transform: uppercase; }.details dd { margin: .25rem 0 0; font-weight: 700; }.quantity-input { max-width: 22rem; margin-bottom: 1rem; }.error, .validation-message { color: var(--ofx-text-danger); }.success-message { border: 1px solid #70b694; border-radius: .5rem; background: #ebf8ef; color: #146c43; padding: .8rem 1rem; }.confirmation { max-width: 42rem; border: 1px solid #f0b7b2; border-radius: 1rem; background: #fff8f7; padding: 1.5rem; }.confirmation h2 { margin-top: 0; }
+
+/* Commands stay together; section headings retain their own spacing. */
+.actions { align-items: center; justify-content: flex-end; gap: .5rem; flex-wrap: wrap; }
 </style>

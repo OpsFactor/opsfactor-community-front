@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref, watch } from 'vue';
 import DashboardPageLayout from '@/layouts/page/DashboardPageLayout.vue';
 import OfxSelectField from '@/components/ofx/forms/OfxSelectField.vue';
@@ -886,14 +887,13 @@ onMounted(() => {
   <DashboardPageLayout class="cluster-level-configuration-page">
     <OfxPageHeader eyebrow="Demand Planning" title="Demand Planning Cluster-Level Configuration">
       <template #actions>
-        <button
-          class="primary-action"
+        <OfxButton variant="primary" icon="save"
           type="button"
           :disabled="!canLoadConfiguration || isSavingConfiguration || isLoadingConfiguration"
           @click="saveConfiguration"
         >
           {{ isSavingConfiguration ? 'Saving Parameters…' : 'Save Parameters' }}
-        </button>
+        </OfxButton>
       </template>
     </OfxPageHeader>
 
@@ -1139,14 +1139,13 @@ onMounted(() => {
               label="Reference Period"
               :bucket-size="selectedExecutionProfile?.bucketSize"
             />
-            <button
+            <OfxButton variant="primary" icon="run"
               type="button"
-              class="primary-action"
               :disabled="!executeDemandPlanEnabled || isRunningSimulation"
               @click="generateForecastPreview"
             >
               {{ isRunningSimulation ? 'Generating Forecast Preview…' : 'Generate Forecast Preview' }}
-            </button>
+            </OfxButton>
           </div>
         </OfxSectionCard>
       </div>
@@ -1239,25 +1238,6 @@ onMounted(() => {
 <style scoped>
 .cluster-level-configuration-page {
   position: relative;
-}
-
-.primary-action {
-  min-height: 2.75rem;
-  border: 1px solid var(--ofx-primary);
-  border-radius: 12px;
-  background: var(--ofx-primary);
-  color: var(--ofx-primary-foreground);
-  padding: 0.7rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 700;
-  transition: 160ms ease;
-}
-
-.primary-action:disabled {
-  cursor: not-allowed;
-  border-color: var(--ofx-border-strong);
-  background: var(--ofx-surface-strong);
-  color: var(--ofx-text-muted);
 }
 
 .ofx-detail-panel {

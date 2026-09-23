@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref } from 'vue';
 import {
   OfxEmptyState,
@@ -344,7 +345,7 @@ onMounted(loadSelectors);
         :catalog="materialLocationCatalog"
         description="Choose materials, locations or their public characteristics before loading the physical snapshot."
       />
-      <template #actions><button class="primary-button" :disabled="!canLoadOverview || isLoadingOverview" @click="loadOverview">{{ isLoadingOverview ? 'Loading...' : inventoryOverview ? 'Reload snapshot' : 'Open inventory overview' }}</button></template>
+      <template #actions><OfxButton variant="secondary" icon="open" :disabled="!canLoadOverview || isLoadingOverview" @click="loadOverview">{{ isLoadingOverview ? 'Loading...' : inventoryOverview ? 'Reload snapshot' : 'Open inventory overview' }}</OfxButton></template>
     </OfxSectionCard>
 
     <OfxEmptyState v-if="!isLoadingSelectors && errorMessage && !inventoryOverview" class="mt-6" title="Inventory Overview unavailable" :description="errorMessage" />
@@ -352,7 +353,7 @@ onMounted(loadSelectors);
 
     <template v-else-if="inventoryOverview">
       <OfxContextSummary v-if="!isEditingInitialSelection" class="mt-6" title="Loaded selection" description="This is the starting scope of the open snapshot. Change it only when a new backend selection is needed." :metrics="initialSelectionSummary">
-        <template #actions><button class="secondary-button" :disabled="isLoadingOverview" @click="editInitialSelection">Change initial selection</button></template>
+        <template #actions><OfxButton variant="filter" icon="filter" :disabled="isLoadingOverview" @click="editInitialSelection">Change initial selection</OfxButton></template>
       </OfxContextSummary>
 
       <OfxSectionCard class="mt-6" title="Analysis filters" description="Refine only the material-location combinations already returned in the snapshot. Charts and the pivot update locally.">
@@ -362,7 +363,7 @@ onMounted(loadSelectors);
           <OfxEntityMultiSelect v-for="characteristic in analysisLocationCharacteristics" :key="`location-${characteristic.caracteristicaId}`" v-model="analysisLocationCharacteristicValues[characteristic.caracteristicaId]" :label="characteristic.descricao" :options="characteristic.options" placeholder="All values" />
           <OfxEntityMultiSelect v-for="characteristic in analysisMaterialCharacteristics" :key="`material-${characteristic.caracteristicaId}`" v-model="analysisMaterialCharacteristicValues[characteristic.caracteristicaId]" :label="characteristic.descricao" :options="characteristic.options" placeholder="All values" />
         </div>
-        <template #actions><button class="secondary-button" @click="resetAnalysisFilters">Clear analysis filters</button></template>
+        <template #actions><OfxButton variant="filter" icon="close" @click="resetAnalysisFilters">Clear analysis filters</OfxButton></template>
       </OfxSectionCard>
 
       <OfxEmptyState v-if="isDetailedSnapshotUnavailable" class="mt-6" title="Detailed snapshot is unavailable" description="The active Community backend is still returning the previous aggregate-only Inventory Overview response. Restart it with the updated backend, then open the snapshot again." />
@@ -381,9 +382,6 @@ onMounted(loadSelectors);
 </template>
 
 <style scoped>
-.primary-button, .secondary-button { display: inline-flex; min-height: 2.5rem; align-items: center; border: 1px solid var(--ofx-border); border-radius: 12px; background: var(--ofx-surface); padding: 0 .95rem; color: var(--ofx-text); font-size: .875rem; font-weight: 600; }
-.primary-button { border-color: var(--ofx-primary); background: var(--ofx-primary); color: var(--ofx-primary-foreground); }
-.primary-button:disabled, .secondary-button:disabled { cursor: not-allowed; opacity: .5; }
 .message { border-radius: 14px; padding: .85rem 1rem; font-size: .875rem; }
 .message-error { border: 1px solid #f0b7b2; background: #fff8f7; color: #b42318; }
 </style>

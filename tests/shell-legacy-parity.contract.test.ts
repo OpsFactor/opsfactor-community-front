@@ -70,7 +70,7 @@ test('Data operation workspace is supplied by the Community shell while Enterpri
   assert.match(sharedWorkspace, /title="Operations"/);
   assert.match(sharedWorkspace, /:action-label="props\.downloadPresentation === 'server-file' \? 'Download' : 'Download as'"/);
   assert.match(sharedWorkspace, /class="flex flex-wrap items-center gap-2"/);
-  assert.match(sharedWorkspace, /inline-flex h-\[38px\] items-center justify-center/);
+  assert.match(sharedWorkspace, /<OfxButton type="button" :disabled="props\.importDisabled \|\| props\.importProcessing" @click="emit\('import'\)" variant="primary" icon="upload" size="compact">/);
   assert.doesNotMatch(sharedWorkspace, /Run Download/);
   assert.doesNotMatch(sharedWorkspace, /rounded-\[14px\] border px-4 py-4 shadow/);
   assert.doesNotMatch(sharedWorkspace, /api\/secured|requestJson|uploadDataPackage/i);
