@@ -48,7 +48,11 @@ const shellStyle = computed(() => ({
   '--dependency-accent': props.data.accent,
 }));
 
+/** Unknown evidence needs its own badge; active registration does not prove replenishment. */
 function statusBadgeClass(kind: 'registration' | 'viability', status: string) {
+  if (kind === 'viability' && status === 'unknown') {
+    return 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-200';
+  }
   if (isLightTheme.value) {
     if (kind === 'registration') {
       return status === 'inactive'
@@ -86,7 +90,8 @@ function statusBadgeClass(kind: 'registration' | 'viability', status: string) {
     ]"
   >
     <Handle id="target" type="target" :position="Position.Left" :connectable="false" class="dependency-handle" />
-    <Handle id="source" type="source" :position="Position.Right" :connectable="false" class="dependency-handle" />
+    <!-- Reference/cut leaves have no outgoing handle; navigation selects the canonical node. -->
+    <Handle v-if="!props.data.isTerminal" id="source" type="source" :position="Position.Right" :connectable="false" class="dependency-handle" />
 
     <div class="dependency-node__glow" />
 
@@ -122,8 +127,8 @@ function statusBadgeClass(kind: 'registration' | 'viability', status: string) {
           <span
             v-if="props.data.isRecursionCut"
             class="dependency-node__recursion-cut"
-            aria-label="Inspection stopped because this material-location was already in the graph"
-            title="Inspection stopped because this material-location was already in the graph"
+            aria-label="Circular network - not expanded"
+            title="Circular network - not expanded"
           >
             <svg viewBox="0 0 24 24" class="h-3.5 w-3.5">
               <path fill="currentColor" d="M7 7h7.6l-2.3-2.3L13.7 3.3 18.4 8l-4.7 4.7-1.4-1.4L14.6 9H7a3 3 0 0 0-3 3v1H2v-1a5 5 0 0 1 5-5Zm10 10H9.4l2.3 2.3-1.4 1.4L5.6 16l4.7-4.7 1.4 1.4L9.4 15H17a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5Z" />
@@ -173,6 +178,10 @@ function statusBadgeClass(kind: 'registration' | 'viability', status: string) {
           {{ props.data.viabilityStatusLabel }}
         </span>
       </div>
+    </div>
+    <!-- The marker explains stopped expansion and must not replace the viability badge above. -->
+    <div v-if="props.data.isTerminal" class="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-200">
+      {{ props.data.expansionStatusLabel }}
     </div>
   </div>
 </template>
@@ -368,5 +377,3 @@ function statusBadgeClass(kind: 'registration' | 'viability', status: string) {
   box-shadow: var(--ofx-shadow-sm);
 }
 </style>
-
-

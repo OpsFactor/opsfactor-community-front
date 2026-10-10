@@ -130,6 +130,7 @@ const graphLinkStatsByNodeId = computed(() => {
 const selectedNode = computed(() => graphNodeById.value.get(selectedNodeId.value ?? '') ?? null);
 const isLightTheme = computed(() => themeStore.mode === 'light');
 
+// Present registration, feasibility and expansion separately: a cycle leaf can still be viable.
 const selectedNodeMetrics = computed(() => {
   if (!selectedNode.value) return [];
 
@@ -139,7 +140,7 @@ const selectedNodeMetrics = computed(() => {
     { label: 'Type', value: selectedNode.value.data.typeLabel },
     { label: 'Registration', value: selectedNode.value.data.registrationStatusLabel ?? 'Not applicable' },
     { label: 'Viability', value: selectedNode.value.data.viabilityStatusLabel },
-    { label: 'Inspection', value: selectedNode.value.data.isRecursionCut ? 'Stopped on repeated element' : 'Expanded' },
+    { label: 'Inspection', value: selectedNode.value.data.expansionStatusLabel },
     { label: 'Incoming links', value: String(linkStats.incomingLinks) },
     { label: 'Outgoing links', value: String(linkStats.outgoingLinks) },
   ];
@@ -158,7 +159,7 @@ const nodeInventoryRows = computed<InventoryRow[]>(() =>
 
     const baseReference = node.data.subtitle || referenceDetails;
     const referenceFlags = [
-      node.data.isRecursionCut ? 'Recursion cut' : null,
+      node.data.isTerminal ? node.data.expansionStatusLabel : null,
       node.data.isParallelRoutingsOmitted ? 'Parallel routings hidden' : null,
     ].filter(Boolean);
 
@@ -292,6 +293,7 @@ function clearGraphNodeFocus() {
 }
 
 function statusBadgeClass(kind: 'registration' | 'viability', status: string) {
+  if (kind === 'viability' && status === 'Unknown') return warningBadgeClass();
   if (isLightTheme.value) {
     if (kind === 'registration') {
       if (status === 'Active') {
@@ -453,6 +455,8 @@ onMounted(() => {
     <OfxSectionCard title="Dependency network">
       <OfxLoadingState v-if="isRequiredFiltersLoading" label="Loading required filters…" />
       <div v-else>
+        <!-- Show completeness even with no visible blocked node; omitted/unknown is not success. -->
+        <p v-for="warning in graph.warnings ?? []" :key="warning" role="status" :class="['mb-3 rounded-xl border p-3 text-sm', warningBadgeClass()]">{{ warning }}</p>
         <OfxSupplyDependencyGraph
           :nodes="graph.nodes"
           :edges="graph.edges"
@@ -503,10 +507,10 @@ onMounted(() => {
                 {{ selectedNode.data.viabilityStatusLabel }}
               </span>
               <span
-                v-if="selectedNode.data.isRecursionCut"
+                v-if="selectedNode.data.isTerminal"
                 :class="['inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.16em]', warningBadgeClass()]"
               >
-                Recursion cut
+                {{ selectedNode.data.expansionStatusLabel }}
               </span>
               <span
                 v-if="selectedNode.data.isParallelRoutingsOmitted"
@@ -517,6 +521,11 @@ onMounted(() => {
             </div>
           </div>
         </div>
+
+        <!-- Selection reuses the existing canonical node and never fetches/re-expands the leaf. -->
+        <OfxButton v-if="selectedNode.data.referenceNodeId && graphNodeById.has(selectedNode.data.referenceNodeId)" variant="secondary" type="button" @click="inspectRow(selectedNode.data.referenceNodeId)">
+          Inspect referenced element
+        </OfxButton>
 
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div
@@ -608,5 +617,3 @@ onMounted(() => {
     </OfxSectionCard>
   </TaskPageLayout>
 </template>
-
-

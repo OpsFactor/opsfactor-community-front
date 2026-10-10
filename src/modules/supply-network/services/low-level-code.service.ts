@@ -1,6 +1,8 @@
 import ELK, { type ElkExtendedEdge, type ElkNode } from 'elkjs/lib/elk.bundled.js';
 import { requestJson } from '@/services/api/request';
 
+import { dependencyViability, dependencyExpansion, isDependencyReference, dependencyBooleanLabel, DEPENDENCY_EXPANSION_LABELS, type DependencyState, type DependencyExpansion } from './supply-dependency-state';
+
 const elk = new ELK();
 
 const ELEMENT_TYPE_LABELS = {
@@ -25,6 +27,7 @@ const ELEMENT_TYPE_COLORS = {
 
 const STATUS_LABELS = {
   viable: 'Viable',
+  unknown: 'Unknown',
   blocked: 'Blocked',
   inactive: 'Inactive',
   active: 'Active',
@@ -44,9 +47,9 @@ const SUPPLY_DEPENDENCY_LAYOUT_LAYER_GAP = 86;
 const SUPPLY_DEPENDENCY_LAYOUT_NODE_GAP = 28;
 
 export type SupplyDependencyElementType = keyof typeof ELEMENT_TYPE_LABELS;
-export type SupplyDependencyNodeStatus = 'viable' | 'blocked' | 'inactive';
+export type SupplyDependencyNodeStatus = 'viable' | 'blocked' | 'inactive' | 'unknown';
 export type SupplyDependencyRegistrationStatus = 'active' | 'inactive';
-export type SupplyDependencyViabilityStatus = 'viable' | 'blocked';
+export type SupplyDependencyViabilityStatus = 'viable' | 'blocked' | 'unknown';
 
 export interface SupplyNetworkVersionOption {
   id: string;
@@ -65,7 +68,7 @@ export interface SupplyMaterialOption {
   characteristicValues?: Record<string, unknown>;
 }
 
-interface SupplyDependencyBase {
+interface SupplyDependencyBase extends DependencyState {
   viableStep?: boolean | null;
   elementType: SupplyDependencyElementType;
 }
@@ -79,6 +82,23 @@ export interface SupplyDependencyMaterialLocation extends SupplyDependencyBase {
   viableInbound?: boolean | null;
   recursionCut?: boolean | null;
   depth?: number | null;
+  /** Structural analysis metadata is independent from depth/display cuts in the returned view. */
+  analysisStatus?: 'COMPLETE' | 'PARTIAL' | null;
+  analysisCutReason?: string | null;
+  analysisTruncated?: boolean;
+  displayTruncated?: boolean;
+  analyzedNodeCount?: number;
+  analyzedEdgeCount?: number;
+  requestedTreeDepth?: number;
+  effectiveTreeDepth?: number;
+  maximumDisplayDepth?: number;
+  requestedRootCount?: number;
+  returnedRootCount?: number;
+  maximumAnalysisNodes?: number;
+  maximumAnalysisEdges?: number;
+  maximumDisplayNodes?: number;
+  maximumDisplayEdges?: number;
+  maximumAnalysisMillis?: number;
   productionVersionDependencies?: SupplyDependencyProductionVersion[];
   inboundTransportationLineDependencies?: SupplyDependencyTransportationLine[];
 }
@@ -152,6 +172,10 @@ export interface SupplyDependencyGraphNodeData {
   iconKey: SupplyDependencyElementType;
   isFocusLocked?: boolean;
   isRecursionCut?: boolean;
+  expansionStatus: DependencyExpansion;
+  expansionStatusLabel: string;
+  referenceNodeId?: string;
+  isTerminal: boolean;
   isParallelRoutingsOmitted?: boolean;
   shellStatus: SupplyDependencyNodeStatus;
   registrationStatus?: SupplyDependencyRegistrationStatus;
@@ -180,6 +204,8 @@ export interface SupplyDependencyGraphEdgeLayout {
 }
 
 export interface SupplyDependencyGraphLayout {
+  warnings?: string[];
+  displayTruncated?: boolean;
   nodes: SupplyDependencyGraphNodeLayout[];
   edges: SupplyDependencyGraphEdgeLayout[];
 }
@@ -245,25 +271,43 @@ export async function fetchLowLevelCodeDependencies(filters: LowLevelCodeFilters
   });
 }
 
+/**
+ * Build a bounded visualization of the backend result, not a second supply-feasibility solver.
+ * Queue-based expansion avoids recursive browser traversal and processes canonical nodes once.
+ * Backend cycle/shared markers remain terminal even if a malformed payload includes children;
+ * display limits must not change the structural statuses established by the analysis.
+ */
 export async function buildSupplyDependencyGraph(roots: SupplyDependencyMaterialLocation[]): Promise<SupplyDependencyGraphLayout> {
   const nodes = new Map<string, MutableGraphNode>();
   const edges = new Map<string, SupplyDependencyGraphEdgeLayout>();
   const expandedNodes = new Set<string>();
+  const queue: Array<{ node: SupplyDependencyNode; context: TraversalContext }> = [];
+  let displayTruncated = false;
+  let referenceSequence = 0;
 
   function ensureNode(node: SupplyDependencyNode, context: TraversalContext) {
-    const id = getNodeId(node, context.parentScopedId);
+    // Reusing the canonical ID here would merge the leaf with its ancestor, recreate a visual
+    // cycle and potentially overwrite the expanded node. Each reference gets an occurrence ID;
+    // referenceNodeId keeps navigation to the canonical node without a recursive expansion.
+    const id = isDependencyReference(node)
+      ? ['reference', context.parentId ?? 'root', node.referenceNodeId ?? getNodeId(node), ++referenceSequence].join(':')
+      : getNodeId(node, context.parentScopedId);
     const existing = nodes.get(id);
 
     if (existing) {
       existing.rank = Math.min(existing.rank, context.rank);
-      mergeRecursionCutState(existing, node);
+      // A depth-limited occurrence can arrive before its complete form through another root.
+      // Upgrade that occurrence when possible; never let a later display cut erase its details.
+      if (existing.data.isTerminal && dependencyExpansion(node) === 'COMPLETE') {
+        existing.data = buildNodeData(node);
+      }
       return existing;
     }
 
     const created: MutableGraphNode = {
       id,
       width: SUPPLY_DEPENDENCY_NODE_WIDTH,
-      height:
+      height: dependencyExpansion(node) !== 'COMPLETE' ? 200 :
         node.elementType === 'Material-Location'
           ? SUPPLY_DEPENDENCY_NODE_HEIGHT.materialLocation
           : node.elementType === 'Routing-Bom Combination'
@@ -292,12 +336,21 @@ export async function buildSupplyDependencyGraph(roots: SupplyDependencyMaterial
   }
 
   function visit(node: SupplyDependencyNode, context: TraversalContext) {
+    queue.push({ node, context });
+  }
+
+  function expand(node: SupplyDependencyNode, context: TraversalContext) {
     const graphNode = ensureNode(node, context);
 
     if (context.parentId) {
       addEdge(context.parentId, graphNode.id, context.relationLabel, graphNode.data.shellStatus);
     }
 
+    // Stop before inspecting children: even inconsistent/older responses cannot reopen a cycle.
+    // CYCLE_REFERENCE and SHARED_REFERENCE keep distinct labels, and neither means BLOCKED.
+    if (dependencyExpansion(node) !== 'COMPLETE') return graphNode.id;
+
+    // Deduplication applies to expansion, not to feasibility or the visibility of incoming links.
     if (expandedNodes.has(graphNode.id)) {
       return graphNode.id;
     }
@@ -433,7 +486,30 @@ export async function buildSupplyDependencyGraph(roots: SupplyDependencyMaterial
     });
   });
 
-  ensureGraphCanBeLaidOut(nodes.size, edges.size);
+  // Breadth-first emission preserves shallow canonical occurrences regardless of root order.
+  // These are browser layout budgets in addition to backend budgets. Report omitted presentation
+  // explicitly instead of failing the whole view or treating the surviving nodes as a full graph.
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    if (nodes.size >= SUPPLY_DEPENDENCY_LAYOUT_NODE_LIMIT || edges.size >= SUPPLY_DEPENDENCY_LAYOUT_EDGE_LIMIT) {
+      displayTruncated = true;
+      break;
+    }
+    const entry = queue[cursor];
+    expand(entry.node, entry.context);
+  }
+  // Analysis truncation leaves some conclusions unknown; display truncation only hides detail.
+  // Keep both reasons visible so reducing the requested depth cannot create a false green result.
+  const warnings = [...new Set(roots.flatMap((root) => [
+    root.analysisStatus !== 'COMPLETE' || root.analysisTruncated
+      ? 'Structural analysis is incomplete. Unknown dependencies do not prove supply or a blockage.' : null,
+    root.analysisCutReason ? `Structural analysis limit: ${root.analysisCutReason}.` : null,
+    root.displayTruncated ? 'The server limited the displayed network; structural conclusions are shown separately.' : null,
+    root.requestedRootCount !== undefined && root.returnedRootCount !== undefined && root.returnedRootCount < root.requestedRootCount
+      ? `Showing ${root.returnedRootCount} of ${root.requestedRootCount} requested roots. Narrow the filters to inspect omitted roots.` : null,
+    root.requestedTreeDepth !== undefined && root.effectiveTreeDepth !== undefined && root.effectiveTreeDepth < root.requestedTreeDepth
+      ? `Requested display depth ${root.requestedTreeDepth} was limited to ${root.effectiveTreeDepth}. This does not change structural viability.` : null,
+  ]).filter((message): message is string => message !== null))];
+  if (displayTruncated) warnings.push('Display limit reached. Some nodes and links are omitted; narrow the filters to inspect them.');
 
   const elkGraph: ElkNode = {
     id: 'low-level-root',
@@ -474,6 +550,8 @@ export async function buildSupplyDependencyGraph(roots: SupplyDependencyMaterial
   );
 
   return {
+    warnings,
+    displayTruncated,
     nodes: positionedNodes.sort((left, right) => left.rank - right.rank || left.data.label.localeCompare(right.data.label)),
     edges: Array.from(edges.values()),
   };
@@ -541,6 +619,7 @@ function comparePositionedNodesForCompaction(left: PositionedGraphNode, right: P
 }
 
 function getNodeId(node: SupplyDependencyNode, parentScopedId?: string) {
+  if (node.nodeId) return node.nodeId;
   if (node.elementType === 'Material-Location') {
     return `material-location:${node.locationId}:${node.materialId}`;
   }
@@ -569,10 +648,16 @@ function getNodeId(node: SupplyDependencyNode, parentScopedId?: string) {
   return `resource:${parentScopedId ?? 'root'}:${sanitizeId(node.productionResourceId ?? 'unidentified')}`;
 }
 
+/**
+ * Preserve the server conclusion and local registration blockers independently from the marker.
+ * A viable root may contain a circular leaf; a blocked circular group can also expose useful
+ * BOM/routing failures. Neither condition should hide the other's diagnostic information.
+ */
 function buildNodeData(node: SupplyDependencyNode): SupplyDependencyGraphNodeData {
   const registrationStatus = resolveRegistrationStatus(node);
   const viabilityStatus = resolveViabilityStatus(node);
-  const isRecursionCut = node.elementType === 'Material-Location' && node.recursionCut === true;
+  const expansionStatus = dependencyExpansion(node);
+  const isRecursionCut = expansionStatus === 'CYCLE_REFERENCE';
   const isParallelRoutingsOmitted =
     (node.elementType === 'Production Version' || node.elementType === 'Routing-Bom Combination') &&
     node.parallelRoutingsOmitted === true;
@@ -583,14 +668,26 @@ function buildNodeData(node: SupplyDependencyNode): SupplyDependencyGraphNodeDat
     typeLabel: ELEMENT_TYPE_LABELS[node.elementType],
     iconKey: node.elementType,
     isRecursionCut,
+    expansionStatus,
+    expansionStatusLabel: DEPENDENCY_EXPANSION_LABELS[expansionStatus],
+    referenceNodeId: node.referenceNodeId ?? undefined,
+    isTerminal: expansionStatus !== 'COMPLETE',
     isParallelRoutingsOmitted,
     shellStatus: resolveShellStatus(registrationStatus, viabilityStatus),
     registrationStatus,
     registrationStatusLabel: registrationStatus ? STATUS_LABELS[registrationStatus] : undefined,
     viabilityStatus,
     viabilityStatusLabel: STATUS_LABELS[viabilityStatus],
-    accent: ELEMENT_TYPE_COLORS[node.elementType],
-    details: buildDetails(node),
+    accent: viabilityStatus === 'unknown' ? '#b68b35' : ELEMENT_TYPE_COLORS[node.elementType],
+    details: [
+      ...buildDetails(node),
+      { label: 'Expansion', value: DEPENDENCY_EXPANSION_LABELS[expansionStatus] },
+      ...(node.referenceNodeId ? [{ label: 'Referenced node', value: node.referenceNodeId }] : []),
+      ...(node.cycleGroupId ? [{ label: 'Circular group', value: node.cycleGroupId }] : []),
+      ...(node.cutReason ? [{ label: 'Cut reason', value: node.cutReason }] : []),
+      ...(node.alternativeId ? [{ label: 'Alternative', value: node.alternativeId }] : []),
+      ...(node.localBlockingReasons ?? []).map((reason) => ({ label: 'Local blocking reason', value: reason })),
+    ],
   };
 }
 
@@ -599,11 +696,11 @@ function resolveRegistrationStatus(node: SupplyDependencyNode): SupplyDependency
     return undefined;
   }
 
-  return node.active === false ? 'inactive' : 'active';
+  return node.active === true ? 'active' : node.active === false ? 'inactive' : undefined;
 }
 
 function resolveViabilityStatus(node: SupplyDependencyNode): SupplyDependencyViabilityStatus {
-  return node.viableStep === false ? 'blocked' : 'viable';
+  return dependencyViability(node);
 }
 
 function resolveShellStatus(
@@ -614,7 +711,7 @@ function resolveShellStatus(
     return 'inactive';
   }
 
-  return viabilityStatus === 'blocked' ? 'blocked' : 'viable';
+  return viabilityStatus;
 }
 
 function getPrimaryLabel(node: SupplyDependencyNode) {
@@ -649,14 +746,16 @@ function buildDetails(node: SupplyDependencyNode) {
       { label: 'Material', value: node.materialId },
       { label: 'Location', value: node.locationId },
       { label: 'Depth', value: String(node.depth ?? 0) },
-      { label: 'Registration', value: node.active === false ? 'Inactive' : 'Active' },
-      { label: 'Viability', value: node.viableStep === false ? 'Blocked' : 'Viable' },
-      { label: 'Production', value: node.viableProduction ? 'Viable' : 'Not viable' },
-      { label: 'Inbound', value: node.viableInbound ? 'Viable' : 'Not viable' },
+      { label: 'Registration', value: node.active === true ? 'Active' : node.active === false ? 'Inactive' : 'Unknown' },
+      { label: 'Viability', value: STATUS_LABELS[resolveViabilityStatus(node)] },
+      { label: 'Production', value: dependencyBooleanLabel(node.viableProduction) },
+      { label: 'Inbound', value: dependencyBooleanLabel(node.viableInbound) },
+      { label: 'Analysis', value: node.analysisStatus ?? 'Unknown' },
+      ...(node.analysisCutReason ? [{ label: 'Analysis limit', value: node.analysisCutReason }] : []),
     ];
 
-    if (node.recursionCut === true) {
-      details.push({ label: 'Inspection', value: 'Stopped because this material-location was already in the graph' });
+    if (dependencyExpansion(node) !== 'COMPLETE') {
+      details.push({ label: 'Inspection', value: DEPENDENCY_EXPANSION_LABELS[dependencyExpansion(node)] });
     }
 
     return details;
@@ -665,8 +764,8 @@ function buildDetails(node: SupplyDependencyNode) {
   if (node.elementType === 'Production Version') {
     const details = [
       { label: 'Production version', value: node.productionVersionId || 'Virtual Production Version' },
-      { label: 'Registration', value: node.active === false ? 'Inactive' : 'Active' },
-      { label: 'Viability', value: node.viableStep === false ? 'Blocked' : 'Viable' },
+      { label: 'Registration', value: node.active === true ? 'Active' : node.active === false ? 'Inactive' : 'Unknown' },
+      { label: 'Viability', value: STATUS_LABELS[resolveViabilityStatus(node)] },
     ];
 
     if (node.parallelRoutingsOmitted === true) {
@@ -683,7 +782,7 @@ function buildDetails(node: SupplyDependencyNode) {
     const details = [
       { label: 'Routing', value: node.routingDependency?.routingId || 'Not identified' },
       { label: 'BOM', value: node.bomDependency?.bomId || 'Not identified' },
-      { label: 'Viability', value: node.viableStep === false ? 'Blocked' : 'Viable' },
+      { label: 'Viability', value: STATUS_LABELS[resolveViabilityStatus(node)] },
     ];
 
     if (node.parallelRoutingsOmitted === true) {
@@ -699,24 +798,24 @@ function buildDetails(node: SupplyDependencyNode) {
   if (node.elementType === 'Routing') {
     return [
       { label: 'Routing', value: node.routingId || 'Not identified' },
-      { label: 'Registration', value: node.active === false ? 'Inactive' : 'Active' },
-      { label: 'Viability', value: node.viableStep === false ? 'Blocked' : 'Viable' },
+      { label: 'Registration', value: node.active === true ? 'Active' : node.active === false ? 'Inactive' : 'Unknown' },
+      { label: 'Viability', value: STATUS_LABELS[resolveViabilityStatus(node)] },
     ];
   }
 
   if (node.elementType === 'Bill of Materials') {
     return [
       { label: 'BOM', value: node.bomId || 'Not identified' },
-      { label: 'Registration', value: node.active === false ? 'Inactive' : 'Active' },
-      { label: 'Viability', value: node.viableStep === false ? 'Blocked' : 'Viable' },
+      { label: 'Registration', value: node.active === true ? 'Active' : node.active === false ? 'Inactive' : 'Unknown' },
+      { label: 'Viability', value: STATUS_LABELS[resolveViabilityStatus(node)] },
     ];
   }
 
   if (node.elementType === 'Production Resource') {
     return [
       { label: 'Resource', value: node.productionResourceId || 'Not identified' },
-      { label: 'Registration', value: node.active === false ? 'Inactive' : 'Active' },
-      { label: 'Viability', value: node.viableStep === false ? 'Blocked' : 'Viable' },
+      { label: 'Registration', value: node.active === true ? 'Active' : node.active === false ? 'Inactive' : 'Unknown' },
+      { label: 'Viability', value: STATUS_LABELS[resolveViabilityStatus(node)] },
     ];
   }
 
@@ -724,8 +823,8 @@ function buildDetails(node: SupplyDependencyNode) {
     { label: 'Origin', value: node.originLocationId },
     { label: 'Destination', value: node.destinationLocationId },
     { label: 'Material', value: node.materialId },
-    { label: 'Registration', value: node.active === false ? 'Inactive' : 'Active' },
-    { label: 'Viability', value: node.viableStep === false ? 'Blocked' : 'Viable' },
+    { label: 'Registration', value: node.active === true ? 'Active' : node.active === false ? 'Inactive' : 'Unknown' },
+    { label: 'Viability', value: STATUS_LABELS[resolveViabilityStatus(node)] },
   ];
 }
 
@@ -745,15 +844,6 @@ function buildProductionVersionFallbackKey(node: SupplyDependencyProductionVersi
 
 function sanitizeId(value: string) {
   return value.replace(/[^a-zA-Z0-9:_-]+/g, '_');
-}
-
-function ensureGraphCanBeLaidOut(nodeCount: number, edgeCount: number) {
-  if (nodeCount <= SUPPLY_DEPENDENCY_LAYOUT_NODE_LIMIT && edgeCount <= SUPPLY_DEPENDENCY_LAYOUT_EDGE_LIMIT) return;
-
-  throw new Error(
-    `The dependency network expands to ${nodeCount.toLocaleString()} nodes and ${edgeCount.toLocaleString()} links. ` +
-      'Reduce Maximum Tree Depth or select a narrower material-location before generating the graph.',
-  );
 }
 
 function shouldInlineFocusedParallelStage(productionVersion: SupplyDependencyProductionVersion) {
@@ -779,19 +869,6 @@ function getRoutingForFocusedParallelStage(combination: SupplyDependencyRoutingB
   };
 }
 
-function mergeRecursionCutState(graphNode: MutableGraphNode, node: SupplyDependencyNode) {
-  if (node.elementType !== 'Material-Location' || node.recursionCut !== true) return;
-
-  graphNode.data.isRecursionCut = true;
-
-  if (!graphNode.data.details.some((detail) => detail.label === 'Inspection')) {
-    graphNode.data.details.push({
-      label: 'Inspection',
-      value: 'Stopped because this material-location was already in the graph',
-    });
-  }
-}
-
 function normalizeLocationType(locationType?: string | null) {
   return String(locationType ?? '')
     .trim()
@@ -800,5 +877,3 @@ function normalizeLocationType(locationType?: string | null) {
     .replace(/[\s-]+/g, '_')
     .toUpperCase();
 }
-
-

@@ -118,12 +118,16 @@ const flowNodes = computed<Node<SupplyDependencyGraphNodeData>[]>(() =>
   })),
 );
 
+// Use the same explicit uncertainty color for links and the minimap as for node badges.
+// A complete-looking layout is not evidence of a complete structural analysis.
 const flowEdges = computed<Edge[]>(() =>
   visibleEdges.value.map((edge) => {
     const selectedNodeId = shouldShowEdgeSelectionDetail.value ? props.selectedNodeId : null;
     const isLinkedToSelection = selectedNodeId === edge.source || selectedNodeId === edge.target;
     const strokeColor =
-      edge.status === 'inactive'
+      edge.status === 'unknown'
+        ? 'rgba(182,139,53,0.88)'
+        : edge.status === 'inactive'
         ? isLightTheme.value
           ? 'rgba(82,97,121,0.28)'
           : 'rgba(255,255,255,0.18)'
@@ -171,6 +175,8 @@ const minimapNodeColor = (node: GraphNode<SupplyDependencyGraphNodeData>) => {
   if (node.selected || props.selectedNodeId === node.id) {
     return isLightTheme.value ? 'rgba(15, 23, 40, 0.92)' : 'rgba(255, 255, 255, 0.94)';
   }
+
+  if (node.data.shellStatus === 'unknown') return 'rgba(182,139,53,0.88)';
 
   if (node.data.shellStatus === 'inactive') {
     return isLightTheme.value ? 'rgba(113, 130, 154, 0.56)' : 'rgba(120, 132, 154, 0.7)';
@@ -398,5 +404,3 @@ function collectFocusPath(
   background: rgb(255 255 255 / 0.86);
 }
 </style>
-
-
