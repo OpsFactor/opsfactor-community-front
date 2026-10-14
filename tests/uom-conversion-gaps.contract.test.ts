@@ -72,3 +72,20 @@ test('Community UOM conversion gap detail is material-specific and never uses th
   assert.doesNotMatch(service, /conversiondetail\/\$\{encodeURIComponent\(originUomId\)\}/);
   assert.doesNotMatch(page, /upload|download|CSV/i);
 });
+
+test('Community conversion gaps expose the five readable report columns while retaining material-specific detail', () => {
+  const page = readFileSync(new URL('../src/modules/uom-conversion-gaps/UomConversionGapsPage.vue', import.meta.url), 'utf8');
+  const types = readFileSync(new URL('../src/modules/uom-conversion-gaps/uom-conversion-gaps.types.ts', import.meta.url), 'utf8');
+  const headers = [...page.matchAll(/<th scope="col">([^<]+)<\/th>/g)].map((match) => match[1]);
+
+  assert.deepEqual(headers, ['Material', 'Origin UOM', 'Target UOM', 'Reason', 'Additional Information']);
+  assert.match(page, /formatRawValue\(gap.reason\)/);
+  assert.match(page, /formatRawValue\(gap.additionalInformation\)/);
+  assert.match(page, /@click="openConversionDetail\(gap\)"/);
+  assert.doesNotMatch(page, /gap\.(locationId|originTask|targetTask|diagnosticMessage|economicCostFamily|periodStart|originConversionRequirement\w+|targetConversionRequirement\w+)/);
+
+  const dto = types.match(/export interface UomConversionGap \{([\s\S]*?)\}/)?.[1] ?? '';
+  assert.deepEqual([...dto.matchAll(/^\s+(\w+)\?:/gm)].map((match) => match[1]), [
+    'materialId', 'originUnitOfMeasure', 'targetUnitOfMeasure', 'reason', 'additionalInformation',
+  ]);
+});

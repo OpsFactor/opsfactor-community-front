@@ -305,17 +305,18 @@ onMounted(loadSelectors);
         <table>
           <thead>
             <tr>
-              <th scope="col">Material</th><th scope="col">Location</th><th scope="col">Origin UOM</th><th scope="col">Target UOM</th>
-              <th scope="col">Origin</th><th scope="col">Target</th><th scope="col">Requirement</th><th scope="col">Detail</th>
+              <th scope="col">Material</th><th scope="col">Origin UOM</th><th scope="col">Target UOM</th>
+              <th scope="col">Reason</th><th scope="col">Additional Information</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(gap, index) in uomConversionGaps" :key="`${gap.materialId ?? 'none'}-${gap.originUnitOfMeasure ?? 'none'}-${gap.targetUnitOfMeasure ?? 'none'}-${index}`">
-              <td>{{ formatRawValue(gap.materialId) }}</td><td>{{ formatRawValue(gap.locationId) }}</td><td>{{ formatRawValue(gap.originUnitOfMeasure) }}</td><td>{{ formatRawValue(gap.targetUnitOfMeasure) }}</td>
-              <td>{{ formatRawValue(gap.originTask) }} · {{ formatRawValue(gap.originConversionRequirementType) }}</td>
-              <td>{{ formatRawValue(gap.targetTask) }} · {{ formatRawValue(gap.targetConversionRequirementType) }}</td>
-              <td>{{ formatRawValue(gap.targetConversionRequirementId ?? gap.originConversionRequirementId) }}</td>
-              <td><OfxButton variant="secondary" icon="open" size="table" :disabled="!canOpenConversionDetail(gap) || isLoadingDetail" @click="openConversionDetail(gap)">View detail</OfxButton></td>
+              <td>{{ formatRawValue(gap.materialId) }}</td><td>{{ formatRawValue(gap.originUnitOfMeasure) }}</td><td>{{ formatRawValue(gap.targetUnitOfMeasure) }}</td>
+              <td class="conversion-context">{{ formatRawValue(gap.reason) }}</td>
+              <td class="conversion-context">
+                <p>{{ formatRawValue(gap.additionalInformation) }}</p>
+                <OfxButton variant="secondary" icon="open" size="table" :disabled="!canOpenConversionDetail(gap) || isLoadingDetail" @click="openConversionDetail(gap)">View detail</OfxButton>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -348,6 +349,7 @@ onMounted(loadSelectors);
 .mode-buttons, .actions { display: flex; gap: .6rem; flex-wrap: wrap; }.mode-buttons button { border: 1px solid var(--ofx-border); border-radius: .5rem; background: var(--ofx-surface); color: var(--ofx-text); cursor: pointer; padding: .55rem .8rem; }.mode-buttons button.active { border-color: var(--ofx-accent); background: var(--ofx-accent); color: white; }
 .selector-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin-top: 1rem; }.selector-grid label { display: grid; gap: .35rem; font-size: .85rem; font-weight: 700; }.selector-grid select, .selector-grid input { min-height: 2.5rem; border: 1px solid var(--ofx-border); border-radius: .5rem; background: var(--ofx-surface); color: var(--ofx-text); padding: .55rem; }.mode-buttons button:disabled { cursor: not-allowed; opacity: .5; }.actions { margin-top: 1rem; }
 .table-scroll { overflow-x: auto; } table { width: 100%; border-collapse: collapse; text-align: left; } th, td { border-top: 1px solid #e2e7f0; padding: .8rem .65rem; vertical-align: top; white-space: nowrap; } thead th { color: var(--ofx-muted); font-size: .75rem; text-transform: uppercase; }
+.conversion-context { min-width: 14rem; white-space: normal; overflow-wrap: anywhere; } .conversion-context p { margin: 0 0 .5rem; }
 .detail { margin-top: 1rem; }.detail-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); }.detail-grid .full { grid-column: 1 / -1; }.detail-grid dt { color: var(--ofx-muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; }.detail-grid dd { margin: .35rem 0 0; white-space: pre-wrap; }.muted, .section-header p { color: var(--ofx-muted); }.error { color: #b42318; }
 
 /* Commands stay together; section headings retain their own spacing. */

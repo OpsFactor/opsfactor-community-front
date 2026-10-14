@@ -28,16 +28,11 @@ export interface SupplyPlanOption {
 
 /** Raw Community DTO for a conversion that prevents one planning flow. */
 export interface UomConversionGap {
+  materialId?: string | null;
   originUnitOfMeasure?: string | null;
   targetUnitOfMeasure?: string | null;
-  locationId?: string | null;
-  materialId?: string | null;
-  originTask?: string | null;
-  targetTask?: string | null;
-  originConversionRequirementType?: string | null;
-  originConversionRequirementId?: string | null;
-  targetConversionRequirementType?: string | null;
-  targetConversionRequirementId?: string | null;
+  reason?: string | null;
+  additionalInformation?: string | null;
 }
 
 /** Detail returned only for the selected material and UOM pair. */

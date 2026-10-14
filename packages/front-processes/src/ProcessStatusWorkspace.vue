@@ -92,7 +92,7 @@ const executionColumns: OfxTableColumn[] = [
   { field: 'scheduledExecutionTime', header: 'Scheduled', width: '11%', dataType: 'datetime' },
   { field: 'startTime', header: 'Start', width: '10%', dataType: 'datetime' },
   { field: 'endTime', header: 'End', width: '10%', dataType: 'datetime' },
-  { field: 'errorMessage', header: 'Error Message', width: '18%', dataType: 'text' },
+  { field: 'errorMessage', header: 'Error Message', width: '18%', dataType: 'text', agGridColDef: { wrapText: true, autoHeight: true }, cellStyle: { whiteSpace: 'normal', lineHeight: '1.5', paddingTop: '8px', paddingBottom: '8px' } },
 ];
 
 const cronColumns: OfxTableColumn[] = [
@@ -106,7 +106,7 @@ const cronColumns: OfxTableColumn[] = [
   { field: 'taskCreationTime', header: 'Created', width: '11%', dataType: 'datetime' },
   { field: 'lastStartTime', header: 'Last Start', width: '11%', dataType: 'datetime' },
   { field: 'lastEndTime', header: 'Last End', width: '11%', dataType: 'datetime' },
-  { field: 'lastErrorMessage', header: 'Last Error', width: '18%', dataType: 'text' },
+  { field: 'lastErrorMessage', header: 'Last Error', width: '18%', dataType: 'text', agGridColDef: { wrapText: true, autoHeight: true }, cellStyle: { whiteSpace: 'normal', lineHeight: '1.5', paddingTop: '8px', paddingBottom: '8px' } },
 ];
 
 const executionRows = computed<ProcessStatusRow[]>(() =>
@@ -436,11 +436,12 @@ onMounted(() => {
             </template>
 
             <template #cell-errorMessage="{ value }">
-              <OfxTableCellText
-                :value="String(value || '')"
-                fallback="No errors reported"
-                :tone="value ? 'danger' : 'muted'"
-              />
+              <div
+                class="whitespace-normal break-words text-sm"
+                :class="value ? 'text-[color:var(--ofx-text-danger)]' : 'text-[color:var(--ofx-text-muted)]'"
+              >
+                {{ String(value || '').trim() || 'No errors reported' }}
+              </div>
             </template>
           </OfxDataTable>
 
@@ -490,11 +491,12 @@ onMounted(() => {
               </template>
 
               <template #cell-lastErrorMessage="{ value }">
-                <OfxTableCellText
-                  :value="String(value || '')"
-                  fallback="No errors reported"
-                  :tone="value ? 'danger' : 'muted'"
-                />
+                <div
+                  class="whitespace-normal break-words text-sm"
+                  :class="value ? 'text-[color:var(--ofx-text-danger)]' : 'text-[color:var(--ofx-text-muted)]'"
+                >
+                  {{ String(value || '').trim() || 'No errors reported' }}
+                </div>
               </template>
             </OfxDataTable>
           </div>
