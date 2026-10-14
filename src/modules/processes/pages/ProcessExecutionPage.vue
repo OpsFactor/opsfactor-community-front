@@ -1460,11 +1460,12 @@ watch(
 
           <div v-if="supplyPlanForm.action === 'new'" :class="['rounded-[14px] border p-4', nestedPanelClass]">
             <div :class="['mb-4 text-sm font-semibold', formTitleClass]">Reference period</div>
-            <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_220px]">
-              <OfxPeriodPicker v-model="supplyReferencePeriodModel" label="Reference period" :bucket-size="activeSupplyBucket || ''" />
+            <div class="flex flex-wrap items-end gap-4">
+              <OfxPeriodPicker v-model="supplyReferencePeriodModel" class="w-full sm:w-auto sm:min-w-[220px] sm:max-w-[460px]" label="Reference period" :bucket-size="activeSupplyBucket || ''" />
               <OfxTextField
                 v-if="activeSupplyBucket === '8-hour turn' || activeSupplyBucket === 'Hourly'"
                 v-model="supplyPlanForm.reference.hour"
+                class="w-full sm:w-[160px]"
                 :label="activeSupplyBucket === 'Hourly' ? 'Reference hour' : 'Reference turn'"
                 type="number"
               />
