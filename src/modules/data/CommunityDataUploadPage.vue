@@ -12,6 +12,7 @@ import {
   type OfxDownloadOption,
   type OfxOperationPanelOption,
 } from '@opsfactor/front-shell';
+import { resolveDataExportPath, dataExportQuery } from '@opsfactor/front-core';
 import { httpClient } from '../../services/community-authentication.service';
 import OfxSelectField from '../../components/ofx/forms/OfxSelectField.vue';
 import {
@@ -93,11 +94,20 @@ const busy = ref(false);
 
 /** The Planning Front keeps a single Download operation with a format selector. */
 const downloadFormat = ref<CommunityDataDownloadFormat>('xlsx');
-const downloadOptions: OfxDownloadOption[] = [
+const allDownloadOptions: OfxDownloadOption[] = [
   { label: 'XLSX', value: 'xlsx' },
+  { label: 'JSON', value: 'json' },
+  { label: 'Arrow IPC', value: 'arrow' },
+  { label: 'Parquet', value: 'parquet' },
   { label: 'CSV standard', value: 'csvStandard' },
   { label: 'CSV system locale', value: 'csvSystemLocale' },
 ];
+
+const supportsStructuredFormats = computed(() => selectedFamily.value.operations.some((operation) => operation.kind === 'download-json'));
+const downloadOptions = computed(() => allDownloadOptions.filter((option) => !['json', 'arrow', 'parquet'].includes(option.value) || supportsStructuredFormats.value));
+watch(downloadOptions, (options) => {
+  if (!options.some((option) => option.value === downloadFormat.value)) downloadFormat.value = 'xlsx';
+});
 
 const selectedTheme = computed(() => PLANNING_FRONT_DATA_THEMES.find((theme) => theme.id === selectedThemeId.value) ?? PLANNING_FRONT_DATA_THEMES[0]);
 const selectedThemeGroups = computed(() => selectedTheme.value.groups);
@@ -169,7 +179,12 @@ const communityWorkspaceSummary = computed(() => {
   return `${selectedFamily.value.description} ${operationSummary}`;
 
 });
-const currentEndpoint = computed(() => displayEndpoint(currentTarget()));
+const currentEndpoint = computed(() => {
+  const endpoint = displayEndpoint(currentTarget());
+  if (selectedOperation.value !== 'download') return endpoint;
+  const query = new URLSearchParams(Object.entries(dataExportQuery(downloadFormat.value)).map(([key, value]) => [key, String(value)]));
+  return `${resolveDataExportPath(endpoint)}?${query}`;
+});
 const operationRequiresPlanOptions = computed(() => currentOperation.value.requiresDemandPlanId || currentOperation.value.requiresSupplyPlanId);
 const operationDisabled = computed(() => busy.value
   || (Boolean(operationRequiresPlanOptions.value) && loadingOptions.value)
@@ -542,7 +557,7 @@ async function runDelete(): Promise<void> {
   <TaskPageLayout class="data-operations-page">
     <OfxPageHeader eyebrow="Data" title="Data Operations" description="Select a topic and run the required operation from a single workspace." />
 
-    <input ref="fileInputRef" type="file" class="hidden-file-input" accept=".csv,.xlsx,.xls" @change="runUpload">
+    <input ref="fileInputRef" type="file" class="hidden-file-input" :accept="supportsStructuredFormats ? '.csv,.xlsx,.xls,.json,.arrow,.ipc,.parquet' : '.csv,.xlsx,.xls'" @change="runUpload">
 
     <OfxSectionCard title="Catalog" description="Choose a theme, group, section, and topic. Options unavailable in the current edition remain visible and locked.">
       <div class="catalog-grid">

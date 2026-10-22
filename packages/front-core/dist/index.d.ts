@@ -1,3 +1,11 @@
+export { createDataApi } from './api/data-api.js';
+export type { DataApiTransport, DataApiTransportOptions, DataApiRequestOptions, ApiDataOptions, ApiFileDownloadOptions, ApiFileUploadOptions, ApiFileOptions, ApiFileDownloadResult } from './api/data-api.js';
+export { decodeArrowDocument, decodeArrowRecords, encodeArrowRows } from './api/arrow-records.js';
+export type { ArrowRecordDocument, ArrowPivotColumnType } from './api/arrow-records.js';
+export { decodeDataResponse, decodeDataPayload, decodeJsonData, restoreDataDocument, decodeParquetDocument, decodeParquetRecords } from './api/data-format-reader.js';
+export type { DataResponseFormat, DataResponseOptions, DataDocument, ParquetDataDocument } from './api/data-format-reader.js';
+export { dataExportFileName, assertDataExportContentType, dataExportDescriptor, dataExportQuery, dataImportContentType, resolveDataExportPath } from './api/data-export-format.js';
+export type { DataExportFormat, DataCsvOptions } from './api/data-export-format.js';
 export { ApiRequestError, HttpClient } from './api/http.js';
 export type { ApiBlobResponse, ApiRequestOptions } from './api/http.js';
 export { resolveCanonicalDataIntegrationPath, resolveCanonicalJsonDataIntegrationPath, } from './api/canonical-data-integration-path.js';

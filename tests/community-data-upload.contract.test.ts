@@ -150,9 +150,10 @@ test('Community Data transport uses fixed targets, multipart field file, and Res
   assert.match(source, /buildCommunityDataEndpoint\(target\)/);
   assert.match(source, /toResponseMessage\(response, fallback\)/);
   assert.match(source, /downloadTabularData/);
-  assert.match(source, /XLSX\.writeFile/);
-  assert.match(source, /csvStandard/);
-  assert.match(source, /csvSystemLocale/);
+  assert.match(source, /requestBlob/);
+  assert.match(source, /dataExportQuery/);
+  assert.match(source, /dataExportDescriptor/);
+  assert.doesNotMatch(source, /XLSX\.writeFile/);
 });
 
 test('Community Data overlays availability on the Planning Front hierarchy without rewriting it', () => {

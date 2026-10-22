@@ -15,11 +15,13 @@
     "typecheck": "vue-tsc --noEmit --project tsconfig.json"
   },
   "peerDependencies": {
+    "@opsfactor/front-core": "0.1.0",
     "@perspective-dev/client": "4.3.0",
     "@perspective-dev/server": "4.3.0",
     "vue": "^3.5.13"
   },
   "devDependencies": {
+    "@opsfactor/front-core": "file:../front-core",
     "@perspective-dev/client": "4.3.0",
     "@perspective-dev/server": "4.3.0",
     "@types/node": "^24.0.0",

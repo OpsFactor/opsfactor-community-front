@@ -11,6 +11,8 @@ type PerspectiveGroupRollupMode = 'rollup' | 'flat';
 const props = withDefaults(
   defineProps<{
     data: Record<string, unknown>[];
+    /** Binary transport avoids serializing large object arrays across the worker boundary. */
+    dataTransport?: 'objects' | 'arrow';
     rows: string[];
     columns?: string[];
     measures: Array<{
@@ -51,6 +53,7 @@ const props = withDefaults(
   }>(),
   {
     columns: () => [],
+    dataTransport: 'objects',
     height: 360,
     baseName: 'pivot-analysis',
     allowRowSelection: true,
@@ -100,6 +103,7 @@ const emit = defineEmits<{
   <div class="overflow-hidden rounded-[10px] border border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface)] shadow-sm">
     <PerspectivePivotAdapter
       :data="effectiveData"
+      :data-transport="props.dataTransport"
       :rows="props.rows"
       :columns="props.columns"
       :measures="props.measures"

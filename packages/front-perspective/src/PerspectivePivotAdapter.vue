@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Edition-neutral Perspective runtime; both edition hosts provide data and presentation policy only.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { encodeArrowRows } from '@opsfactor/front-core';
 import perspective, { init_client, init_server, type Table } from '@perspective-dev/client';
 import { init_client as initViewerClient } from '@perspective-dev/viewer';
 import clientWasmUrl from '@perspective-dev/client/dist/wasm/perspective-js.wasm?url';
@@ -33,11 +34,11 @@ type PerspectiveMeasure = {
 
 type PerspectiveViewerApi = HTMLElement & {
   load: (table: unknown) => Promise<void>;
+  delete?: () => Promise<void>;
   restore: (config: Record<string, unknown>) => Promise<void>;
   save: () => Promise<Record<string, unknown>>;
-  getView: () => Promise<{
-    delete?: () => Promise<void>;
-  }>;
+  // The returned view is borrowed; the viewer owns its subscriptions and deletion.
+  getView: () => Promise<unknown>;
   copy: (method?: string) => Promise<void>;
   download: (method?: string) => Promise<void>;
   notifyResize?: () => void;
@@ -69,6 +70,7 @@ type PerspectiveDatagridElement = HTMLElement & {
 const props = withDefaults(
   defineProps<{
     data: Record<string, unknown>[];
+    dataTransport?: 'objects' | 'arrow';
     rows: string[];
     columns?: string[];
     measures: PerspectiveMeasure[];
@@ -101,6 +103,7 @@ const props = withDefaults(
   }>(),
   {
     columns: () => [],
+    dataTransport: 'objects',
     height: 360,
     baseName: 'pivot-analysis',
     allowRowSelection: true,
@@ -144,6 +147,9 @@ const isSettingsPanelOpen = ref(false);
 
 let workerPromise: Promise<Awaited<ReturnType<typeof perspective.worker>>> | null = null;
 let currentTable: Table | null = null;
+let tableGeneration = 0;
+// perspective.worker() creates a dedicated worker for this component instance.
+let isDisposed = false;
 let runtimeReady = false;
 let viewerElementRuntimePromise: Promise<void> | null = null;
 let eventAbortController: AbortController | null = null;
@@ -750,11 +756,14 @@ function startPolicyBurst(durationMs = 1500) {
 
 async function refreshViewerLayout() {
   const viewer = viewerRef.value;
-  if (!viewer || !hasLoadedTable) return;
+  if (!viewer || isDisposed || isRebuilding || !hasLoadedTable) return;
+  const generation = tableGeneration;
+  const isCurrent = () => !isDisposed && !isRebuilding && hasLoadedTable && tableGeneration === generation;
 
   try {
     viewer.notifyResize?.();
     await viewer.flush?.();
+    if (!isCurrent()) return;
 
     const datagrid = findDatagridElement();
     const regularTable = datagrid?.regular_table as PerspectiveRegularTableApi | undefined;
@@ -780,19 +789,22 @@ async function refreshViewerLayout() {
           throttle: false,
           preserve_width: false,
         });
+        if (!isCurrent()) return;
         naturalColumnMeasurementPassesRemaining -= 1;
       }
       if (hostWidth > 0) {
         lastMeasuredHostWidth = hostWidth;
       }
     } catch (error) {
-      if (isPerspectiveViewNotFoundError(error)) return;
-      // Perspective may still be mounting; the next burst tick will retry.
+      if (!isCurrent()) return;
+      throw error;
     }
+    if (!isCurrent()) return;
 
     queuePolicySync();
   } catch (error) {
-    if (isPerspectiveViewNotFoundError(error)) return;
+    // A load/reset can invalidate a view while a layout await is pending.
+    if (!isCurrent()) return;
     throw error;
   }
 }
@@ -823,6 +835,7 @@ function startLayoutBurst(durationMs = 1500) {
 }
 
 async function rebuildViewer() {
+  if (isDisposed) return;
   if (isRebuilding) {
     rebuildPending = true;
     return;
@@ -830,7 +843,8 @@ async function rebuildViewer() {
 
   isRebuilding = true;
   try {
-    while (true) {
+    while (!isDisposed) {
+      tableGeneration += 1;
       rebuildPending = false;
       isLoading.value = true;
       errorMessage.value = null;
@@ -854,15 +868,34 @@ async function rebuildViewer() {
         }
 
         const worker = await getWorker();
+        if (isDisposed) break;
         const nextRows = normalizedData.value;
-        const nextTable = await worker.table(buildTableSchema(nextRows));
-        if (nextRows.length) {
+        const schema = buildTableSchema(nextRows);
+        // Passing objects makes the Perspective client serialize them. Opt-in IPC
+        // keeps large P&L pivots binary without changing their calculated values.
+        const nextTable = props.dataTransport === 'arrow'
+          ? await worker.table(encodeArrowRows(nextRows, schema))
+          : await worker.table(schema);
+        if (isDisposed) {
+          await nextTable.delete({ lazy: true });
+          break;
+        }
+        if (props.dataTransport !== 'arrow' && nextRows.length) {
           await nextTable.update(nextRows);
         }
-        await viewer.load(nextTable);
+        const previousTable = currentTable;
+        try {
+          await viewer.load(nextTable);
+          currentTable = nextTable;
+        } catch (error) {
+          await nextTable.delete({ lazy: true });
+          throw error;
+        }
+        // Lazy deletion waits for the viewer to release its previous view.
+        await previousTable?.delete({ lazy: true });
+        if (isDisposed) break;
         await viewer.restore(buildViewerConfig());
         await stabilizeViewerLayout();
-        currentTable = nextTable;
 
         hasLoadedTable = true;
         startLayoutBurst(1800);
@@ -871,6 +904,7 @@ async function rebuildViewer() {
         await applyGrandTotalsPolicyWithRetry();
         await applySingleMeasureHeaderPolicyWithRetry();
       } catch (error) {
+        if (isDisposed) break;
         console.error('[OfxPivot] rebuildViewer failed', error);
         errorMessage.value = 'The pivot engine could not render this dataset.';
       } finally {
@@ -1486,7 +1520,7 @@ async function downloadView(format: 'csv' | 'xlsx') {
 }
 
 watch(
-  () => [props.data, props.rows, props.columns, props.measures],
+  () => [props.data, props.dataTransport, props.rows, props.columns, props.measures],
   async () => {
     await rebuildViewer();
   },
@@ -1649,6 +1683,8 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(async () => {
+  isDisposed = true;
+  tableGeneration += 1;
   eventAbortController?.abort();
   eventAbortController = null;
   hostResizeObserver?.disconnect();
@@ -1695,7 +1731,19 @@ onBeforeUnmount(async () => {
   cleanupGrandTotalDomObserver();
   cleanupDatagridViewportObserver();
 
-  currentTable = null;
+  const ownedWorker = workerPromise;
+  workerPromise = null;
+  try {
+    await viewerRef.value?.delete?.();
+    await currentTable?.delete({ lazy: true });
+  } catch {
+    // The dedicated worker is terminated even if a pending viewer operation failed.
+  } finally {
+    currentTable = null;
+    if (ownedWorker) {
+      try { await (await ownedWorker).terminate(); } catch { /* Initialization may already have failed. */ }
+    }
+  }
   lastMeaningfulConfig = null;
   lastMeasuredHostWidth = 0;
   naturalColumnMeasurementPassesRemaining = 0;

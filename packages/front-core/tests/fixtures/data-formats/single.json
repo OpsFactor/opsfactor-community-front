@@ -1,0 +1,1 @@
+{"material":"MAT-A","location":"PLANT-A","child":{"name":"Bobina São Paulo 日本","amount":5.25},"alternatives":[{"name":"A","amount":3.912},null,{"name":"B","amount":-0.002}],"factories":{"A":{"name":"MP A","amount":5.25},"B":null},"date":"2026-10-22","state":"approved-state","enabled":true,"nullable":null,"output_quantity":12345678901234567890.12345678901234567}

@@ -19,7 +19,7 @@ export default defineConfig({
       fileName: 'index',
     },
     rollupOptions: {
-      external: (moduleId) => moduleId === 'vue' || moduleId.startsWith('@perspective-dev/'),
+      external: (moduleId) => moduleId === 'vue' || moduleId.startsWith('@perspective-dev/') || moduleId.startsWith('@opsfactor/'),
       output: {
         globals: { vue: 'Vue' },
         preserveModules: true,

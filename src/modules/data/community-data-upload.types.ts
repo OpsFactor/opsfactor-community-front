@@ -3,7 +3,7 @@ import type { DataCatalogThemeId } from './planning-front-data-taxonomy';
 /** The two wire formats intentionally exposed by the Community data-integration controllers. */
 export type CommunityDataFormat = 'file' | 'json';
 /** Download format options follow the Planning Front split-button contract. */
-export type CommunityDataDownloadFormat = 'xlsx' | 'csvStandard' | 'csvSystemLocale';
+export type CommunityDataDownloadFormat = 'json' | 'arrow' | 'parquet' | 'xlsx' | 'csvStandard' | 'csvSystemLocale';
 export type CommunityDataTheme = DataCatalogThemeId;
 
 /**

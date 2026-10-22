@@ -1,3 +1,7 @@
+export { createDataApi } from './api/data-api.js';
+export { decodeArrowDocument, decodeArrowRecords, encodeArrowRows } from './api/arrow-records.js';
+export { decodeDataResponse, decodeDataPayload, decodeJsonData, restoreDataDocument, decodeParquetDocument, decodeParquetRecords } from './api/data-format-reader.js';
+export { dataExportFileName, assertDataExportContentType, dataExportDescriptor, dataExportQuery, dataImportContentType, resolveDataExportPath } from './api/data-export-format.js';
 export { ApiRequestError, HttpClient } from './api/http.js';
 export { resolveCanonicalDataIntegrationPath, resolveCanonicalJsonDataIntegrationPath, } from './api/canonical-data-integration-path.js';
 export { ApiError } from './api/api-error.js';
