@@ -33,6 +33,8 @@ export interface PlanningBook {
   periodList: string[];
   bucketSize: string;
   uom: string;
+  /** Server-owned adjustment families and other renderer metadata. */
+  additionalParameters?: Record<string, string>;
   errorMessage?: string[];
 }
 

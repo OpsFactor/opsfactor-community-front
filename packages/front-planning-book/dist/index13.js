@@ -1,66 +1,47 @@
-import { defineComponent as p, openBlock as t, createElementBlock as l, createElementVNode as d, Fragment as u, renderList as g, normalizeClass as c, renderSlot as y, createTextVNode as f, toDisplayString as k, unref as b } from "vue";
-import { displayPlanningBookGridCellValue as m } from "./index11.js";
-const B = {
-  class: "planning-book-grid",
-  role: "region",
-  "aria-label": "Planning Book grid"
-}, C = { key: 0 }, v = { class: "planning-book-grid__empty" }, w = /* @__PURE__ */ p({
-  __name: "PlanningBookGrid",
-  props: {
-    rows: {},
-    columns: {},
-    rowKey: { type: Function, default: (r, s) => s },
-    emptyMessage: { default: "No Planning Book rows are available." }
-  },
-  setup(r) {
-    function s(a, o) {
-      var e;
-      return (e = o.getValue) == null ? void 0 : e.call(o, a);
-    }
-    return (a, o) => (t(), l("div", B, [
-      r.rows.length > 0 ? (t(), l("table", C, [
-        d("thead", null, [
-          d("tr", null, [
-            (t(!0), l(u, null, g(r.columns, (e, i) => (t(), l("th", {
-              key: e.id,
-              scope: "col",
-              class: c(e.headerClass)
-            }, [
-              y(a.$slots, "header", {
-                column: e,
-                columnIndex: i
-              }, () => [
-                f(k(e.label), 1)
-              ], !0)
-            ], 2))), 128))
-          ])
-        ]),
-        d("tbody", null, [
-          (t(!0), l(u, null, g(r.rows, (e, i) => (t(), l("tr", {
-            key: r.rowKey(e, i)
-          }, [
-            (t(!0), l(u, null, g(r.columns, (n, h) => (t(), l("td", {
-              key: n.id,
-              class: c(n.cellClass)
-            }, [
-              y(a.$slots, "cell", {
-                row: e,
-                rowIndex: i,
-                column: n,
-                columnIndex: h,
-                value: s(e, n)
-              }, () => [
-                f(k(b(m)(s(e, n))), 1)
-              ], !0)
-            ], 2))), 128))
-          ]))), 128))
-        ])
-      ])) : y(a.$slots, "empty", { key: 1 }, () => [
-        d("p", v, k(r.emptyMessage), 1)
-      ], !0)
-    ]));
-  }
-});
+import { resolvePlanningBookPeriodFromField as f } from "./index9.js";
+function m(e) {
+  if (e == null) return;
+  const i = String(e).trim();
+  return i.length > 0 ? i : void 0;
+}
+function s(e, i, t) {
+  return i.reduce((n, r) => {
+    if (r.dimension !== t) return n;
+    const o = m(e[r.field]);
+    return o && (n[r.field] = o), n;
+  }, {});
+}
+function u(e) {
+  return Object.keys(e).sort().map((i) => `${i}:${e[i]}`).join("|");
+}
+function v(e, i, t, n, r, o) {
+  const d = e.columnDefs.filter((a) => !a.dataColumn && a.field !== "keyFigure"), l = s(i, d, "location"), c = s(i, d, "material");
+  return {
+    planId: o.planId,
+    referencePlanId: o.referencePlanId ?? void 0,
+    viewType: e.viewType,
+    viewName: o.viewName,
+    locationId: o.locationId ?? l.locationId ?? i.locationId ?? void 0,
+    locationDescriptionCols: l,
+    materialDescriptionCols: c,
+    keyFigure: i.keyFigure,
+    period: f(e, t),
+    uom: e.uom,
+    oldValue: r,
+    newValue: n
+  };
+}
+function I(e) {
+  return [
+    e.viewName,
+    e.locationId ?? "",
+    e.keyFigure,
+    e.period,
+    u(e.locationDescriptionCols),
+    u(e.materialDescriptionCols)
+  ].join("::");
+}
 export {
-  w as default
+  v as buildPlanningBookSelectedCellDto,
+  I as buildPlanningBookSelectedCellKey
 };

@@ -13,4 +13,6 @@ export * from './planning-book.model.js';
 export * from './planning-book.presentation.js';
 export * from './planning-book.virtual-grid.js';
 export * from './demand-planning-book.service.js';
+export * from './planning-book.edits.js';
+export * from './planning-book.conflicts.js';
 //# sourceMappingURL=index.d.ts.map

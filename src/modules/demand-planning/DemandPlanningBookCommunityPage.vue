@@ -3,6 +3,9 @@ import { OfxButton } from '@opsfactor/front-shell';
 import { computed, onMounted, ref } from 'vue';
 import {
   LegacyPlanningBookGrid,
+  buildPlanningBookSelectedCellKey,
+  createDemandPlanningBookConflictFinder,
+  proposeDemandPlanningBookEdit,
   type PlanningBookRow as CanonicalPlanningBookRow,
   type PlanningBookSelectedCellDto,
 } from '@opsfactor/front-planning-book';
@@ -24,13 +27,19 @@ import { resolvePlanningBookPeriod } from './planning-book.utils';
 import type { DemandPlan } from './demand-plan.types';
 import type { PlanningBook, PlanningBookCellUpdate, PlanningBookSelection, PlanningBookView } from './planning-book.types';
 
+/** Location identity participates in draft matching; the Community POST remains unchanged. */
+type CommunityPlanningBookDraft = PlanningBookCellUpdate & { locationId?: string | null };
+
 const demandPlans = ref<DemandPlan[]>([]);
 const planningBookViews = ref<PlanningBookView[]>([]);
 const selectedPlanId = ref('');
 const selectedViewName = ref('');
 const planningBook = ref<PlanningBook | null>(null);
 const openedPlanningBookSelection = ref<PlanningBookSelection | null>(null);
-const pendingCells = ref(new Map<string, PlanningBookCellUpdate>());
+const pendingCells = ref(new Map<string, CommunityPlanningBookDraft>());
+const conflictingEditProposal = ref<(ReturnType<typeof proposeDemandPlanningBookEdit> & {
+  resumeEditing?: () => Promise<void>;
+}) | null>(null);
 const isLoadingOptions = ref(true);
 const isLoadingBook = ref(false);
 const isSaving = ref(false);
@@ -55,12 +64,17 @@ const canExportPlanningBook = computed(() => planningBook.value !== null
   && openedPlanningBookSelection.value !== null
   && !isLoadingBook.value
   && !isSaving.value
+  && !conflictingEditProposal.value
   && !isExporting.value);
 
 function errorText(error: unknown, fallback: string): string { return error instanceof Error ? error.message : fallback; }
-function cellKey(rowKey: string, field: string): string { return `${rowKey}::${field}`; }
-
 const pendingEditList = computed<PlanningBookSelectedCellDto[]>(() => Array.from(pendingCells.value.values()));
+const conflictDescription = computed(() => {
+  const proposal = conflictingEditProposal.value;
+  if (!proposal) return '';
+  const keyFigures = [...new Set(proposal.conflicts.map((edit) => edit.keyFigure))].join(', ');
+  return `To edit this cell, we need to remove your unsaved adjustment${proposal.conflicts.length === 1 ? '' : 's'} to ${keyFigures} for overlapping items in this period. These edits affect the same Direct Demand total. Replace the previous adjustment${proposal.conflicts.length === 1 ? '' : 's'}?`;
+});
 const workspaceLogEntries = computed(() => [
   ...(planningBook.value?.errorMessage ?? []),
   ...(errorMessage.value ? [errorMessage.value] : []),
@@ -77,7 +91,7 @@ async function loadOptions(): Promise<void> {
 }
 
 async function openPlanningBook(): Promise<void> {
-  if (!canOpenPlanningBook.value) return;
+  if (!canOpenPlanningBook.value || isLoadingBook.value || isSaving.value || conflictingEditProposal.value) return;
   const selection: PlanningBookSelection = { planId: selectedPlanId.value, viewName: selectedViewName.value };
   isLoadingBook.value = true; errorMessage.value = null; pendingCells.value = new Map();
   try {
@@ -91,6 +105,7 @@ async function openPlanningBook(): Promise<void> {
 /** Returns from the immersive workbook to the reference-style plan selection. */
 function leavePlanningBook(): void {
 
+  if (isSaving.value || conflictingEditProposal.value) return;
   planningBook.value = null;
   openedPlanningBookSelection.value = null;
   pendingCells.value = new Map();
@@ -136,11 +151,62 @@ function descriptorValues(
 
   return Object.fromEntries(planningBook.value.columnDefs
     .filter((column) => !column.dataColumn && column.dimension === dimension)
-    .map((column) => [column.field, String(row[column.field] ?? '')]));
+    .map((column) => [column.field, String(row[column.field] ?? '').trim()])
+    .filter(([, value]) => value !== ''));
 
 }
 
-/** Converts the canonical AG Grid edit event to the Community POST contract. */
+/** Builds only Community-supported fields while sharing canonical edit identities. */
+function buildCellUpdate(payload: {
+  row: CanonicalPlanningBookRow;
+  field: string;
+  oldValue: number;
+  newValue: number;
+}): CommunityPlanningBookDraft {
+
+  if (planningBook.value === null) throw new Error('A Planning Book must be open before editing.');
+  const selection = openedPlanningBookSelection.value;
+  if (selection === null) throw new Error('The opened Planning Book selection is required before editing.');
+  const locationDescriptionCols = descriptorValues(payload.row, 'location');
+
+  return {
+    planId: selection.planId,
+    viewType: planningBook.value.viewType,
+    viewName: planningBook.value.viewName,
+    locationDescriptionCols,
+    locationId: locationDescriptionCols.locationId ?? payload.row.locationId,
+    materialDescriptionCols: descriptorValues(payload.row, 'material'),
+    keyFigure: payload.row.keyFigure,
+    period: resolvePlanningBookPeriod(planningBook.value, payload.field),
+    uom: planningBook.value.uom,
+    oldValue: payload.oldValue,
+    newValue: payload.newValue,
+  };
+
+}
+
+/** Keeps shared draft proposals within the Community POST contract. */
+function replacePendingCells(edits: PlanningBookSelectedCellDto[]): void {
+
+  if (planningBook.value === null) return;
+  const viewType = planningBook.value.viewType;
+  pendingCells.value = new Map(edits.map((edit) => [buildPlanningBookSelectedCellKey(edit), {
+    planId: String(edit.planId),
+    viewType,
+    viewName: edit.viewName,
+    locationId: edit.locationId,
+    locationDescriptionCols: edit.locationDescriptionCols,
+    materialDescriptionCols: edit.materialDescriptionCols,
+    keyFigure: edit.keyFigure,
+    period: edit.period,
+    uom: edit.uom,
+    oldValue: edit.oldValue,
+    newValue: edit.newValue,
+  }]));
+
+}
+
+/** Retains a commit-time guard for edit paths that do not open an editor. */
 function queueCellUpdate(payload: {
   row: CanonicalPlanningBookRow;
   field: string;
@@ -148,36 +214,54 @@ function queueCellUpdate(payload: {
   newValue: number;
 }): void {
 
-  if (planningBook.value === null) return;
-
-  const key = cellKey(payload.row.rowKey, payload.field);
-  const previousUpdate = pendingCells.value.get(key);
-  const update: PlanningBookCellUpdate = {
-    planId: selectedPlanId.value,
-    viewType: planningBook.value.viewType,
-    viewName: planningBook.value.viewName,
-    locationDescriptionCols: descriptorValues(payload.row, 'location'),
-    materialDescriptionCols: descriptorValues(payload.row, 'material'),
-    keyFigure: payload.row.keyFigure,
-    period: resolvePlanningBookPeriod(planningBook.value, payload.field),
-    uom: planningBook.value.uom,
-    oldValue: previousUpdate?.oldValue ?? payload.oldValue,
-    newValue: payload.newValue,
-  };
-  const nextCells = new Map(pendingCells.value);
-  if (update.newValue === update.oldValue) {
-    nextCells.delete(key);
-    pendingCells.value = nextCells;
+  if (planningBook.value === null || isSaving.value || conflictingEditProposal.value) return;
+  const proposal = proposeDemandPlanningBookEdit(planningBook.value, pendingEditList.value, buildCellUpdate(payload));
+  if (proposal.conflicts.length) {
+    conflictingEditProposal.value = proposal;
     return;
   }
-  nextCells.set(key, update);
-  pendingCells.value = nextCells;
-  if (planningBook.value.autoSubmitChanges) void savePendingChanges([update]);
+  replacePendingCells(proposal.pendingEdits);
+  if (planningBook.value.autoSubmitChanges) void savePendingChanges();
+
+}
+
+/** Asks before opening a cell covered by another unsaved adjustment. */
+function handleGridEditAttempt(payload: {
+  row: CanonicalPlanningBookRow;
+  field: string;
+  resumeEditing: () => Promise<void>;
+}): void {
+
+  if (planningBook.value === null || isSaving.value || conflictingEditProposal.value) return;
+  const value = Number(payload.row[payload.field] ?? 0);
+  const edit = buildCellUpdate({ ...payload, oldValue: value, newValue: value });
+  const conflicts = createDemandPlanningBookConflictFinder(planningBook.value, pendingEditList.value)(edit);
+  if (!conflicts.length) return;
+  const conflictKeys = new Set(conflicts.map(buildPlanningBookSelectedCellKey));
+  conflictingEditProposal.value = {
+    conflicts,
+    pendingEdits: pendingEditList.value.filter((pending) => !conflictKeys.has(buildPlanningBookSelectedCellKey(pending))),
+    resumeEditing: payload.resumeEditing,
+  };
+
+}
+
+/** Applies the accepted batch before the shared grid resumes editing. */
+async function confirmConflictingEdit(): Promise<void> {
+
+  const proposal = conflictingEditProposal.value;
+  if (!proposal || isSaving.value) return;
+  replacePendingCells(proposal.pendingEdits);
+  conflictingEditProposal.value = null;
+  if (proposal.resumeEditing) await proposal.resumeEditing();
+  else if (planningBook.value?.autoSubmitChanges) await savePendingChanges();
+
 }
 
 /** Reloads immediately when clean and asks before discarding local edits. */
 function requestReload(): void {
 
+  if (isSaving.value || conflictingEditProposal.value) return;
   if (pendingCells.value.size > 0) {
     discardDialogOpen.value = true;
     return;
@@ -204,15 +288,22 @@ function handleUnavailableEdit(payload: { reason: string }): void {
 }
 
 async function savePendingChanges(cells = Array.from(pendingCells.value.values())): Promise<void> {
-  if (cells.length === 0) return;
+  if (cells.length === 0 || isSaving.value || conflictingEditProposal.value) return;
   isSaving.value = true; errorMessage.value = null;
-  try { planningBook.value = await savePlanningBookCells(cells); pendingCells.value = new Map(); }
+  try {
+    // The canonical row identity is local only; the endpoint keeps its edition-specific payload.
+    const updates = cells.map(({ locationId: _locationId, ...update }) => update);
+    planningBook.value = await savePlanningBookCells(updates);
+    pendingCells.value = new Map();
+  }
   catch (error) {
     const failureMessage = errorText(error, 'Unable to save Planning Book changes.');
     /* A rejected update can leave local input values divergent from the server.
        Reload the authoritative Planning Book before allowing another edit. */
     try {
-      planningBook.value = await loadPlanningBook({ planId: selectedPlanId.value, viewName: selectedViewName.value });
+      const selection = openedPlanningBookSelection.value;
+      if (selection === null) throw new Error('The opened Planning Book selection is required before reloading.');
+      planningBook.value = await loadPlanningBook(selection);
       pendingCells.value = new Map();
     } catch {
       /* Keep the original functional failure as the visible message. */
@@ -251,14 +342,14 @@ onMounted(loadOptions);
               label="Demand plan"
               :model-value="selectedPlanId"
               :options="demandPlanOptions"
-              :disabled="isLoadingOptions"
+              :disabled="isLoadingOptions || isLoadingBook"
               @update:model-value="selectedPlanId = $event"
             />
             <OfxSelectField
               label="User view"
               :model-value="selectedViewName"
               :options="planningBookViewOptions"
-              :disabled="isLoadingOptions"
+              :disabled="isLoadingOptions || isLoadingBook"
               @update:model-value="selectedViewName = $event"
             />
             <OfxToggleField
@@ -302,9 +393,9 @@ onMounted(loadOptions);
       <section v-if="planningBook" class="planning-book-workspace-header">
         <div>
           <div class="planning-book-workspace-eyebrow">Demand Planning Workspace</div>
-          <div class="planning-book-workspace-meta">{{ planningBook.viewName }} <span>•</span> {{ selectedPlanId }}</div>
+          <div class="planning-book-workspace-meta">{{ planningBook.viewName }} <span>•</span> {{ openedPlanningBookSelection?.planId }}</div>
         </div>
-        <OfxButton variant="filter" icon="filter" type="button" :disabled="isSaving || isExporting" @click="leavePlanningBook">Reopen selection</OfxButton>
+        <OfxButton variant="filter" icon="filter" type="button" :disabled="isSaving || isExporting || Boolean(conflictingEditProposal)" @click="leavePlanningBook">Reopen selection</OfxButton>
       </section>
 
       <div v-if="planningBook" class="planning-book-workspace-body">
@@ -315,8 +406,9 @@ onMounted(loadOptions);
           theme-mode="light"
           :pending-edit-count="pendingCells.size"
           :pending-edits="pendingEditList"
-          :is-saving="isSaving"
+          :is-saving="isSaving || Boolean(conflictingEditProposal)"
           @edit="queueCellUpdate"
+          @request-edit="handleGridEditAttempt"
           @unavailable-edit="handleUnavailableEdit"
         >
           <template #header-actions>
@@ -324,13 +416,13 @@ onMounted(loadOptions);
             <OfxButton variant="secondary" icon="download" size="compact" type="button" :disabled="!canExportPlanningBook" @click="exportOpenedPlanningBook">
               {{ isExporting ? 'Exporting...' : 'Export XLSX' }}
             </OfxButton>
-            <OfxButton variant="secondary" icon="refresh" size="compact" type="button" :disabled="isLoadingBook || isSaving || isExporting" @click="requestReload">
+            <OfxButton variant="secondary" icon="refresh" size="compact" type="button" :disabled="isLoadingBook || isSaving || isExporting || Boolean(conflictingEditProposal)" @click="requestReload">
               {{ pendingCells.size ? 'Discard local changes' : 'Reload workbook' }}
             </OfxButton>
             <OfxButton variant="primary" icon="save" size="compact"
               v-if="!planningBook.autoSubmitChanges"
               type="button"
-              :disabled="!pendingCells.size || isSaving || isExporting"
+              :disabled="!pendingCells.size || isSaving || isExporting || Boolean(conflictingEditProposal)"
               @click="savePendingChanges()"
             >
               {{ isSaving ? 'Saving...' : `Save in batch${pendingCells.size ? ` (${pendingCells.size})` : ''}` }}
@@ -339,6 +431,16 @@ onMounted(loadOptions);
         </LegacyPlanningBookGrid>
       </div>
     </template>
+
+    <OfxConfirmDialog
+      :open="Boolean(conflictingEditProposal)"
+      title="Replace conflicting adjustments?"
+      :description="conflictDescription"
+      confirm-label="Replace previous adjustments"
+      cancel-label="Keep previous adjustments"
+      @cancel="conflictingEditProposal = null"
+      @confirm="confirmConflictingEdit"
+    />
 
     <OfxConfirmDialog
       :open="discardDialogOpen"

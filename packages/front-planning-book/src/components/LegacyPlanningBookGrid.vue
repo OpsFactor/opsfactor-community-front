@@ -7,6 +7,8 @@ import {
   type CellClassParams,
   type CellClickedEvent,
   type CellContextMenuEvent,
+  type CellDoubleClickedEvent,
+  type CellKeyDownEvent,
   type ColDef,
   type EditableCallbackParams,
   type FilterChangedEvent,
@@ -19,6 +21,8 @@ import {
   type ValueFormatterParams,
 } from 'ag-grid-community';
 import PlanningBookTreeCellRenderer from './PlanningBookTreeCellRenderer.vue';
+import { applyPendingPlanningBookEdits, createDemandPlanningBookConflictFinder } from '../planning-book.conflicts.js';
+import { buildPlanningBookSelectedCellDto } from '../planning-book.edits.js';
 import type {
   PlanningBookColumnDefDto,
   PlanningBookDto,
@@ -27,7 +31,6 @@ import type {
 } from '../planning-book.dto.js';
 import {
   aggregatePlanningBookSubtotalField,
-  getPlanningBookPeriodField,
   normalizePlanningBook,
   selectPlanningBookSubtotalContributors,
 } from '../planning-book.normalization.js';
@@ -71,6 +74,7 @@ const emit = defineEmits<{
   edit: [payload: { row: PlanningBookRow; field: string; newValue: number; oldValue: number }];
   'unavailable-edit': [payload: { reason: string }];
   'request-details': [payload: { row: PlanningBookRow; field: string }];
+  'request-edit': [payload: { row: PlanningBookRow; field: string; resumeEditing: () => Promise<void> }];
 }>();
 
 const isLightTheme = computed(() => props.themeMode === 'light');
@@ -95,78 +99,18 @@ const supplyAggregatedDetailKeyFigures = new Set([
   'Indirect Demand',
 ]);
 
-const normalized = computed(() => normalizePlanningBook(props.planningBook));
-
-/**
- * The backend publishes this family so the SPA can mirror the batch-edit guard
- * without hard-coding workflow components. Gross/Net and Direct Demand share
- * the same quantity result, therefore a pending edit locks sibling key figures
- * at the same planning-book scope and period.
- */
-const directDemandAdjustmentKeyFigureIds = computed(() => new Set(
-  (props.planningBook.additionalParameters?.directDemandAdjustmentKeyFigures ?? '')
-    .split(/[|,]/)
-    .map((keyFigure) => keyFigure.trim())
-    .filter(Boolean),
-));
-
-function getKeyFigureScopeKey(row: PlanningBookRow) {
-  const keyFigureSuffix = `-${row.keyFigure}`;
-  const suffixIndex = row.rowKey.lastIndexOf(keyFigureSuffix);
-
-  return suffixIndex >= 0 ? row.rowKey.slice(0, suffixIndex) : row.rowKey;
-}
-
-function doesRowMatchPendingEditScope(row: PlanningBookRow, edit: PlanningBookSelectedCellDto) {
-  if (row.keyFigure !== edit.keyFigure) return false;
-
-  const descriptors = {
-    ...edit.locationDescriptionCols,
-    ...edit.materialDescriptionCols,
-  };
-
-  return Object.entries(descriptors).every(([field, value]) => String(row[field] ?? '') === value);
-}
-
-function applyPendingDemandFamilyLocks() {
-  normalized.value.rows.forEach((row) => {
-    row.lockedCells = undefined;
-  });
-
-  if (props.planningBook.autoSubmitChanges || !directDemandAdjustmentKeyFigureIds.value.size) {
-    return;
+const normalized = computed(() => {
+  const result = normalizePlanningBook(props.planningBook);
+  if (props.mode === 'demand') {
+    // The page accepts a new value only after resolving overlapping edits.
+    // Rebuilding from the DTO restores discarded cells without reloading or saving.
+    applyPendingPlanningBookEdits(props.planningBook, result.rows, props.pendingEdits);
   }
-
-  props.pendingEdits.forEach((edit) => {
-    if (!directDemandAdjustmentKeyFigureIds.value.has(edit.keyFigure)) return;
-
-    const periodField = getPlanningBookPeriodField(props.planningBook, edit.period);
-    const editedRows = normalized.value.rows.filter((row) => doesRowMatchPendingEditScope(row, edit));
-
-    editedRows.forEach((editedRow) => {
-      const scopeKey = getKeyFigureScopeKey(editedRow);
-
-      normalized.value.rows.forEach((candidateRow) => {
-        if (candidateRow.rowKey === editedRow.rowKey
-          || getKeyFigureScopeKey(candidateRow) !== scopeKey
-          || !directDemandAdjustmentKeyFigureIds.value.has(candidateRow.keyFigure)) {
-          return;
-        }
-
-        candidateRow.lockedCells ??= {};
-        candidateRow.lockedCells[periodField] = 'This cell is locked because an unsaved Gross/Net or Direct Demand quantity adjustment exists for this level and period.';
-      });
-    });
-  });
-
-  gridApi.value?.refreshCells({ force: true });
-}
-
-watch(
-  [normalized, () => props.pendingEdits, directDemandAdjustmentKeyFigureIds],
-  () => applyPendingDemandFamilyLocks(),
-  { immediate: true },
-);
+  return result;
+});
+const demandConflictFinder = computed(() => createDemandPlanningBookConflictFinder(
+  props.planningBook, props.pendingEdits, normalized.value.rows,
+));
 
 const orderedColumns = computed(() => {
   const columnsByField = new Map(props.planningBook.columnDefs.map((column) => [column.field, column]));
@@ -546,7 +490,8 @@ const columnDefs = computed<ColDef<PlanningBookRow>[]>(() => [
     lockPinned: false,
     editable: (params: EditableCallbackParams<PlanningBookRow>) => {
       if (params.node.rowPinned || !params.data) return false;
-      return isEditableCell(params.data, column.field, column);
+      return isEditableCell(params.data, column.field, column)
+        && !hasPendingDemandConflict(params.data, column.field);
     },
     valueFormatter: isNumberColumn(column)
       ? (params: ValueFormatterParams<PlanningBookRow>) => formatPlanningBookCellValue(
@@ -688,6 +633,46 @@ function handleCellClicked(event: CellClickedEvent<PlanningBookRow>) {
   }
 }
 
+/** A conflicting cell stays non-editable until the existing adjustment is explicitly removed. */
+function hasPendingDemandConflict(row: PlanningBookRow, field: string) {
+  if (props.mode !== 'demand' || !props.pendingEdits.length) return false;
+  const value = Number(row[field] ?? 0);
+  const edit = buildPlanningBookSelectedCellDto(props.planningBook, row, field, value, value,
+    { planId: '', viewName: props.planningBook.viewName });
+  return demandConflictFinder.value(edit).length > 0;
+}
+
+function requestConflictingCellEdit(row: PlanningBookRow | undefined, field: string, key?: string) {
+  const column = props.planningBook.columnDefs.find((candidate) => candidate.field === field);
+  if (!row || !column?.dataColumn || !isEditableCell(row, field, column) || !hasPendingDemandConflict(row, field)) return;
+  emit('request-edit', {
+    row,
+    field,
+    resumeEditing: async () => {
+      // Let accepted-batch changes restore removed values and unlock the target first.
+      await nextTick();
+      const node = gridApi.value?.getRowNode(row.rowKey);
+      if (node?.rowIndex == null) return;
+      gridApi.value?.startEditingCell({ rowIndex: node.rowIndex, colKey: field, key });
+    },
+  });
+}
+
+function handleCellDoubleClicked(event: CellDoubleClickedEvent<PlanningBookRow>) {
+  if (!event.node.rowPinned) requestConflictingCellEdit(event.data, String(event.colDef.field ?? ''));
+}
+
+function handleCellKeyDown(event: CellKeyDownEvent<PlanningBookRow>) {
+  const keyboard = event.event;
+  if (!(keyboard instanceof KeyboardEvent) || event.node.rowPinned
+    || keyboard.ctrlKey || keyboard.metaKey || keyboard.altKey
+    || (keyboard.target instanceof Element && keyboard.target.closest('input, textarea, [contenteditable="true"]'))) return;
+  if (keyboard.key === 'Enter' || keyboard.key === 'F2' || keyboard.key === 'Backspace'
+    || keyboard.key === 'Delete' || keyboard.key.length === 1) {
+    requestConflictingCellEdit(event.data, String(event.colDef.field ?? ''), keyboard.key);
+  }
+}
+
 function openDetailsFromContextMenu() {
   if (!contextMenu.value) return;
 
@@ -720,8 +705,14 @@ function handleCellValueChanged(event: {
     return;
   }
 
-  event.data.updatedCells ??= {};
-  event.data.updatedCells[field] = `Modified cell: from ${formatNumericValue(oldValue)} to ${formatNumericValue(newValue)}`;
+  if (props.mode === 'demand') {
+    // AG Grid already changed the row. Keep the accepted value until the page
+    // either accepts this proposal or confirms replacement of the previous edits.
+    event.data[field] = oldValue;
+  } else {
+    event.data.updatedCells ??= {};
+    event.data.updatedCells[field] = `Modified cell: from ${formatNumericValue(oldValue)} to ${formatNumericValue(newValue)}`;
+  }
 
   emit('edit', {
     row: event.data,
@@ -822,6 +813,8 @@ onBeforeUnmount(() => {
         @filter-changed="handleFilterChanged"
         @sort-changed="handleSortChanged"
         @cell-clicked="handleCellClicked"
+        @cell-double-clicked="handleCellDoubleClicked"
+        @cell-key-down="handleCellKeyDown"
         @cell-context-menu="handleCellContextMenu"
         @cell-value-changed="handleCellValueChanged"
       />

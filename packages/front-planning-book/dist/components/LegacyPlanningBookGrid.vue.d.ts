@@ -36,6 +36,11 @@ declare const __VLS_component: import("vue").DefineComponent<__VLS_Props, {}, {}
         row: PlanningBookRow;
         field: string;
     }) => any;
+    "request-edit": (payload: {
+        row: PlanningBookRow;
+        field: string;
+        resumeEditing: () => Promise<void>;
+    }) => any;
 }, string, import("vue").PublicProps, Readonly<__VLS_Props> & Readonly<{
     onEdit?: ((payload: {
         row: PlanningBookRow;
@@ -49,6 +54,11 @@ declare const __VLS_component: import("vue").DefineComponent<__VLS_Props, {}, {}
     "onRequest-details"?: ((payload: {
         row: PlanningBookRow;
         field: string;
+    }) => any) | undefined;
+    "onRequest-edit"?: ((payload: {
+        row: PlanningBookRow;
+        field: string;
+        resumeEditing: () => Promise<void>;
     }) => any) | undefined;
 }>, {
     themeMode: "light" | "dark";
