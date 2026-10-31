@@ -1,36 +1,39 @@
 import { default as e } from "./index2.js";
-import { default as r } from "./index3.js";
+import { default as a } from "./index3.js";
 import { default as i } from "./index4.js";
 import { default as d } from "./index5.js";
 import { default as P } from "./index6.js";
-import { default as k } from "./index7.js";
-import { default as B } from "./index8.js";
-import { aggregatePlanningBookSubtotalField as u, getPlanningBookPeriodField as s, normalizePlanningBook as x, resolvePlanningBookPeriodFromField as c, selectPlanningBookSubtotalContributors as C, summarizePlanningBookPeriod as D } from "./index9.js";
-import { flattenPlanningBookGroups as b } from "./index10.js";
+import { default as B } from "./index7.js";
+import { default as m } from "./index8.js";
+import { aggregatePlanningBookSubtotalField as u, getPlanningBookPeriodField as s, normalizePlanningBook as x, resolvePlanningBookPeriodFromField as c, selectPlanningBookSubtotalContributors as C, summarizePlanningBookPeriod as b } from "./index9.js";
+import { flattenPlanningBookGroups as D } from "./index10.js";
 import { displayPlanningBookGridCellValue as S } from "./index11.js";
-import { createDemandPlanningBookService as v } from "./index12.js";
-import { buildPlanningBookSelectedCellDto as E, buildPlanningBookSelectedCellKey as R } from "./index13.js";
-import { applyPendingPlanningBookEdits as V, createDemandPlanningBookConflictFinder as K, proposeDemandPlanningBookEdit as L } from "./index14.js";
+import { createDemandPlanningBookService as R } from "./index12.js";
+import { buildPlanningBookRowScopeKey as E, buildPlanningBookSelectedCellDto as z, buildPlanningBookSelectedCellKey as K, isPlanningBookReadOnlyColumn as T, resolvePlanningBookEditablePeriod as V } from "./index13.js";
+import { applyPendingPlanningBookEdits as L, createDemandPlanningBookConflictFinder as O, proposeDemandPlanningBookEdit as h } from "./index14.js";
 export {
-  B as LegacyPlanningBookGrid,
-  r as PlanningBookDetailsDialog,
+  m as LegacyPlanningBookGrid,
+  a as PlanningBookDetailsDialog,
   e as PlanningBookGrid,
   i as PlanningBookTreeCellRenderer,
   d as PlanningBookVirtualGrid,
-  k as ProductionPlanningBookGrid,
+  B as ProductionPlanningBookGrid,
   P as ProductionPlanningTreeCellRenderer,
   u as aggregatePlanningBookSubtotalField,
-  V as applyPendingPlanningBookEdits,
-  E as buildPlanningBookSelectedCellDto,
-  R as buildPlanningBookSelectedCellKey,
-  K as createDemandPlanningBookConflictFinder,
-  v as createDemandPlanningBookService,
+  L as applyPendingPlanningBookEdits,
+  E as buildPlanningBookRowScopeKey,
+  z as buildPlanningBookSelectedCellDto,
+  K as buildPlanningBookSelectedCellKey,
+  O as createDemandPlanningBookConflictFinder,
+  R as createDemandPlanningBookService,
   S as displayPlanningBookGridCellValue,
-  b as flattenPlanningBookGroups,
+  D as flattenPlanningBookGroups,
   s as getPlanningBookPeriodField,
+  T as isPlanningBookReadOnlyColumn,
   x as normalizePlanningBook,
-  L as proposeDemandPlanningBookEdit,
+  h as proposeDemandPlanningBookEdit,
+  V as resolvePlanningBookEditablePeriod,
   c as resolvePlanningBookPeriodFromField,
   C as selectPlanningBookSubtotalContributors,
-  D as summarizePlanningBookPeriod
+  b as summarizePlanningBookPeriod
 };

@@ -1,58 +1,55 @@
-import { buildPlanningBookSelectedCellKey as s, buildPlanningBookSelectedCellDto as y } from "./index13.js";
-import { getPlanningBookPeriodField as f, normalizePlanningBook as w } from "./index9.js";
+import { buildPlanningBookSelectedCellKey as a, buildPlanningBookRowScopeKey as y } from "./index13.js";
+import { getPlanningBookPeriodField as d, normalizePlanningBook as w } from "./index9.js";
 function g(e) {
-  var t;
-  return new Set((((t = e.additionalParameters) == null ? void 0 : t.directDemandAdjustmentKeyFigures) ?? "").split(/[|,]/).map((n) => n.trim()).filter(Boolean));
+  var o;
+  return new Set((((o = e.additionalParameters) == null ? void 0 : o.directDemandAdjustmentKeyFigures) ?? "").split(/[|,]/).map((n) => n.trim()).filter(Boolean));
 }
-function u(e) {
-  return s({ ...e, period: "" });
+function f(e) {
+  return a({ ...e, period: "" });
 }
-function p(e, t) {
-  return new Map(t.map((n) => {
-    const r = y(e, n, "", 0, 0, { planId: "", viewName: e.viewName });
-    return [u(r), n];
-  }));
+function m(e, o) {
+  return new Map(o.map((n) => [y(e, n), n]));
 }
-function m(e) {
+function p(e) {
   return e.isPrimaryKeyFigureRow ? e.rowKey : e.parentRowKey ?? e.rowKey;
 }
-function P(e, t) {
-  const n = m(e), r = m(t);
-  return n === r || e.ancestorKeys.includes(r) || t.ancestorKeys.includes(n);
+function K(e, o) {
+  const n = p(e), i = p(o);
+  return n === i || e.ancestorKeys.includes(i) || o.ancestorKeys.includes(n);
 }
-function K(e, t, n = w(e).rows) {
-  const r = g(e), i = p(e, n);
-  return (o) => {
-    if (!r.has(o.keyFigure) || !t.length) return [];
-    const l = s(o), d = i.get(u(o));
-    return d ? t.filter((c) => {
-      if (s(c) === l || !r.has(c.keyFigure) || f(e, c.period) !== f(e, o.period)) return !1;
-      const a = i.get(u(c));
-      return !!(a && P(d, a));
+function P(e, o, n = w(e).rows) {
+  const i = g(e), r = m(e, n);
+  return (t) => {
+    if (!i.has(t.keyFigure) || !o.length) return [];
+    const l = a(t), u = r.get(f(t));
+    return u ? o.filter((c) => {
+      if (a(c) === l || !i.has(c.keyFigure) || d(e, c.period) !== d(e, t.period)) return !1;
+      const s = r.get(f(c));
+      return !!(s && K(u, s));
     }) : [];
   };
 }
-function F(e, t, n) {
-  const r = s(n), i = t.find((a) => s(a) === r), o = { ...n, oldValue: (i == null ? void 0 : i.oldValue) ?? n.oldValue }, l = t.filter((a) => s(a) !== r);
-  if (o.newValue === o.oldValue)
+function V(e, o, n) {
+  const i = a(n), r = o.find((s) => a(s) === i), t = { ...n, oldValue: (r == null ? void 0 : r.oldValue) ?? n.oldValue }, l = o.filter((s) => a(s) !== i);
+  if (t.newValue === t.oldValue)
     return { conflicts: [], pendingEdits: l };
-  const d = K(e, l)(n), c = new Set(d.map(s));
+  const u = P(e, l)(n), c = new Set(u.map(a));
   return {
-    conflicts: d,
-    pendingEdits: [...l.filter((a) => !c.has(s(a))), o]
+    conflicts: u,
+    pendingEdits: [...l.filter((s) => !c.has(a(s))), t]
   };
 }
-function R(e, t, n) {
-  const r = p(e, t);
-  for (const i of n) {
-    const o = r.get(u(i));
-    if (!o) continue;
-    const l = f(e, i.period);
-    o[l] = i.newValue, o.updatedCells ?? (o.updatedCells = {}), o.updatedCells[l] = `Modified cell: from ${i.oldValue} to ${i.newValue}`;
+function F(e, o, n) {
+  const i = m(e, o);
+  for (const r of n) {
+    const t = i.get(f(r));
+    if (!t) continue;
+    const l = d(e, r.period);
+    t[l] = r.newValue, t.updatedCells ?? (t.updatedCells = {}), t.updatedCells[l] = `Modified cell: from ${r.oldValue} to ${r.newValue}`;
   }
 }
 export {
-  R as applyPendingPlanningBookEdits,
-  K as createDemandPlanningBookConflictFinder,
-  F as proposeDemandPlanningBookEdit
+  F as applyPendingPlanningBookEdits,
+  P as createDemandPlanningBookConflictFinder,
+  V as proposeDemandPlanningBookEdit
 };

@@ -22,7 +22,7 @@ import {
 } from 'ag-grid-community';
 import PlanningBookTreeCellRenderer from './PlanningBookTreeCellRenderer.vue';
 import { applyPendingPlanningBookEdits, createDemandPlanningBookConflictFinder } from '../planning-book.conflicts.js';
-import { buildPlanningBookSelectedCellDto } from '../planning-book.edits.js';
+import { buildPlanningBookSelectedCellDto, isPlanningBookReadOnlyColumn } from '../planning-book.edits.js';
 import type {
   PlanningBookColumnDefDto,
   PlanningBookDto,
@@ -241,7 +241,7 @@ function isEditableCell(row: PlanningBookRow, field: string, column: PlanningBoo
   const mode = String(row.editMode ?? 'noEdit');
 
   if (props.isSaving || lockedReason || isFrozen) return false;
-  if (column.enableCellEdit === false) return false;
+  if (isPlanningBookReadOnlyColumn(column)) return false;
 
   if (mode !== 'cellEdit' && mode !== 'detailOrCellEdit') return false;
 
@@ -587,6 +587,8 @@ function canOpenDetailsForField(row: PlanningBookRow, field: string) {
   if (!props.detailsEnabled) return false;
   if (row.rowKey === '__subtotal__') return false;
   if (!normalized.value.periodFields.includes(field)) return false;
+  const column = props.planningBook.columnDefs.find((candidate) => candidate.field === field);
+  if (props.mode === 'demand' && (!column || isPlanningBookReadOnlyColumn(column))) return false;
 
   if (props.mode === 'supply') return canOpenSupplyDetails(row);
 
@@ -692,6 +694,14 @@ function handleCellValueChanged(event: {
   const field = String(event.colDef.field ?? '');
   const oldValue = typeof event.oldValue === 'number' ? event.oldValue : parseEditableNumber(event.oldValue);
   const newValue = parseEditableNumber(event.newValue);
+
+  // Grid APIs and stale editors must obey the same policy as keyboard and mouse entry.
+  const column = props.planningBook.columnDefs.find((candidate) => candidate.field === field);
+  if (!column || !isEditableCell(event.data, field, column)) {
+    event.data[field] = event.oldValue;
+    gridApi.value?.refreshCells({ columns: [field], force: true });
+    return;
+  }
 
   if (field.length === 0 || Number.isNaN(newValue) || oldValue === newValue) {
     if (Number.isNaN(newValue)) {

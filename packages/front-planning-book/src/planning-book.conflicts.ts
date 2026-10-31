@@ -1,4 +1,4 @@
-import { buildPlanningBookSelectedCellDto, buildPlanningBookSelectedCellKey } from './planning-book.edits.js';
+import { buildPlanningBookRowScopeKey, buildPlanningBookSelectedCellKey } from './planning-book.edits.js';
 import { getPlanningBookPeriodField, normalizePlanningBook } from './planning-book.normalization.js';
 import type { PlanningBookDto, PlanningBookRow, PlanningBookSelectedCellDto } from './planning-book.dto.js';
 
@@ -14,10 +14,7 @@ function editRowKey(edit: PlanningBookSelectedCellDto) {
 }
 
 function indexEditRows(book: PlanningBookDto, rows: PlanningBookRow[]) {
-  return new Map(rows.map((row) => {
-    const edit = buildPlanningBookSelectedCellDto(book, row, '', 0, 0, { planId: '', viewName: book.viewName });
-    return [editRowKey(edit), row];
-  }));
+  return new Map(rows.map((row) => [buildPlanningBookRowScopeKey(book, row), row]));
 }
 
 /** Secondary key figures belong to their primary row's scope, not to a child material/location. */
