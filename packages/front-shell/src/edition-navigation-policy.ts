@@ -16,8 +16,12 @@ export const ENTERPRISE_NAVIGATION_MODULE_KEYS = new Set([
 export const ENTERPRISE_NAVIGATION_PAGE_KEYS = new Set([
   'demand-plan-change-log-report',
   'demand-demand-accuracy',
+  'demand-sharding-diagnostics',
+  'configuration-clustering-profiles',
   'demand-autofit-models',
   'demand-autofit-configuration',
+  'demand-external-series-coverage',
+  'demand-analysis-profiles',
   'demand-forecast-workflows',
   'supply-constraint-tracker',
   'supply-supply-plan-flows',

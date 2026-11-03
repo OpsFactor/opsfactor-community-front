@@ -156,7 +156,7 @@ export class ClusterScopeInspectorService {
   /** Keeps JSON mutation transport uniform and preserves the backend explanation on an integrity failure. */
   private async requestMutation(
     path: string,
-    body: unknown,
+    body: CommunityMaterialClusterScope | CommunityLocationClusterScope | CommunityClusterDeleteRequest,
     fallback: string,
     method: 'POST' | 'DELETE' = 'POST',
   ): Promise<void> {
@@ -165,7 +165,10 @@ export class ClusterScopeInspectorService {
       await this.httpClient.request<string>(path, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        // Community always uses the backend default classification. A blank
+        // wire identity prevents metadata from a returned DTO entering a save
+        // as an editable profile selection; Enterprise has its own transport.
+        body: JSON.stringify({ ...body, clusteringProfileId: '' }),
       });
     } catch (error) {
       throw toBackendError(error, fallback);

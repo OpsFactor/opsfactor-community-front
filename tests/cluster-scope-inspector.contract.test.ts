@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { ClusterScopeInspectorService } from '../src/modules/cluster-scope/cluster-scope.service.ts';
 
@@ -76,15 +77,16 @@ test('Clustering workspace writes full snapshots without a process discriminator
     description: 'Material scope',
     priority: 2,
     regraAlocacaoClusterDTOList: [{ id: 101, criterio: 'Status', caracteristicaDTO: { description: 'REGULAR' } }],
+    clusteringProfileId: '',
   });
   assert.equal(calls[1].path, '/api/secured/locationclustering/save');
   assert.equal(calls[1].options?.method, 'POST');
   assert.equal(calls[2].path, '/api/secured/materialclustering/delete');
   assert.equal(calls[2].options?.method, 'DELETE');
-  assert.deepEqual(JSON.parse(String(calls[2].options?.body)), { id: 42 });
+  assert.deepEqual(JSON.parse(String(calls[2].options?.body)), { id: 42, clusteringProfileId: '' });
   assert.equal(calls[3].path, '/api/secured/locationclustering/delete');
   assert.equal(calls[3].options?.method, 'DELETE');
-  assert.deepEqual(JSON.parse(String(calls[3].options?.body)), { id: 81 });
+  assert.deepEqual(JSON.parse(String(calls[3].options?.body)), { id: 81, clusteringProfileId: '' });
 });
 
 test('Clustering workspace keeps allocation and DFU endpoints outside its transport while reading selected members', async () => {
@@ -149,4 +151,28 @@ test('Clustering page exposes one scheme with material and location dimensions',
   assert.doesNotMatch(source, /location\/characteristics/);
   assert.doesNotMatch(source, /<select/);
   assert.doesNotMatch(source, /<input/);
+});
+
+test('Community cluster mutation normalizes hidden profile metadata without mutating its source DTO', async () => {
+  let sentBody: Record<string, unknown> | null = null;
+  const service = new ClusterScopeInspectorService({
+    request(_path: string, options?: RequestInit) {
+      sentBody = JSON.parse(String(options?.body));
+      return Promise.resolve('OK');
+    },
+  } as never);
+  const capturedDto = { id: 42, description: 'Scope', priority: 1, regraAlocacaoClusterDTOList: [], clusteringProfileId: 'OTHER_PROFILE' };
+
+  await service.saveMaterialCluster(capturedDto);
+
+  assert.equal(sentBody!.clusteringProfileId, '');
+  assert.equal(capturedDto.clusteringProfileId, 'OTHER_PROFILE');
+  assert.equal(sentBody!.id, 42);
+});
+
+test('Community configuration exposes cluster dimensions without a clustering-profile selector', () => {
+  const page = readFileSync(new URL('../src/modules/cluster-scope/ClusterScopeInspectorPage.vue', import.meta.url), 'utf8');
+  assert.doesNotMatch(page, /v-model="[^"\n]*(?:clusteringProfile|perfilClusterizacao)/i);
+  assert.doesNotMatch(page, /label="Clustering profile/i);
+  assert.doesNotMatch(page, /fetchClusteringProfiles|ClusteringProfilesManager/);
 });

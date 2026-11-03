@@ -149,3 +149,17 @@ test('Demand Execution Profile editor restores canonical selection and Community
     assert.equal(service.includes(forbiddenTransport), false, `Transport must not use ${forbiddenTransport}`);
   }
 });
+
+test('Community execution drafts omit clustering identity and keep profile choice on the backend', () => {
+  const returnedDto = { id: 'COMMUNITY', description: 'Default scope', calendarProfileId: 'MONTHLY', clusteringProfileId: 'OTHER_PROFILE' };
+  const draft = buildCommunityDemandExecutionProfileDraft(returnedDto);
+  const request = buildCommunityDemandExecutionProfileSaveRequest(draft);
+
+  assert.equal('clusteringProfileId' in draft, false);
+  assert.equal('clusteringProfileId' in request, false);
+  assert.equal('perfilClusterizacaoId' in request, false);
+  const page = readFileSync(new URL('../src/modules/demand-execution-profiles/DemandExecutionProfilesInspectorPage.vue', import.meta.url), 'utf8');
+  assert.doesNotMatch(page, /v-model="[^"\n]*(?:clusteringProfile|perfilClusterizacao)/i);
+  assert.doesNotMatch(page, /label="Clustering profile/i);
+  assert.doesNotMatch(page, /fetchClusteringProfiles|ForecastExecutionModels/);
+});

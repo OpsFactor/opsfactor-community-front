@@ -7,12 +7,14 @@ import { BarChart, LineChart } from 'echarts/charts';
 import {
   DatasetComponent,
   GridComponent,
+  DataZoomComponent,
+  MarkLineComponent,
   LegendComponent,
   TitleComponent,
   TooltipComponent,
 } from 'echarts/components';
 
-use([CanvasRenderer, BarChart, LineChart, GridComponent, LegendComponent, TooltipComponent, DatasetComponent, TitleComponent]);
+use([DataZoomComponent, MarkLineComponent, CanvasRenderer, BarChart, LineChart, GridComponent, LegendComponent, TooltipComponent, DatasetComponent, TitleComponent]);
 
 const props = withDefaults(
   defineProps<{
