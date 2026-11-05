@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import VChart from 'vue-echarts';
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
-import { BarChart, LineChart } from 'echarts/charts';
+import { BarChart, LineChart, ScatterChart } from 'echarts/charts';
 import {
   DatasetComponent,
   GridComponent,
@@ -14,7 +14,7 @@ import {
   TooltipComponent,
 } from 'echarts/components';
 
-use([DataZoomComponent, MarkLineComponent, CanvasRenderer, BarChart, LineChart, GridComponent, LegendComponent, TooltipComponent, DatasetComponent, TitleComponent]);
+use([DataZoomComponent, MarkLineComponent, CanvasRenderer, BarChart, LineChart, ScatterChart, GridComponent, LegendComponent, TooltipComponent, DatasetComponent, TitleComponent]);
 
 const props = withDefaults(
   defineProps<{

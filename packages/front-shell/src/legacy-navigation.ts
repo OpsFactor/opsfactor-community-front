@@ -474,7 +474,7 @@ const legacyNavigationModules: AppNavigationModuleDefinition[] = [
             label: 'Freight Cost',
             path: '/distribution/freight-cost',
             description: 'Freight elasticity and transportation cost analysis.',
-            keywords: ['freight cost', 'elasticity', 'transportation', 'cost curve'],
+            keywords: ['freight cost', 'elasticity', 'transportation', 'cost curve', 'freight curves', 'curvas de frete', 'curva de frete', 'custos de frete'],
             legacyPath: '/analytics/freightelasticitycurve',
             status: 'legacy-transplant',
             componentKey: 'distribution-freight-cost',
