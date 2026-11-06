@@ -56,10 +56,10 @@ export interface DirectAndIndirectDemand {
   locationId: string;
   materialId: string;
   quantityUomId: string;
-  constrainedDirectDemand: number[];
-  unconstrainedDirectDemand: number[];
-  constrainedIndirectDemand: number[];
-  unconstrainedIndirectDemand: number[];
+  constrainedDirectDemand: number[] | null;
+  unconstrainedDirectDemand: number[] | null;
+  constrainedIndirectDemand: number[] | null;
+  unconstrainedIndirectDemand: number[] | null;
 }
 
 export interface ProductionResourceCapacity {
@@ -75,8 +75,8 @@ export interface ProductionResourceOccupation {
   uomId: string;
   constrainedProductionQuantity: number[];
   unconstrainedProductionQuantity: number[];
-  constrainedOccupationInHoursOrQuantity: number[];
-  unconstrainedOccupationInHoursOrQuantity: number[];
+  constrainedOccupationInHoursOrQuantity: number[] | null;
+  unconstrainedOccupationInHoursOrQuantity: number[] | null;
 }
 
 /**

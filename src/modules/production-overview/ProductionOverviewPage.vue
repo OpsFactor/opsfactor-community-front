@@ -17,6 +17,7 @@ import OfxPivotTable from '@/components/ofx/data-display/OfxPivotTable.vue';
 import OfxTableToolbar from '@/components/ofx/data-display/OfxTableToolbar.vue';
 import EChartAdapter from '@/wrappers/echarts/EChartAdapter.vue';
 import { getCapacityUtilizationCellStyle } from './capacity-utilization';
+import { hasCompleteValues, availableValues } from './overview-availability';
 import {
   getProductionOverview,
   getProductionOverviewResourceDetail,
@@ -75,6 +76,8 @@ const materials = ref<NamedOption[]>([]);
 const locations = ref<NamedOption[]>([]);
 const supplyPlanId = ref<number | null>(null);
 const uomId = ref('');
+const reportedUom = ref('');
+const reportUomLabel = computed(() => reportedUom.value === '__SUM_OF_BASE_UOMS__' ? 'Multiple UOMs' : reportedUom.value);
 const selectedMaterialIds = ref<string[]>([]);
 const selectedLocationIds = ref<string[]>([]);
 const selectedProductionResourceIds = ref<string[]>([]);
@@ -108,6 +111,7 @@ const supplyPlanOptions = computed(() => [
 ]);
 const unitOfMeasureOptions = computed(() => [
   { label: 'Select a unit of measure', value: '' },
+  { label: 'Sum of Base UOMs', value: '__SUM_OF_BASE_UOMS__' },
   ...unitOfMeasureIds.value.map((unitOfMeasureId) => ({ label: unitOfMeasureId, value: unitOfMeasureId })),
 ]);
 const locationOptions = computed(() => activeLocations.value.map((location) => ({
@@ -145,17 +149,31 @@ function isIncludedInSelectedScope(selectedIds: string[], id: string): boolean {
 
 }
 
+// Compute availability once per filtered dataset, including for the pivot.
+const seriesAvailability = computed(() => ({
+  constrainedInventory: hasCompleteValues(quantityRows.value, 'constrainedInventory'),
+  unconstrainedInventory: hasCompleteValues(quantityRows.value, 'unconstrainedInventory'),
+  constrainedProduction: hasCompleteValues(quantityRows.value, 'constrainedProduction'),
+  unconstrainedProduction: hasCompleteValues(quantityRows.value, 'unconstrainedProduction'),
+  constrainedInbound: hasCompleteValues(quantityRows.value, 'constrainedInbound'),
+  unconstrainedInbound: hasCompleteValues(quantityRows.value, 'unconstrainedInbound'),
+  constrainedDirectDemand: hasCompleteValues(quantityRows.value, 'constrainedDirectDemand'),
+  unconstrainedDirectDemand: hasCompleteValues(quantityRows.value, 'unconstrainedDirectDemand'),
+  constrainedIndirectDemand: hasCompleteValues(quantityRows.value, 'constrainedIndirectDemand'),
+  unconstrainedIndirectDemand: hasCompleteValues(quantityRows.value, 'unconstrainedIndirectDemand'),
+}));
+
 /** Mirrors the legacy dashboard summaries across the complete selected horizon. */
 const summaryCards = computed(() => {
 
   const periodCount = periodLabels.value.length;
   const averageByPeriod = (key: keyof QuantityRow) => {
-    if (periodCount === 0) return 0;
+    if (!seriesAvailability.value[key as keyof typeof seriesAvailability.value] || periodCount === 0) return undefined;
     const total = quantityRows.value.reduce((sum, row) => sum + Number(row[key] ?? 0), 0);
     return total / periodCount;
   };
-  const selectedUomLabel = uomId.value;
-  const formatAverage = (value: number) => `${Math.round(value).toLocaleString('en-US')} ${selectedUomLabel}`.trim();
+  const selectedUomLabel = reportUomLabel.value;
+  const formatAverage = (value: number | undefined) => value === undefined ? 'Not available' : `${Math.round(value).toLocaleString('en-US')} ${selectedUomLabel}`.trim();
 
   return [
     { label: 'Avg Constrained Met Demand', value: formatAverage(averageByPeriod('constrainedDirectDemand')), tone: 'success' as const },
@@ -182,13 +200,13 @@ function buildVolumeOption(plan: 'constrained' | 'unconstrained') {
     legend: { top: 0 },
     grid: { top: 42, right: 18, bottom: 28, left: 42 },
     xAxis: { type: 'category', data: periodLabels.value },
-    yAxis: { type: 'value', name: uomId.value },
+    yAxis: { type: 'value', name: reportUomLabel.value },
     series: [
-      { name: 'Stock', type: 'line', smooth: false, data: sumForPeriod(`${prefix}Inventory` as keyof QuantityRow), lineStyle: { color: '#7aa2ff', width: 2 }, itemStyle: { color: '#7aa2ff' } },
-      { name: 'Direct demand', type: 'bar', stack: plan, data: sumForPeriod(`${prefix}DirectDemand` as keyof QuantityRow), itemStyle: { color: '#ff7f66' }, barMaxWidth: 18 },
-      { name: 'Indirect demand', type: 'bar', stack: plan, data: sumForPeriod(`${prefix}IndirectDemand` as keyof QuantityRow), itemStyle: { color: '#f4b860' }, barMaxWidth: 18 },
-      { name: 'Inbound', type: 'line', smooth: false, data: sumForPeriod(`${prefix}Inbound` as keyof QuantityRow), lineStyle: { color: '#8b7cff', width: 2 }, itemStyle: { color: '#8b7cff' } },
-      { name: 'Production', type: 'line', smooth: false, data: sumForPeriod(`${prefix}Production` as keyof QuantityRow), lineStyle: { color: '#3ad6bf', width: 3 }, itemStyle: { color: '#3ad6bf' } },
+      ...(seriesAvailability.value[`${prefix}Inventory` as keyof typeof seriesAvailability.value] ? [{ name: 'Stock', type: 'line', smooth: false, data: sumForPeriod(`${prefix}Inventory` as keyof QuantityRow), lineStyle: { color: '#7aa2ff', width: 2 }, itemStyle: { color: '#7aa2ff' } }] : []),
+      ...(seriesAvailability.value[`${prefix}DirectDemand` as keyof typeof seriesAvailability.value] ? [{ name: 'Direct demand', type: 'bar', stack: plan, data: sumForPeriod(`${prefix}DirectDemand` as keyof QuantityRow), itemStyle: { color: '#ff7f66' }, barMaxWidth: 18 }] : []),
+      ...(seriesAvailability.value[`${prefix}IndirectDemand` as keyof typeof seriesAvailability.value] ? [{ name: 'Indirect demand', type: 'bar', stack: plan, data: sumForPeriod(`${prefix}IndirectDemand` as keyof QuantityRow), itemStyle: { color: '#f4b860' }, barMaxWidth: 18 }] : []),
+      ...(seriesAvailability.value[`${prefix}Inbound` as keyof typeof seriesAvailability.value] ? [{ name: 'Inbound', type: 'line', smooth: false, data: sumForPeriod(`${prefix}Inbound` as keyof QuantityRow), lineStyle: { color: '#8b7cff', width: 2 }, itemStyle: { color: '#8b7cff' } }] : []),
+      ...(seriesAvailability.value[`${prefix}Production` as keyof typeof seriesAvailability.value] ? [{ name: 'Production', type: 'line', smooth: false, data: sumForPeriod(`${prefix}Production` as keyof QuantityRow), lineStyle: { color: '#3ad6bf', width: 3 }, itemStyle: { color: '#3ad6bf' } }] : []),
     ],
   };
 
@@ -202,21 +220,11 @@ const unconstrainedVolumeOption = computed(() => buildVolumeOption('unconstraine
  * version and metric instead of flooding the first viewport with DFUs.
  */
 const pivotRows = computed(() => quantityRows.value.flatMap((row) => [
-  ['Constrained', 'Stock', row.constrainedInventory],
-  ['Unconstrained', 'Stock', row.unconstrainedInventory],
-  ['Gap vs Unconstrained', 'Stock', (row.unconstrainedInventory ?? 0) - (row.constrainedInventory ?? 0)],
-  ['Constrained', 'Production', row.constrainedProduction],
-  ['Unconstrained', 'Production', row.unconstrainedProduction],
-  ['Gap vs Unconstrained', 'Production', (row.unconstrainedProduction ?? 0) - (row.constrainedProduction ?? 0)],
-  ['Constrained', 'Inbound', row.constrainedInbound],
-  ['Unconstrained', 'Inbound', row.unconstrainedInbound],
-  ['Gap vs Unconstrained', 'Inbound', (row.unconstrainedInbound ?? 0) - (row.constrainedInbound ?? 0)],
-  ['Constrained', 'Direct demand', row.constrainedDirectDemand],
-  ['Unconstrained', 'Direct demand', row.unconstrainedDirectDemand],
-  ['Gap vs Unconstrained', 'Direct demand', (row.unconstrainedDirectDemand ?? 0) - (row.constrainedDirectDemand ?? 0)],
-  ['Constrained', 'Indirect demand', row.constrainedIndirectDemand],
-  ['Unconstrained', 'Indirect demand', row.unconstrainedIndirectDemand],
-  ['Gap vs Unconstrained', 'Indirect demand', (row.unconstrainedIndirectDemand ?? 0) - (row.constrainedIndirectDemand ?? 0)],
+  ...availableValues(row, 'Stock', 'constrainedInventory', 'unconstrainedInventory', seriesAvailability.value.constrainedInventory, seriesAvailability.value.unconstrainedInventory),
+  ...availableValues(row, 'Production', 'constrainedProduction', 'unconstrainedProduction', seriesAvailability.value.constrainedProduction, seriesAvailability.value.unconstrainedProduction),
+  ...availableValues(row, 'Inbound', 'constrainedInbound', 'unconstrainedInbound', seriesAvailability.value.constrainedInbound, seriesAvailability.value.unconstrainedInbound),
+  ...availableValues(row, 'Direct demand', 'constrainedDirectDemand', 'unconstrainedDirectDemand', seriesAvailability.value.constrainedDirectDemand, seriesAvailability.value.unconstrainedDirectDemand),
+  ...availableValues(row, 'Indirect demand', 'constrainedIndirectDemand', 'unconstrainedIndirectDemand', seriesAvailability.value.constrainedIndirectDemand, seriesAvailability.value.unconstrainedIndirectDemand),
 ].flatMap(([planVersion, series, value]) => {
   const numericValue = Number(value ?? 0);
   return numericValue === 0 ? [] : [{
@@ -306,16 +314,16 @@ function toQuantityRow(
     locationId: stockAndProduction.locationId,
     materialId: stockAndProduction.materialId,
     periodEnd,
-    constrainedInventory: stockAndProduction.constrainedInventory[periodIndex],
-    unconstrainedInventory: stockAndProduction.unconstrainedInventory[periodIndex],
-    constrainedInbound: stockAndProduction.constrainedInbound[periodIndex],
-    unconstrainedInbound: stockAndProduction.unconstrainedInbound[periodIndex],
-    constrainedProduction: stockAndProduction.constrainedProduction[periodIndex],
-    unconstrainedProduction: stockAndProduction.unconstrainedProduction[periodIndex],
-    constrainedDirectDemand: demand?.constrainedDirectDemand[periodIndex],
-    unconstrainedDirectDemand: demand?.unconstrainedDirectDemand[periodIndex],
-    constrainedIndirectDemand: demand?.constrainedIndirectDemand[periodIndex],
-    unconstrainedIndirectDemand: demand?.unconstrainedIndirectDemand[periodIndex],
+    constrainedInventory: stockAndProduction.constrainedInventory?.[periodIndex],
+    unconstrainedInventory: stockAndProduction.unconstrainedInventory?.[periodIndex],
+    constrainedInbound: stockAndProduction.constrainedInbound?.[periodIndex],
+    unconstrainedInbound: stockAndProduction.unconstrainedInbound?.[periodIndex],
+    constrainedProduction: stockAndProduction.constrainedProduction?.[periodIndex],
+    unconstrainedProduction: stockAndProduction.unconstrainedProduction?.[periodIndex],
+    constrainedDirectDemand: demand?.constrainedDirectDemand?.[periodIndex],
+    unconstrainedDirectDemand: demand?.unconstrainedDirectDemand?.[periodIndex],
+    constrainedIndirectDemand: demand?.constrainedIndirectDemand?.[periodIndex],
+    unconstrainedIndirectDemand: demand?.unconstrainedIndirectDemand?.[periodIndex],
   };
 
 }
@@ -342,8 +350,8 @@ function addOccupationRows(
       unconstrainedProduction: 0,
       capacity: capacity?.capacityInHoursOrQuantity[periodIndex],
     };
-    row.constrainedOccupation += occupation.constrainedOccupationInHoursOrQuantity[periodIndex] ?? 0;
-    row.unconstrainedOccupation += occupation.unconstrainedOccupationInHoursOrQuantity[periodIndex] ?? 0;
+    row.constrainedOccupation += occupation.constrainedOccupationInHoursOrQuantity?.[periodIndex] ?? 0;
+    row.unconstrainedOccupation += occupation.unconstrainedOccupationInHoursOrQuantity?.[periodIndex] ?? 0;
     row.constrainedProduction += occupation.constrainedProductionQuantity[periodIndex] ?? 0;
     row.unconstrainedProduction += occupation.unconstrainedProductionQuantity[periodIndex] ?? 0;
     rowsByResourcePeriod.set(key, row);
@@ -379,7 +387,7 @@ function buildOccupationOption(plan: 'constrained' | 'unconstrained') {
       // The secondary production axis provides a distinct physical scale.
       // Its grid must stay hidden, otherwise both axis tick grids overlap and
       // produce the extra horizontal lines visible in the dashboard.
-      { type: 'value', name: uomId.value, splitLine: { show: false } },
+      { type: 'value', name: reportUomLabel.value, splitLine: { show: false } },
     ],
     series: [
       { name: 'Total capacity', type: 'bar', data: capacity, itemStyle: { color: 'rgba(185,194,217,0.55)' }, barMaxWidth: 18, yAxisIndex: 0 },
@@ -572,12 +580,14 @@ async function loadOverview(): Promise<void> {
   selectedProductionResourceIds.value = [];
 
   try {
+    const requestedUom = uomId.value;
     overview.value = await getProductionOverview({
       supplyPlanId: supplyPlanId.value,
       uomId: uomId.value,
       locationIds: selectedLocationIds.value,
       materialIds: selectedMaterialIds.value,
     });
+    reportedUom.value = requestedUom;
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Unable to load Production Overview.';
   } finally {
@@ -713,6 +723,7 @@ onMounted(loadSelectors);
       <div v-else-if="isLoadingOverview" class="dashboard-state">Running the Production Overview report…</div>
 
       <template v-else-if="overview">
+        <div v-if="reportedUom === '__SUM_OF_BASE_UOMS__'" class="dashboard-state">Mixed base units are added as stored. Some demand and capacity consumption values require unit conversions and may be unavailable in this mode.</div>
         <div class="kpi-grid"><OfxKpiCard v-for="card in summaryCards" :key="card.label" :label="card.label" :value="card.value" :tone="card.tone" /></div>
 
         <div class="chart-grid">
@@ -724,7 +735,7 @@ onMounted(loadSelectors);
           <OfxPivotTable :data="pivotRows" :rows="['planVersion', 'series']" :columns="['period']" :measures="[{ field: 'value', label: 'Quantity', aggregation: 'sum', allowAggregationChange: false, allowedAggregations: ['sum'] }]" :temporal-bucket-size="selectedSupplyPlanMeta?.bucketSize" :height="440" :allow-measure-selection="false" :allow-aggregation-selection="false" :show-measure-controls="false" :show-totals-controls="false" :open-settings-by-default="false" :allow-split-by-selection="false" :show-datagrid-toolbar="false" :show-reset-control="false" :show-plugin-selector="false" :show-plugin-settings-control="false" :show-all-columns-section="false" :show-expressions-section="false" :show-status-metrics="false" :show-title-field="false" :show-actions="false" group-rollup-mode="flat" :allow-group-rollup-mode-selection="true" :hide-grand-totals="true" base-name="production-overview-pivot" />
         </OfxSectionCard>
 
-        <OfxSectionCard title="Production Capacity - Production Resources Selection" description="Filters used to narrow the occupation charts and resource grids.">
+        <OfxSectionCard v-if="reportedUom !== '__SUM_OF_BASE_UOMS__'" title="Production Capacity - Production Resources Selection" description="Filters used to narrow the occupation charts and resource grids.">
           <OfxEntityMultiSelect
             v-model="selectedProductionResourceIds"
             label="Production resources"
@@ -734,7 +745,7 @@ onMounted(loadSelectors);
           />
         </OfxSectionCard>
 
-        <div class="chart-grid">
+        <div v-if="reportedUom !== '__SUM_OF_BASE_UOMS__'" class="chart-grid">
           <OfxSectionCard title="Production volume / Occupation - Constrained" description="Capacity availability / consumption on the primary axis and production on the secondary axis.">
             <EChartAdapter :option="constrainedOccupationOption" :height="340" />
           </OfxSectionCard>
@@ -743,7 +754,7 @@ onMounted(loadSelectors);
           </OfxSectionCard>
         </div>
 
-        <div class="chart-grid">
+        <div v-if="reportedUom !== '__SUM_OF_BASE_UOMS__'" class="chart-grid">
           <OfxSectionCard title="Occupation by Production Resource - Constrained">
             <div v-if="constrainedResourceRows.length" class="table-stack">
               <OfxTableToolbar :download-format="exportFormat" @update:download-format="exportFormat = $event" @download="exportConstrainedResourceTable" />
