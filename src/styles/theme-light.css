@@ -8,7 +8,7 @@ html[data-theme='light'] {
   --ofx-surface-overlay: #ffffff;
   --ofx-text: #0f1728;
   --ofx-text-muted: #526179;
-  --ofx-text-subtle: #71829a;
+  --ofx-text-subtle: #54657c;
   --ofx-text-inverse: #f6f8fc;
   --ofx-text-danger: #9e2943;
   --ofx-text-success: #1d7150;
@@ -18,7 +18,7 @@ html[data-theme='light'] {
   --ofx-border-focus: #4b7cff;
   --ofx-border-danger: #d04566;
   --ofx-border-selected: #4b7cff;
-  --ofx-primary: #3b73f2;
+  --ofx-primary: #3265d9;
   --ofx-primary-foreground: #ffffff;
   --ofx-primary-hover: #285fd7;
   --ofx-accent: #4b7cff;

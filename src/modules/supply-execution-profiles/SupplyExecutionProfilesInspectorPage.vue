@@ -1648,11 +1648,11 @@ onMounted(loadPage);
             />
             <div
               v-if="isOptimizer && current.segmentInventoryByBatch"
-              class="ml-2 grid gap-4 rounded-[18px] border border-[color:rgb(62_76_101_/_0.7)] bg-[linear-gradient(180deg,rgb(10_16_27_/_0.96),rgb(7_12_21_/_0.98))] p-4 shadow-[inset_0_1px_0_rgb(255_255_255_/_0.03)]"
+              class="ml-2 grid gap-4 rounded-[18px] border border-[color:var(--ofx-border)] bg-[color:var(--ofx-surface-elevated)] p-4"
             >
               <div class="space-y-2">
-                <div class="text-sm font-semibold text-white/94">Production-batch aging cost bias</div>
-                <p class="text-xs leading-5 text-white/64">
+                <div class="text-sm font-semibold text-[color:var(--ofx-text)]">Production-batch aging cost bias</div>
+                <p class="text-xs leading-5 text-[color:var(--ofx-text-muted)]">
                   Keep the base working-capital impact for fresh stock and progressively increase the impact for older
                   production batches, so the optimizer has a monetary incentive to consume the oldest material first.
                 </p>
@@ -1997,14 +1997,14 @@ onMounted(loadPage);
               <div class="flex items-center gap-2">
                 <input
                   type="checkbox"
-                  class="h-4 w-4 rounded border-white/20 bg-transparent accent-[color:var(--ofx-primary)]"
+                  class="h-4 w-4 rounded border-[color:var(--ofx-border-strong)] accent-[color:var(--ofx-primary)]"
                   :checked="(row as SupplyExecutionProfileProductionResourceConfiguration).active !== false"
                   :aria-label="`Activate ${(row as SupplyExecutionProfileProductionResourceConfiguration).productionResourceId}`"
                   @change="setProductionResourceActive(row as SupplyExecutionProfileProductionResourceConfiguration, ($event.target as HTMLInputElement).checked)"
                 />
                 <span
                   v-if="(row as SupplyExecutionProfileProductionResourceConfiguration).active === null"
-                  class="text-xs text-white/48"
+                  class="text-xs text-[color:var(--ofx-text-muted)]"
                 >
                   Default
                 </span>
@@ -2017,13 +2017,13 @@ onMounted(loadPage);
                   min="0"
                   max="100"
                   step="0.01"
-                  class="h-9 w-28 rounded-[8px] border border-white/10 bg-white/[0.04] px-3 text-sm text-white/86 outline-none transition focus:border-[color:var(--ofx-primary)]"
+                  class="h-9 w-28 rounded-[8px] border border-[color:var(--ofx-border-strong)] bg-[color:var(--ofx-surface)] px-3 text-sm text-[color:var(--ofx-text)] outline-none transition focus:border-[color:var(--ofx-border-focus)] disabled:opacity-60"
                   :value="hardOccupationPercent(row as SupplyExecutionProfileProductionResourceConfiguration)"
                   :disabled="(row as SupplyExecutionProfileProductionResourceConfiguration).active === false"
                   :aria-label="`Hard occupation percentage for ${(row as SupplyExecutionProfileProductionResourceConfiguration).productionResourceId}`"
                   @input="setProductionResourceHardOccupationPercent(row as SupplyExecutionProfileProductionResourceConfiguration, ($event.target as HTMLInputElement).value)"
                 />
-                <span class="text-xs text-white/48">%</span>
+                <span class="text-xs text-[color:var(--ofx-text-muted)]">%</span>
               </div>
             </template>
             <template #cell-removeAction="{ row }">

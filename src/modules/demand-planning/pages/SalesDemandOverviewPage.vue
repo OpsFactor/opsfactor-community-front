@@ -797,8 +797,8 @@ onMounted(() => {
 
           <div class="space-y-3">
             <div>
-              <h2 class="text-base font-semibold text-white/90">Filters</h2>
-              <p class="mt-1 text-sm text-white/54">These filters restrict the dataset extracted from the backend.</p>
+              <h2 class="text-base font-semibold text-[color:var(--ofx-text)]">Filters</h2>
+              <p class="mt-1 text-sm text-[color:var(--ofx-text-muted)]">These filters restrict the dataset extracted from the backend.</p>
             </div>
             <MaterialLocationScopeFilters
               v-model="initialScope"

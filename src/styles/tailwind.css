@@ -22,6 +22,10 @@
     overflow: hidden;
   }
 
+  html[data-theme='light'] body {
+    background: var(--ofx-bg);
+  }
+
   #app {
     height: 100%;
   }
