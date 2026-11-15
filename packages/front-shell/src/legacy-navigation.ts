@@ -298,6 +298,16 @@ const legacyNavigationModules: AppNavigationModuleDefinition[] = [
             componentKey: 'supply-plans',
           },
           {
+            key: 'supply-available-to-promise',
+            label: 'Available to Promise',
+            path: '/supply-network/available-to-promise',
+            description: 'Check full delivery dates for a sales request.',
+            keywords: ['atp', 'available to promise', 'sales order', 'delivery date', 'disponibilidade'],
+            status: 'live',
+            componentKey: 'supply-available-to-promise',
+            requiredRole: 'ROLE_ADMIN',
+          },
+          {
             key: 'supply-constraint-tracker',
             label: 'Constraint Tracker',
             path: '/supply-network/constraint-tracker',

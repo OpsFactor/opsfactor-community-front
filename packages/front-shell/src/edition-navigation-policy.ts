@@ -23,6 +23,7 @@ export const ENTERPRISE_NAVIGATION_PAGE_KEYS = new Set([
   'demand-external-series-coverage',
   'demand-analysis-profiles',
   'demand-forecast-workflows',
+  'supply-available-to-promise',
   'supply-constraint-tracker',
   'supply-supply-plan-flows',
   'production-line-scheduling',
