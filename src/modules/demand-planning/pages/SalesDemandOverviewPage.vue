@@ -38,7 +38,6 @@ type FilterGroup = 'material' | 'location';
 type NormalizedOverviewRow = {
   series: StandardSeries;
   periodRaw: string;
-  periodLabel: string;
   quantity: number;
   gross: number;
   net: number;
@@ -314,49 +313,52 @@ const periodLabels = computed(() =>
   (report.value?.periods ?? []).map((period) => formatPeriodLabel(period, periodGranularity.value)),
 );
 
+/** Normalize only fields consumed by filters, KPIs and the pivot; axis labels are formatted once per period. */
 const normalizedRows = computed<NormalizedOverviewRow[]>(() => {
-  const rows = report.value?.data ?? [];
-  const granularity = periodGranularity.value;
+  const normalizedOverviewRows: NormalizedOverviewRow[] = [];
+  const nonDimensionFields = new Set([
+    'series', 'date', 'quantity', 'gross', 'net', 'cogs', 'margin',
+    'valuesByMaterialCharacteristicId', 'valuesByLocationCharacteristicId',
+  ]);
 
-  return rows.flatMap((row) => {
+  // A saved report can contain hundreds of thousands of rows. Avoid per-row date
+  // formatters and the temporary arrays previously created by flatMap/filter/map.
+  for (const row of report.value?.data ?? []) {
     const series = mapSeriesName(row.series);
-    if (!series) return [];
+    if (!series) continue;
 
-    const dimensions = Object.fromEntries(
-      Object.entries(row)
-        .filter(([key, value]) => ![
-          'series',
-          'date',
-          'quantity',
-          'gross',
-          'net',
-          'cogs',
-          'margin',
-          'valuesByMaterialCharacteristicId',
-          'valuesByLocationCharacteristicId',
-        ].includes(key) && value !== null && value !== undefined && value !== '')
-        .map(([key, value]) => [key, String(value)]),
-    );
+    const dimensions: Record<string, string> = {};
+    for (const key in row) {
+      if (!Object.prototype.hasOwnProperty.call(row, key) || nonDimensionFields.has(key)) continue;
+      const value = row[key];
+      if (value === null || value === undefined || value === '') continue;
+      if (key === '__proto__') {
+        // Preserve Object.fromEntries semantics for arbitrary characteristic names.
+        Object.defineProperty(dimensions, key, { value: String(value), enumerable: true, configurable: true, writable: true });
+      } else {
+        dimensions[key] = String(value);
+      }
+    }
 
-    Object.entries(row.valuesByMaterialCharacteristicId ?? {}).forEach(([key, value]) => {
+    // Characteristic maps override top-level dimensions, matching the DTO contract.
+    for (const [key, value] of Object.entries(row.valuesByMaterialCharacteristicId ?? {})) {
       if (value) dimensions[key] = value;
-    });
-    Object.entries(row.valuesByLocationCharacteristicId ?? {}).forEach(([key, value]) => {
+    }
+    for (const [key, value] of Object.entries(row.valuesByLocationCharacteristicId ?? {})) {
       if (value) dimensions[key] = value;
-    });
+    }
 
-    const periodRaw = String(row.date ?? '');
-
-    return [{
+    normalizedOverviewRows.push({
       series,
-      periodRaw,
-      periodLabel: formatPeriodLabel(periodRaw, granularity),
+      periodRaw: String(row.date ?? ''),
       quantity: toNumber(row.quantity),
       gross: toNumber(row.gross),
       net: toNumber(row.net),
       dimensions,
-    }];
-  });
+    });
+  }
+
+  return normalizedOverviewRows;
 });
 
 const pivotDimensionKeys = computed(() => {
@@ -976,6 +978,7 @@ onMounted(() => {
             <OfxPivotTable
               :key="`${pivotBaseName}-${selectedMetricId}`"
               :data="pivotRows"
+              data-transport="arrow"
               :rows="['Series']"
               :columns="['Period']"
               :measures="pivotMeasures"
