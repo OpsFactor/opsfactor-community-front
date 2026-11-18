@@ -9,7 +9,7 @@ import { resolveDataExportPath } from '../packages/front-core/src/api/data-expor
 function selectors(path: URL | string, community: boolean) {
   const source = readFileSync(path, 'utf8').split('<script setup lang="ts">')[1].split('</script>')[0];
   const ast = ts.createSourceFile('page.ts', source, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TS);
-  const names = community ? ['allDownloadOptions', 'supportsStructuredFormats', 'downloadOptions'] : ['downloadOptions', 'supportsStructuredFormats', 'availableDownloadOptions'];
+  const names = community ? ['allDownloadOptions', 'downloadOptions'] : ['downloadOptions', 'supportsStructuredFormats', 'availableDownloadOptions'];
   const declarations = names.map((name) => {
     for (const node of ast.statements) {
       if (!ts.isVariableStatement(node)) continue;
@@ -40,7 +40,7 @@ for (const [host, path, community] of [
 
     state.selectedTopic.value = { packageDefinition: { downloadApi: '/api/secured/dataupload/unitofmeasure', jsonApi: '/api/secured/dataupload/json/unitofmeasure' } };
     state.selectedFamily.value = { operations: [{ kind: 'download-file' }, { kind: 'download-json' }, { kind: 'upload-json' }] };
-    assert.deepEqual(state.values(), ['xlsx', 'json', 'arrow', 'parquet', 'csvStandard', 'csvSystemLocale']);
+    assert.deepEqual(state.values(), community ? ['xlsx', 'csvStandard', 'csvSystemLocale'] : ['xlsx', 'json', 'arrow', 'parquet', 'csvStandard', 'csvSystemLocale']);
 
     if (!community) {
       state.selectedTopic.value = { packageDefinition: { downloadApi: '/api/secured/dataupload/productsuccession', jsonApi: '/api/secured/dataupload/json/other-resource' } };

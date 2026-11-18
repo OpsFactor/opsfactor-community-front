@@ -1,5 +1,5 @@
 import { ApiRequestError, type HttpClient } from '@opsfactor/front-core';
-import { dataExportFileName, assertDataExportContentType, dataExportDescriptor, dataExportQuery, dataImportContentType, resolveDataExportPath } from '@opsfactor/front-core';
+import { dataExportFileName, assertDataExportContentType, dataExportDescriptor, dataExportQuery, resolveDataExportPath } from '@opsfactor/front-core';
 import {
   buildCommunityDataEndpoint,
   type CommunityDataDownloadFormat,
@@ -80,6 +80,9 @@ export class CommunityDataUploadService {
    */
   public async downloadTabularData(target: CommunityDataTarget, format: CommunityDataDownloadFormat): Promise<void> {
 
+    if (!['xlsx', 'csvStandard', 'csvSystemLocale'].includes(format)) {
+      throw new Error('Community file downloads support CSV and XLSX only.');
+    }
     try {
       const query = new URLSearchParams(Object.entries(dataExportQuery(format)).map(([key, value]) => [key, String(value)]));
       const path = `${resolveDataExportPath(buildCommunityDataEndpoint(target))}?${query}`;
@@ -104,18 +107,8 @@ export class CommunityDataUploadService {
       throw new Error('Choose a non-empty file to import.');
     }
 
-    const contentType = dataImportContentType(file.name);
-    if (contentType) {
-      const supportsStructuredImport = target.family.operations.some((operation) => operation.kind === 'upload-json');
-      if (!supportsStructuredImport) throw new Error('This dataset accepts spreadsheet uploads only.');
-      try {
-        const response = await this.httpClient.request<unknown>(resolveDataExportPath(buildCommunityDataEndpoint(target)), {
-          method: 'POST', headers: { 'Content-Type': contentType }, body: file,
-        });
-        return toResponseMessage(response, 'Data upload completed.');
-      } catch (error) {
-        throw toBackendError(error, 'Unable to upload the selected data.');
-      }
+    if (!/\.(csv|xlsx)$/i.test(file.name)) {
+      throw new Error('Community file imports support CSV and XLSX only.');
     }
 
     const formData = new FormData();

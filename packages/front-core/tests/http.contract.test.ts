@@ -237,3 +237,15 @@ test('JSON request service retains the fallback when a server returns an HTML fa
   await assert.rejects(() => requestService.requestJson('/secured-plans', {}), /Request failed for \/secured-plans \(401\)/);
   assert.equal(capturedMessage, 'Request failed for /secured-plans (401)');
 });
+
+test('default Community HTTP behavior has no private timeout policy and keeps its original error body', async () => {
+  const originalFetch = globalThis.fetch;
+  const gateway = '<html><body>Gateway Timeout</body></html>';
+  globalThis.fetch = async () => new Response(gateway, { status: 504 });
+  try {
+    await assert.rejects(new HttpClient(() => null).requestBlob('/file'), (error) => error instanceof ApiRequestError && error.message === 'The API request failed with status 504.' && error.responseText === gateway);
+    const networkError = new DOMException('Original timeout', 'TimeoutError');
+    globalThis.fetch = async () => { throw networkError; };
+    await assert.rejects(new HttpClient(() => null).request('/json'), (error) => error === networkError);
+  } finally { globalThis.fetch = originalFetch; }
+});

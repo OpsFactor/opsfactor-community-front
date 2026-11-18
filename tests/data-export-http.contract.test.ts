@@ -3,6 +3,7 @@ import test from 'node:test';
 import { build } from 'esbuild';
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
+globalThis.window = { location: { origin: 'https://same.example' } } as Window & typeof globalThis;
 
 /** Bundle the real host services so their production imports stay intact in this Node test. */
 async function loadHostService(path: string) {
@@ -35,7 +36,7 @@ for (const [host, path] of [
       assert.equal(calls[1].url, '/api/secured/data/material?format=csv');
       await service.downloadDataPackage({ definition, format: 'arrow' });
       assert.equal(calls[2].url, '/api/secured/data/material?format=arrow');
-      assert.equal(calls[2].options.headers.Accept, 'application/vnd.apache.arrow.stream');
+      assert.equal(new Headers(calls[2].options.headers).get('Accept'), 'application/vnd.apache.arrow.stream');
       await service.downloadDataPackage({ definition: { ...definition, downloadRangeApi: '/api/secured/dataupload/stock/{dataInicial}/{dataFinal}' }, format: 'csvStandard', dateRange: { startDate: '2027-01-01', endDate: '2027-02-01' } });
       assert.equal(calls[3].url, '/api/secured/data/stock/2027-01-01/2027-02-01?format=csv');
       assert.equal(binaryReads, 4);
@@ -57,12 +58,12 @@ for (const [host, path] of [
       const structured = new File(['data'], 'materials.parquet');
       await service.uploadDataPackage(definition, structured);
       assert.equal(calls[0].url, '/api/secured/data/material');
-      assert.equal(calls[0].options.headers['Content-Type'], 'application/vnd.apache.parquet');
+      assert.equal(new Headers(calls[0].options.headers).get('Content-Type'), 'application/vnd.apache.parquet');
       assert.equal(calls[0].options.body, structured);
       await service.uploadDataPackage(definition, new File(['data'], 'materials.xlsx'));
       assert.ok(calls[1].options.body instanceof FormData);
       assert.ok(calls[1].options.body.get('file') instanceof File);
-      assert.ok(!calls[1].options.headers);
+      assert.equal(new Headers(calls[1].options.headers).has('Content-Type'), false);
     } finally {
       globalThis.fetch = originalFetch;
     }

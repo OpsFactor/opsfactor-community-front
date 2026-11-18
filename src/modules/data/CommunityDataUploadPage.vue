@@ -96,15 +96,11 @@ const busy = ref(false);
 const downloadFormat = ref<CommunityDataDownloadFormat>('xlsx');
 const allDownloadOptions: OfxDownloadOption[] = [
   { label: 'XLSX', value: 'xlsx' },
-  { label: 'JSON', value: 'json' },
-  { label: 'Arrow IPC', value: 'arrow' },
-  { label: 'Parquet', value: 'parquet' },
   { label: 'CSV standard', value: 'csvStandard' },
   { label: 'CSV system locale', value: 'csvSystemLocale' },
 ];
 
-const supportsStructuredFormats = computed(() => selectedFamily.value.operations.some((operation) => operation.kind === 'download-json'));
-const downloadOptions = computed(() => allDownloadOptions.filter((option) => !['json', 'arrow', 'parquet'].includes(option.value) || supportsStructuredFormats.value));
+const downloadOptions = computed(() => allDownloadOptions);
 watch(downloadOptions, (options) => {
   if (!options.some((option) => option.value === downloadFormat.value)) downloadFormat.value = 'xlsx';
 });
@@ -557,7 +553,7 @@ async function runDelete(): Promise<void> {
   <TaskPageLayout class="data-operations-page">
     <OfxPageHeader eyebrow="Data" title="Data Operations" description="Select a topic and run the required operation from a single workspace." />
 
-    <input ref="fileInputRef" type="file" class="hidden-file-input" :accept="supportsStructuredFormats ? '.csv,.xlsx,.xls,.json,.arrow,.ipc,.parquet' : '.csv,.xlsx,.xls'" @change="runUpload">
+    <input ref="fileInputRef" type="file" class="hidden-file-input" accept=".csv,.xlsx" @change="runUpload">
 
     <OfxSectionCard title="Catalog" description="Choose a theme, group, section, and topic. Options unavailable in the current edition remain visible and locked.">
       <div class="catalog-grid">

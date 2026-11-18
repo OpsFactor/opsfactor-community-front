@@ -214,6 +214,15 @@ async function verifyCommunityLegacyNavigationCut() {
     'legacy-navigation.ts',
   );
   const sharedNavigationFactorySource = await readFile(sharedNavigationFactoryPath, 'utf8');
+  if (/available.to.promise|supply-available-to-promise/i.test(sharedNavigationFactorySource + navigationPolicySource + navigationSource)) {
+    violations.push('ATP navigation metadata and routes must be owned exclusively by the Enterprise host.');
+  }
+  for (const sourceFile of sourceFiles) {
+    const source = await readFile(sourceFile, 'utf8');
+    if (/features\/processed-reports|schedulePlanningDataDownload|submitPlanningDataUpload|watchPlanningDataJob|api\/secured\/data\/exports\/download/.test(source)) {
+      violations.push(`${path.relative(workspaceDirectory, sourceFile)} exposes a private background/cache workflow in Community.`);
+    }
+  }
   if (!navigationSource.includes('createLegacyNavigation')
       || !navigationSource.includes("from '@opsfactor/front-shell';")
       || !navigationSource.includes('edition: APPLICATION_EDITION')
@@ -666,6 +675,11 @@ async function verifyExecutableLoaderCoverage() {
   const sharedComponentKeys = new Set([...sharedNavigationSource.matchAll(/componentKey: '([^']+)'/g)].map((match) => match[1]));
   const communityLoaderKeys = extractLoaderKeys(communityNavigationSource);
   const enterpriseLoaderKeys = extractLoaderKeys(enterpriseNavigationSource);
+  const privatePagesSource = await readFile(path.join(workspaceDirectory, 'opsfactor-enterprise-front', 'src', 'app', 'enterprise-navigation-pages.ts'), 'utf8');
+  const privateComponentKeys = new Set([...privatePagesSource.matchAll(/componentKey: '([^']+)'/g)].map((match) => match[1]));
+  if (!enterpriseNavigationSource.includes('additionalPages: ENTERPRISE_NAVIGATION_ADDITIONS')) {
+    throw new Error('Enterprise private navigation additions are not registered by the executable host.');
+  }
   const enterpriseLoaderKeySet = new Set(enterpriseLoaderKeys);
   const violations = [];
 
@@ -680,7 +694,7 @@ async function verifyExecutableLoaderCoverage() {
     }
   }
   for (const loaderKey of enterpriseLoaderKeys) {
-    if (!sharedComponentKeys.has(loaderKey)) {
+    if (!sharedComponentKeys.has(loaderKey) && !privateComponentKeys.has(loaderKey)) {
       violations.push(`Enterprise loader ${loaderKey} is not selected by the shared executable navigation catalogue.`);
     }
   }

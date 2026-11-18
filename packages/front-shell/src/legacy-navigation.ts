@@ -298,16 +298,6 @@ const legacyNavigationModules: AppNavigationModuleDefinition[] = [
             componentKey: 'supply-plans',
           },
           {
-            key: 'supply-available-to-promise',
-            label: 'Available to Promise',
-            path: '/supply-network/available-to-promise',
-            description: 'Check full delivery dates for a sales request.',
-            keywords: ['atp', 'available to promise', 'sales order', 'delivery date', 'disponibilidade'],
-            status: 'live',
-            componentKey: 'supply-available-to-promise',
-            requiredRole: 'ROLE_ADMIN',
-          },
-          {
             key: 'supply-constraint-tracker',
             label: 'Constraint Tracker',
             path: '/supply-network/constraint-tracker',
@@ -926,12 +916,19 @@ const legacyNavigationModules: AppNavigationModuleDefinition[] = [
 ];
 
 
+/** Private hosts own the metadata and loader for capabilities absent from the public catalogue. */
+export interface LegacyNavigationPageAddition extends AppNavigationPageDefinition {
+  moduleKey: AppModuleKey;
+  sectionLabel: string;
+}
+
 export interface LegacyNavigationConfiguration {
   edition: 'community' | 'enterprise';
   pageComponents: Record<string, NonNullable<RouteRecordRaw['component']>>;
   moduleOverviewComponent: NonNullable<RouteRecordRaw['component']>;
   additionalDataSearchEntries?: AppSearchEntry[];
   hasRole?: (requiredRole?: string) => boolean;
+  additionalPages?: readonly LegacyNavigationPageAddition[];
 }
 
 /**
@@ -970,7 +967,28 @@ export function createLegacyNavigation(configuration: LegacyNavigationConfigurat
     };
   }
 
-  const navigationModules = legacyNavigationModules.map(decorateEditionAvailability);
+  const additions = configuration.additionalPages ?? [];
+  if (edition !== 'enterprise' && additions.length) {
+    throw new Error('Private navigation extensions require the Enterprise host.');
+  }
+  // Validate before building routes so an extension cannot silently disappear or shadow a page.
+  for (const addition of additions) {
+    const module = legacyNavigationModules.find((candidate) => candidate.key === addition.moduleKey);
+    if (!module?.sections.some((section) => section.label === addition.sectionLabel)) {
+      throw new Error('Unknown navigation extension location for ' + addition.key + '.');
+    }
+    if (legacyNavigationModules.some((candidate) => candidate.sections.some((section) => section.items.some((page) => page.key === addition.key)))
+        || additions.filter((candidate) => candidate.key === addition.key).length !== 1) {
+      throw new Error('Duplicate navigation extension ' + addition.key + '.');
+    }
+  }
+  const navigationModules = legacyNavigationModules.map((module) => decorateEditionAvailability({
+    ...module,
+    sections: module.sections.map((section) => ({
+      ...section,
+      items: [...section.items, ...additions.filter((addition) => addition.moduleKey === module.key && addition.sectionLabel === section.label)],
+    })),
+  }));
 
   function flattenPages(module: AppNavigationModuleDefinition) {
 

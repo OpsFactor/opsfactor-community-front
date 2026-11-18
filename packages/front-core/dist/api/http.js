@@ -16,8 +16,10 @@ export class ApiRequestError extends Error {
 }
 export class HttpClient {
     getAuthorizationHeader;
-    constructor(getAuthorizationHeader) {
+    transport;
+    constructor(getAuthorizationHeader, transport = fetch) {
         this.getAuthorizationHeader = getAuthorizationHeader;
+        this.transport = transport;
     }
     /**
      * Builds the common request headers for JSON and binary requests.
@@ -40,7 +42,7 @@ export class HttpClient {
     }
     async request(path, options = {}) {
         const headers = this.createHeaders(options.headers, 'application/json');
-        const response = await fetch(path, {
+        const response = await this.transport(path, {
             ...options,
             headers,
         });
@@ -88,7 +90,7 @@ export class HttpClient {
      */
     async requestBlob(path, options = {}) {
         const headers = this.createHeaders(options.headers, 'application/octet-stream, */*;q=0.8');
-        const response = await fetch(path, {
+        const response = await this.transport(path, {
             ...options,
             headers,
         });

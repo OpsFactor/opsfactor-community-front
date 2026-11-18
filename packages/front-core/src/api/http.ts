@@ -37,13 +37,18 @@ export interface ApiBlobResponse {
   contentDisposition: string | null;
 }
 
+export type HttpClientTransport = (path: string, options: ApiRequestOptions) => Promise<Response>;
+
 export class HttpClient {
   private readonly getAuthorizationHeader: () => string | null;
+  private readonly transport: HttpClientTransport;
 
   public constructor(
     getAuthorizationHeader: () => string | null,
+    transport: HttpClientTransport = fetch,
   ) {
     this.getAuthorizationHeader = getAuthorizationHeader;
+    this.transport = transport;
   }
 
   /**
@@ -72,7 +77,7 @@ export class HttpClient {
   public async request<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
     const headers = this.createHeaders(options.headers, 'application/json');
 
-    const response = await fetch(path, {
+    const response = await this.transport(path, {
       ...options,
       headers,
     });
@@ -127,7 +132,7 @@ export class HttpClient {
   public async requestBlob(path: string, options: ApiRequestOptions = {}): Promise<ApiBlobResponse> {
     const headers = this.createHeaders(options.headers, 'application/octet-stream, */*;q=0.8');
 
-    const response = await fetch(path, {
+    const response = await this.transport(path, {
       ...options,
       headers,
     });

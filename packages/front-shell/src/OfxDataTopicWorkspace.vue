@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import OfxActionLabel from './OfxActionLabel.vue';
 import OfxOperationPanel, { type OfxOperationPanelOption } from './OfxOperationPanel.vue';
 import OfxDownloadSplitButton, { type OfxDownloadOption } from './OfxDownloadSplitButton.vue';
+import OfxSelectField from './OfxSelectField.vue';
 
 const model = defineModel<string>({ required: true });
 
@@ -31,6 +32,8 @@ const props = defineProps<{
   warningText?: string;
   dangerLabel?: string;
   processingLabel?: string;
+  planningOperations?: boolean;
+  selectedFileName?: string;
   /** Host-owned theme policy: Community fixes light while Enterprise resolves its user preference. */
   themeMode?: 'light' | 'dark';
 }>();
@@ -39,6 +42,9 @@ const emit = defineEmits<{
   download: [];
   import: [];
   danger: [];
+  downloadBackground: [];
+  importBackground: [];
+  selectFile: [];
   'update:downloadFormat': [value: string];
 }>();
 
@@ -104,7 +110,7 @@ function warningCardClass() {
 
 <template>
   <div :class="['space-y-6 border-t pt-6', dividerClass]">
-    <div class="space-y-4">
+    <div v-if="!props.planningOperations" class="space-y-4">
       <div :class="['rounded-[12px] border px-4 py-4', endpointCardClass]">
         <div :class="['text-xs font-semibold uppercase tracking-[0.16em]', eyebrowClass]">Base API Endpoint</div>
         <code :class="['mt-3 block break-all text-sm', endpointCodeClass]">{{ apiBasePath }}</code>
@@ -129,7 +135,37 @@ function warningCardClass() {
           Complete the required filters before running this action.
         </div>
 
-        <div v-if="props.downloadVisible" class="flex flex-wrap items-center gap-2">
+        <div v-if="props.planningOperations && props.downloadVisible" class="flex flex-wrap items-end justify-between gap-4 border-t pt-4" :class="dividerClass">
+          <div class="w-full sm:w-[220px]">
+            <OfxSelectField
+              v-if="props.downloadPresentation !== 'server-file'"
+              label="Format"
+              :show-placeholder-option="false"
+              :model-value="props.downloadFormat ?? ''"
+              :options="props.downloadOptions ?? []"
+              :disabled="props.downloadDisabled"
+              @update:model-value="emit('update:downloadFormat', String($event ?? ''))"
+            />
+            <p v-else class="text-sm text-[color:var(--ofx-text-muted)]">Format XLSX</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="rounded-[8px] border px-4 py-2.5 text-sm font-semibold text-[color:var(--ofx-text)]" :class="dividerClass" :disabled="props.downloadDisabled" @click="emit('download')">Download now</button>
+            <button type="button" class="rounded-[8px] bg-[color:var(--ofx-primary)] px-4 py-2.5 text-sm font-semibold text-[color:var(--ofx-primary-foreground)] disabled:opacity-50" :disabled="props.downloadDisabled" @click="emit('downloadBackground')">Generate in background</button>
+          </div>
+        </div>
+
+        <div v-else-if="props.planningOperations && props.importVisible" class="space-y-4 border-t pt-4" :class="dividerClass">
+          <div class="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-dashed p-4" :class="dividerClass">
+            <p class="min-w-0 break-all text-sm text-[color:var(--ofx-text-muted)]">{{ props.selectedFileName || 'Select a file to import.' }}</p>
+            <button type="button" class="rounded-[8px] border px-3 py-2 text-sm text-[color:var(--ofx-text)]" :class="dividerClass" :disabled="props.importDisabled" @click="emit('selectFile')">Select file</button>
+          </div>
+          <div class="flex flex-wrap justify-end gap-2">
+            <button type="button" class="rounded-[8px] border px-4 py-2.5 text-sm font-semibold text-[color:var(--ofx-text)] disabled:opacity-50" :class="dividerClass" :disabled="props.importDisabled || !props.selectedFileName" @click="emit('import')">Import now</button>
+            <button type="button" class="rounded-[8px] bg-[color:var(--ofx-primary)] px-4 py-2.5 text-sm font-semibold text-[color:var(--ofx-primary-foreground)] disabled:opacity-50" :disabled="props.importDisabled || !props.selectedFileName" @click="emit('importBackground')">Import in background</button>
+          </div>
+        </div>
+
+        <div v-else-if="props.downloadVisible" class="flex flex-wrap items-center gap-2">
           <OfxDownloadSplitButton
             :model-value="props.downloadFormat ?? ''"
             :options="props.downloadOptions ?? []"
@@ -173,6 +209,7 @@ function warningCardClass() {
             </button>
           </div>
         </template>
+        <slot name="status" />
       </div>
     </div>
   </div>

@@ -110,4 +110,5 @@ export type {
   AppPageStatus,
   AppSearchEntry,
   LegacyNavigationConfiguration,
+  LegacyNavigationPageAddition,
 } from './legacy-navigation';

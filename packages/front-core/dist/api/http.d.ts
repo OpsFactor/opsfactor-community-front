@@ -25,9 +25,11 @@ export interface ApiBlobResponse {
     blob: Blob;
     contentDisposition: string | null;
 }
+export type HttpClientTransport = (path: string, options: ApiRequestOptions) => Promise<Response>;
 export declare class HttpClient {
     private readonly getAuthorizationHeader;
-    constructor(getAuthorizationHeader: () => string | null);
+    private readonly transport;
+    constructor(getAuthorizationHeader: () => string | null, transport?: HttpClientTransport);
     /**
      * Builds the common request headers for JSON and binary requests.
      *

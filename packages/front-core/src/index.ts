@@ -7,7 +7,7 @@ export type { DataResponseFormat, DataResponseOptions, DataDocument, ParquetData
 export { dataExportFileName, assertDataExportContentType, dataExportDescriptor, dataExportQuery, dataImportContentType, resolveDataExportPath } from './api/data-export-format.js';
 export type { DataExportFormat, DataCsvOptions } from './api/data-export-format.js';
 export { ApiRequestError, HttpClient } from './api/http.js';
-export type { ApiBlobResponse, ApiRequestOptions } from './api/http.js';
+export type { ApiBlobResponse, ApiRequestOptions, HttpClientTransport } from './api/http.js';
 export {
   resolveCanonicalDataIntegrationPath,
   resolveCanonicalJsonDataIntegrationPath,
@@ -54,3 +54,6 @@ export {
   getScheduledCronRows,
 } from './planning/processes.service.js';
 export type { ProcessStatusTask, ProcessStatusTransport, ProcessTaskState } from './planning/processes.service.js';
+
+export { planningDataJobApiPath, readPlanningDataJobReceipt, planningDataJobProgress, watchPlanningDataJob } from './planning/planning-data-jobs.service.js';
+export type { PlanningDataJobReceipt, PlanningDataTaskStatus, PlanningDataJobState, PlanningDataJobProgress } from './planning/planning-data-jobs.service.js';
