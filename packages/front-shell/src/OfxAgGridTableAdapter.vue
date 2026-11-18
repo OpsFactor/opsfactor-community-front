@@ -299,10 +299,12 @@ function getFilteredSortedRows() {
 function exportData(format: OfxExportFormat) { exportTableData({ baseName: props.exportBaseName, columns: getDisplayedColumns(), rows: getFilteredSortedRows(), format }); }
 function sizeColumnsToFit() { gridApi.value?.sizeColumnsToFit(); }
 function autoSizeColumns() {
-  if (!gridApi.value) return;
-  const displayedColumnIds = gridApi.value.getAllDisplayedColumns().map((column) => column.getColId());
+  const api = gridApi.value;
+  // Deferred sizing can outlive a grid that was replaced by a filtered result.
+  if (!api || api.isDestroyed()) return;
+  const displayedColumnIds = api.getAllDisplayedColumns().map((column) => column.getColId());
   if (!displayedColumnIds.length) return;
-  try { gridApi.value.autoSizeColumns(displayedColumnIds, false); } catch { /* Preserve widths when autosize is unavailable. */ }
+  try { api.autoSizeColumns(displayedColumnIds, false); } catch { /* Preserve widths when autosize is unavailable. */ }
 }
 function scheduleAutoSizeColumns() {
   if (!props.autoSizeColumns) return;
