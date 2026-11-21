@@ -125,7 +125,8 @@ test('Clustering page exposes one scheme with material and location dimensions',
   assert.match(source, /#\$\{cluster\.id\}/);
   assert.match(source, /New \{\{ activeDimension \}\} cluster/);
   assert.match(source, /OfxTextField v-model="materialDraft\.description" label="Description"/);
-  assert.match(source, /OfxTextField v-model="materialDraft\.priority" label="Priority"/);
+  assert.match(source, /OfxTextField v-model\.number="materialDraft\.priority" label="Priority"/);
+  assert.match(source, /OfxTextField v-model\.number="locationDraft\.priority" label="Priority"/);
   assert.match(source, /: 'Save cluster'/);
   assert.match(source, /<OfxButton[^>]*variant="danger"[^>]*>Delete cluster<\/OfxButton>/);
   assert.doesNotMatch(source, /process:\s*'DP'/);

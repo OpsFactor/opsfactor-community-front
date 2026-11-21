@@ -249,3 +249,23 @@ test('default Community HTTP behavior has no private timeout policy and keeps it
     await assert.rejects(new HttpClient(() => null).request('/json'), (error) => error === networkError);
   } finally { globalThis.fetch = originalFetch; }
 });
+
+test('default transport preserves the global receiver for browser fetch wrappers', async () => {
+  const previousFetch = globalThis.fetch;
+  let callCount = 0;
+  globalThis.fetch = async function (this: unknown) {
+    assert.equal(this, globalThis);
+    callCount += 1;
+    return new Response('ok', { status: 200, headers: { 'Content-Type': 'text/plain' } });
+  };
+
+  try {
+    const httpClient = new HttpClient(() => null);
+    assert.equal(await httpClient.request('/text'), 'ok');
+    const result = await httpClient.requestBlob('/binary');
+    assert.equal(await result.blob.text(), 'ok');
+    assert.equal(callCount, 2);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});

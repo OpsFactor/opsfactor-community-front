@@ -45,7 +45,8 @@ export class HttpClient {
 
   public constructor(
     getAuthorizationHeader: () => string | null,
-    transport: HttpClientTransport = fetch,
+    // Keep the browser receiver when fetch is wrapped by security software or extensions.
+    transport: HttpClientTransport = (path, options) => globalThis.fetch(path, options),
   ) {
     this.getAuthorizationHeader = getAuthorizationHeader;
     this.transport = transport;
