@@ -125,7 +125,8 @@ test('Supply Execution Profiles uses the canonical Planning Front composition wi
 
   assert.ok(page.split('\n').length > 2_300, 'The canonical Planning Front form must not be replaced by a reduced inspector.');
   assert.match(page, /title="Supply Chain Execution Profiles"/);
-  assert.match(page, /<OfxSectionCard title="Profile selection">/);
+  assert.match(page, /<OfxSectionCard v-if="!loadError" title="Profile selection">/);
+  assert.match(page, /<OfxEmptyState\s+v-if="loadError"\s+title="Unable to load execution profiles"/);
   assert.match(page, /Close new profile' : 'New profile/);
   assert.match(page, />\s*Copy profile\s*</);
   assert.match(page, /Saving\.\.\.' : 'Save profile/);

@@ -69,11 +69,14 @@ test('Production Overview Community retains the canonical Planning Front dashboa
   assert.match(page, /detail-summary-cards/);
   assert.match(page, /<OfxTableToolbar v-if="resourceDetailRows\.length"/);
   assert.doesNotMatch(page, /Read-only physical lines|class="secondary-button"/);
-  assert.match(page, /OfxPivotTable/);
+  assert.match(page, /<OfxPivotTable :data="pivotRows"/);
   assert.match(page, /:rows="\['planVersion', 'series'\]"/);
   assert.match(page, /:temporal-bucket-size="selectedSupplyPlanMeta\?\.bucketSize"/);
   assert.match(page, /period: row\.periodEnd/);
-  assert.match(page, /Gap vs Unconstrained/);
+  assert.match(
+    page,
+    /const pivotRows = computed\(\(\) => quantityRows\.value\.flatMap\(\(row\) => \[\s*\.\.\.availableValues\(row,/,
+  );
   assert.match(page, /OfxDataTable/);
   assert.match(page, /OfxTableToolbar/);
   assert.match(page, /getCapacityUtilizationCellStyle/);
