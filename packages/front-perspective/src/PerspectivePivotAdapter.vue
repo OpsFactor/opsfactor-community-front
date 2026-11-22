@@ -39,6 +39,7 @@ type PerspectiveViewerApi = HTMLElement & {
   save: () => Promise<Record<string, unknown>>;
   // The returned view is borrowed; the viewer owns its subscriptions and deletion.
   getView: () => Promise<unknown>;
+  setAutoPause: (enabled: boolean) => void;
   copy: (method?: string) => Promise<void>;
   download: (method?: string) => Promise<void>;
   notifyResize?: () => void;
@@ -810,7 +811,9 @@ async function refreshViewerLayout() {
 }
 
 function queueLayoutRefresh() {
-  if (queuedLayoutFrame) return;
+  // There is no visible layout to measure while another section is on screen.
+  // The intersection callback schedules a fresh measurement when it returns.
+  if (!wasHostIntersecting || queuedLayoutFrame) return;
 
   queuedLayoutFrame = window.requestAnimationFrame(() => {
     queuedLayoutFrame = 0;
@@ -1577,6 +1580,9 @@ onMounted(async () => {
   }
 
   await nextTick();
+  // Our layout policy measures the datagrid directly. Keep the viewer's view
+  // alive offscreen so a scheduled measurement cannot target an auto-deleted view.
+  viewerRef.value?.setAutoPause(false);
   isSettingsPanelOpen.value = props.openSettingsByDefault;
 
   eventAbortController = new AbortController();
@@ -1620,13 +1626,13 @@ onMounted(async () => {
     hostIntersectionObserver = new IntersectionObserver(
       (entries) => {
         const isIntersecting = entries.some((entry) => entry.isIntersecting);
+        const becameVisible = isIntersecting && !wasHostIntersecting;
+        wasHostIntersecting = isIntersecting;
 
-        if (isIntersecting && !wasHostIntersecting) {
+        if (becameVisible) {
           queueLayoutRefresh();
           startPolicyBurst(600);
         }
-
-        wasHostIntersecting = isIntersecting;
       },
       {
         threshold: 0.01,

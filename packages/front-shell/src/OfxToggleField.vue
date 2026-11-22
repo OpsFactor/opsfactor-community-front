@@ -58,6 +58,7 @@ const emit = defineEmits<{
       <button
         type="button"
         :disabled="disabled || locked"
+        :aria-pressed="Boolean(modelValue)"
         :data-locked="isLockedVisual ? 'true' : undefined"
         :aria-label="isLockedVisual ? `${label}: ${modelValue ? 'On' : 'Off'}, locked` : label"
         class="relative mt-0.5 inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition"

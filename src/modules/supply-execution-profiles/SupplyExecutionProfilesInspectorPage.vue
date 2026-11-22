@@ -14,6 +14,7 @@ import { OfxModalDialog } from '@opsfactor/front-shell';
 import { OfxEditionAvailabilityMark } from '@opsfactor/front-shell';
 import { useNotificationsStore } from '@/stores/app/notifications.store';
 import { useThemeStore } from '@/stores/app/theme.store';
+import { ApiError } from '@/services/api/errors/api-error';
 import type { OfxSelectOption, OfxTableColumn } from '@/types/ui';
 import {
   fetchDemandPrioritizationModels,
@@ -212,6 +213,7 @@ const selectedLocationOverrideIds = ref<string[]>([]);
 const selectedProductionResourceIds = ref<string[]>([]);
 const selectedProcessChainStep = ref<(SupplyExecutionProfileProcessChainStep & { baseProcessChainExecutionProfileId?: string }) | null>(null);
 const isLoading = ref(false);
+const loadError = ref<string | null>(null);
 const isSaving = ref(false);
 const isSavingLocation = ref(false);
 const isSavingProcessChain = ref(false);
@@ -871,10 +873,17 @@ async function loadPage() {
     temporalSplitCurves.value = tsc;
     logisticsCurves.value = lc;
     uomIds.value = uoms;
+    loadError.value = null;
   } catch (error) {
+    // Keep server diagnostics in the console; SQL and stack traces are not
+    // actionable in the customer-facing notification.
+    console.error('Unable to load supply execution profiles and related options.', error);
+    loadError.value = error instanceof ApiError && error.status >= 500
+      ? 'The server could not load the profiles. Please try again or contact support.'
+      : error instanceof Error ? error.message : String(error);
     notifications.push({
       tone: 'error', title: 'Unable to load execution profiles and calendars',
-      description: error instanceof Error ? error.message : String(error),
+      description: loadError.value,
     });
   } finally {
     isLoading.value = false;
@@ -1302,7 +1311,7 @@ onMounted(loadPage);
       title="Supply Chain Execution Profiles"
     />
 
-    <OfxSectionCard title="Profile selection">
+    <OfxSectionCard v-if="!loadError" title="Profile selection">
       <template #actions>
         <div class="flex flex-wrap items-center gap-2">
           <OfxButton :variant="isCreateProfilePanelOpen ? 'secondary' : 'create'" :icon="isCreateProfilePanelOpen ? 'close' : 'new'"
@@ -1358,12 +1367,22 @@ onMounted(loadPage);
     </OfxSectionCard>
 
     <OfxEmptyState
-      v-if="!current"
+      v-if="loadError"
+      title="Unable to load execution profiles"
+      :description="loadError"
+    >
+      <OfxButton type="button" variant="secondary" :disabled="isLoading" @click="loadPage">
+        {{ isLoading ? 'Retrying...' : 'Retry' }}
+      </OfxButton>
+    </OfxEmptyState>
+
+    <OfxEmptyState
+      v-else-if="!current && !isCreateProfilePanelOpen"
       title="Select an execution profile"
-      description="Open a profile to review the reorganized chapters and the location or process-chain details."
+      description="Select a profile to review its settings, or create a new one."
     />
 
-    <div v-else class="space-y-6">
+    <div v-else-if="current" class="space-y-6">
       <section class="grid gap-4 xl:grid-cols-3">
         <article
           v-for="card in summaryCards"
@@ -1695,7 +1714,7 @@ onMounted(loadPage);
           />
         </OfxSectionCard>
 
-        <OfxSectionCard v-if="!isProcessChain" title="Transfer and purchase rounding" description="Transfer rounding and vehicle-multiple controls confirmed in planning-web and optimizer routines.">
+        <OfxSectionCard v-if="!isProcessChain" title="Transfer and purchase rounding" description="Configure lot-size rounding for planned transfers and purchases.">
           <div class="grid gap-3">
             <OfxToggleField v-model="current.roundRequisitionsByMoqAndLotSize" label="Round planned transfer and purchase orders to lot multiple" />
             <div v-if="current.roundRequisitionsByMoqAndLotSize" class="ml-2 grid gap-3 border-l border-white/8 pl-4">
@@ -1944,7 +1963,7 @@ onMounted(loadPage);
           </div>
         </OfxSectionCard>
 
-        <OfxSectionCard title="Stocking permissions" description="Stock availability permissions across clients and transshipment points.">
+        <OfxSectionCard v-if="isOptimizer" title="Stocking permissions" description="Stock availability permissions across clients and transshipment points.">
           <div class="grid gap-4">
             <OfxToggleField v-if="isOptimizer && !current.consolidateClientDemand" v-model="current.allowStockAtClients" label="Allow stock at clients" />
             <OfxToggleField v-if="isOptimizer" v-model="current.allowStockAtTransshipmentPoints" label="Allow stock at transshipment points" />
@@ -2192,7 +2211,7 @@ onMounted(loadPage);
           v-for="group in transactionGroups"
           :key="group.id"
           :title="group.title"
-          description="Backlog and future orders are evaluated at PedidoLinha level using the line delivery date, then summed into direct demand when enabled."
+          description="Choose whether to include overdue and upcoming orders in the plan."
         >
           <div class="grid gap-3">
             <OfxToggleField
